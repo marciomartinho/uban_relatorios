@@ -92,10 +92,16 @@ class Database:
             temp_engine.dispose()
     
     def execute_query(self, query, params=None):
-        """Executa uma query e retorna os resultados"""
+        """Executa uma query SELECT e retorna os resultados"""
         with self.engine.connect() as conn:
             result = conn.execute(text(query), params or {})
             return result.fetchall()
+    
+    def execute_ddl(self, query):
+        """Executa comandos DDL (CREATE, ALTER, DROP) que não retornam resultados"""
+        with self.engine.connect() as conn:
+            conn.execute(text(query))
+            conn.commit()
     
     def df_to_sql(self, dataframe, table_name, if_exists='replace', index=False):
         """Salva um DataFrame pandas no banco de dados"""
@@ -115,6 +121,30 @@ class Database:
     def read_sql(self, query, params=None):
         """Lê dados do banco e retorna um DataFrame pandas"""
         return pd.read_sql(query, self.engine, params=params)
+    
+    def table_exists(self, table_name):
+        """Verifica se uma tabela existe no banco"""
+        query = """
+        SELECT EXISTS (
+            SELECT FROM information_schema.tables 
+            WHERE table_schema = 'public' 
+            AND table_name = :table_name
+        );
+        """
+        with self.engine.connect() as conn:
+            result = conn.execute(text(query), {"table_name": table_name})
+            return result.scalar()
+    
+    def get_table_info(self, table_name):
+        """Retorna informações sobre as colunas de uma tabela"""
+        query = """
+        SELECT column_name, data_type, is_nullable
+        FROM information_schema.columns
+        WHERE table_schema = 'public' 
+        AND table_name = :table_name
+        ORDER BY ordinal_position;
+        """
+        return self.execute_query(query, {"table_name": table_name})
 
 # Instância global do banco de dados
 db = Database()
