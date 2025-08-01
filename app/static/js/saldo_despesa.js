@@ -20,11 +20,20 @@ const nomesColunas = {
     'cosubtitulo': 'Subtítulo'
 };
 
-// Mapeamento de esferas
-const nomesEsfera = {
-    '0': 'Não informada',
-    '1': 'Federal',
-    '2': 'Estadual'
+// Ordem correta dos meses
+const ordemMeses = {
+    1: 1,   // Janeiro
+    2: 2,   // Fevereiro
+    3: 3,   // Março
+    4: 4,   // Abril
+    5: 5,   // Maio
+    6: 6,   // Junho
+    7: 7,   // Julho
+    8: 8,   // Agosto
+    9: 9,   // Setembro
+    10: 10, // Outubro
+    11: 11, // Novembro
+    12: 12  // Dezembro
 };
 
 // Inicialização
@@ -38,31 +47,29 @@ function carregarFiltros() {
     $.ajax({
         url: '/saldo-despesa/api/filtros',
         method: 'GET',
-        timeout: 30000, // 30 segundos de timeout
+        timeout: 30000,
         beforeSend: function() {
-            // Mostrar loading nos selects
             $('#selectAno').html('<option>Carregando...</option>');
             $('#selectConta').html('<option>Carregando...</option>');
             $('#selectUG').html('<option>Carregando...</option>');
         },
         success: function(data) {
-            // Limpar e popular Anos
+            // Anos
             $('#selectAno').empty().append('<option value="">Selecione o ano...</option>');
             data.anos.forEach(function(ano) {
                 $('#selectAno').append(`<option value="${ano}">${ano}</option>`);
             });
             
-            // Limpar e popular Contas
+            // Contas
             $('#selectConta').empty().append('<option value="">Selecione a conta...</option>');
             data.contas.forEach(function(conta) {
                 $('#selectConta').append(`<option value="${conta}">${conta}</option>`);
             });
             
-            // Limpar e popular UGs
+            // UGs
             $('#selectUG').empty().append('<option value="">Selecione a UG...</option>');
             $('#selectUG').append('<option value="CONSOLIDADO">CONSOLIDADO</option>');
             
-            // UGs podem vir como array de objetos ou strings
             if (data.ugs && data.ugs.length > 0) {
                 if (typeof data.ugs[0] === 'object') {
                     data.ugs.forEach(function(ug) {
@@ -75,19 +82,17 @@ function carregarFiltros() {
                 }
             }
             
-            // Mostrar aviso se não estiver usando cache
             if (data.cache === false) {
-                console.warn('⚠️ Cache de filtros não disponível. Execute scripts/create_filter_cache.py para melhorar performance.');
+                console.warn('⚠️ Cache não disponível. Execute scripts/otimizar_despesas.py');
             }
         },
         error: function(xhr, status, error) {
             let mensagem = 'Erro ao carregar filtros';
             if (status === 'timeout') {
-                mensagem = 'Timeout ao carregar filtros. Volume de dados muito grande. Execute scripts/create_filter_cache.py';
+                mensagem = 'Timeout! Execute scripts/otimizar_despesas.py';
             }
             mostrarErro('#mensagemInicial', mensagem);
             
-            // Habilitar campos com opções mínimas
             $('#selectAno').html('<option value="">Erro ao carregar</option>');
             $('#selectConta').html('<option value="">Erro ao carregar</option>');
             $('#selectUG').html('<option value="">Erro ao carregar</option>');
@@ -97,18 +102,15 @@ function carregarFiltros() {
 
 // Configurar eventos
 function configurarEventos() {
-    // Submit do formulário
     $('#formFiltros').on('submit', function(e) {
         e.preventDefault();
         consultarDados();
     });
     
-    // Botão limpar
     $('#btnLimpar').on('click', function() {
         limparFiltros();
     });
     
-    // Botão exportar
     $('#btnExportar').on('click', function() {
         exportarExcel();
     });
@@ -120,11 +122,9 @@ function limparFiltros() {
     $('#selectConta').val('');
     $('#selectUG').val('');
     
-    // Esconder resultados
     $('#areaResultados').hide();
     $('#mensagemInicial').show();
     
-    // Destruir tabela se existir
     if (tabelaDados) {
         tabelaDados.destroy();
         $('#divTabela').empty();
@@ -142,10 +142,7 @@ function consultarDados() {
         return;
     }
     
-    // Mostrar loading
     $('#modalLoading').modal('show');
-    
-    // Esconder mensagem inicial
     $('#mensagemInicial').hide();
     
     $.ajax({
@@ -157,14 +154,19 @@ function consultarDados() {
             ug: ug
         },
         success: function(response) {
-            dadosAtuais = response.dados;
-            construirTabela(response.dados);
+            // Ordenar dados por mês
+            dadosAtuais = response.dados.sort(function(a, b) {
+                return ordemMeses[a.inmes] - ordemMeses[b.inmes];
+            });
+            
+            construirTabela(dadosAtuais);
             $('#areaResultados').show();
             $('#modalLoading').modal('hide');
         },
         error: function(xhr) {
             $('#modalLoading').modal('hide');
-            mostrarErro('#divTabela', 'Erro ao consultar dados: ' + xhr.responseJSON.erro);
+            let erro = xhr.responseJSON ? xhr.responseJSON.erro : 'Erro desconhecido';
+            mostrarErro('#divTabela', 'Erro ao consultar dados: ' + erro);
             $('#areaResultados').show();
         }
     });
@@ -177,13 +179,11 @@ function construirTabela(dados) {
         return;
     }
     
-    // Verificar se é consolidado
     const consolidado = dados[0].cocontacorrente === 'CONSOLIDADO';
     
-    // Colunas sempre visíveis
+    // Definir colunas
     let colunas = ['inmes', 'cocontacorrente', 'intipoadm', 'saldo_contabil_despesa'];
     
-    // Adicionar colunas específicas se não for consolidado
     if (!consolidado) {
         colunas = colunas.concat([
             'conatureza', 'cofonte', 'inesfera', 'couo',
@@ -192,7 +192,7 @@ function construirTabela(dados) {
         ]);
     }
     
-    // Construir HTML da tabela
+    // Construir HTML
     let html = '<table id="tabelaDados" class="table table-striped table-hover">';
     html += '<thead><tr>';
     
@@ -202,34 +202,31 @@ function construirTabela(dados) {
     
     html += '</tr></thead><tbody>';
     
-    // Adicionar linhas
+    // Adicionar dados
     dados.forEach(function(row) {
         html += consolidado ? '<tr class="consolidado">' : '<tr>';
         
         colunas.forEach(function(col) {
             let valor = row[col];
             
-            // Formatação especial para cada coluna
             if (col === 'inmes') {
                 valor = formatarMes(valor);
+                html += `<td data-order="${row[col]}">${valor}</td>`;
             } else if (col === 'saldo_contabil_despesa') {
                 valor = formatarNumero(valor);
                 html += `<td class="text-end">${valor}</td>`;
-                return;
-            } else if (col === 'conatureza') {
-                html += `<td class="col-natureza">${valor || '-'}</td>`;
-                return;
-            } else if (col === 'inesfera' && valor !== null) {
-                const nomeEsfera = nomesEsfera[valor] || valor;
-                html += `<td><span class="badge badge-esfera esfera-${valor}">${nomeEsfera}</span></td>`;
-                return;
+            } else if (col === 'inesfera') {
+                // Mostrar o número da esfera como está no banco
+                if (valor !== null && valor !== undefined && valor !== '') {
+                    html += `<td>${valor}</td>`;
+                } else {
+                    html += `<td class="text-center text-null">-</td>`;
+                }
             } else if (valor === null || valor === undefined || valor === '') {
-                valor = '-';
-                html += `<td class="text-center text-null">${valor}</td>`;
-                return;
+                html += `<td class="text-center text-null">-</td>`;
+            } else {
+                html += `<td>${valor}</td>`;
             }
-            
-            html += `<td>${valor}</td>`;
         });
         
         html += '</tr>';
@@ -237,28 +234,31 @@ function construirTabela(dados) {
     
     html += '</tbody></table>';
     
-    // Inserir tabela
     $('#divTabela').html(html);
     
-    // Destruir DataTable anterior se existir
     if (tabelaDados) {
         tabelaDados.destroy();
     }
     
-    // Inicializar DataTable com filtros individuais
+    // Inicializar DataTable
     tabelaDados = $('#tabelaDados').DataTable({
         pageLength: 25,
         lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "Todos"]],
         dom: 'Blfrtip',
         buttons: [],
-        order: [[0, 'asc'], [4, 'asc']], // Ordenar por mês e depois por natureza
+        order: [[0, 'asc']], // Ordenar por mês (primeira coluna)
+        columnDefs: [
+            {
+                targets: 0, // Coluna do mês
+                type: 'num' // Tratar como número para ordenação correta
+            }
+        ],
         initComplete: function() {
-            // Adicionar filtros individuais nas colunas
+            // Adicionar filtros nas colunas
             this.api().columns().every(function() {
                 var column = this;
                 var title = $(column.header()).text();
                 
-                // Não adicionar filtro na coluna de saldo
                 if (title === 'Saldo Contábil') return;
                 
                 var select = $('<select class="form-select form-select-sm"><option value="">Todos</option></select>')
@@ -291,6 +291,16 @@ function formatarMes(mes) {
     return meses[mes] || mes;
 }
 
+// Formatar número
+function formatarNumero(valor) {
+    if (valor === null || valor === undefined) return '';
+    
+    return new Intl.NumberFormat('pt-BR', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    }).format(valor);
+}
+
 // Exportar para Excel
 function exportarExcel() {
     if (!dadosAtuais || dadosAtuais.length === 0) {
@@ -298,10 +308,8 @@ function exportarExcel() {
         return;
     }
     
-    // Criar CSV
     let csv = [];
     
-    // Determinar colunas baseado nos dados
     let colunas = ['inmes', 'cocontacorrente', 'intipoadm', 'saldo_contabil_despesa'];
     if (dadosAtuais[0].cocontacorrente !== 'CONSOLIDADO') {
         colunas = colunas.concat([
@@ -326,8 +334,7 @@ function exportarExcel() {
         csv.push(linha.join(';'));
     });
     
-    // Download
-    let csvContent = '\ufeff' + csv.join('\n'); // BOM para UTF-8
+    let csvContent = '\ufeff' + csv.join('\n');
     let blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     let link = document.createElement('a');
     let url = URL.createObjectURL(blob);

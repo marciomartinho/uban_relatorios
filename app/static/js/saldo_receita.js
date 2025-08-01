@@ -5,13 +5,10 @@ let dadosAtuais = [];
 
 // Mapeamento de nomes de colunas
 const nomesColunas = {
-    // Colunas básicas
     'inmes': 'Mês',
     'cocontacorrente': 'Conta Corrente',
     'intipoadm': 'Tipo Adm',
     'saldo_contabil_receita': 'Saldo Contábil',
-    
-    // Colunas de 17 chars
     'coclasseorc': 'Classificação Orçamentária',
     'cofonte': 'Fonte',
     'cocategoriareceita': 'Categoria',
@@ -19,8 +16,6 @@ const nomesColunas = {
     'cosubfontereceita': 'Espécie',
     'corubrica': 'Especificação',
     'coalinea': 'Alínea',
-    
-    // Colunas de 38 chars
     'inesfera': 'Esfera',
     'couo': 'UO',
     'cofuncao': 'Função',
@@ -35,6 +30,22 @@ const nomesColunas = {
     'coelemento': 'Elemento'
 };
 
+// Ordem correta dos meses
+const ordemMeses = {
+    1: 1,   // Janeiro
+    2: 2,   // Fevereiro
+    3: 3,   // Março
+    4: 4,   // Abril
+    5: 5,   // Maio
+    6: 6,   // Junho
+    7: 7,   // Julho
+    8: 8,   // Agosto
+    9: 9,   // Setembro
+    10: 10, // Outubro
+    11: 11, // Novembro
+    12: 12  // Dezembro
+};
+
 // Inicialização
 $(document).ready(function() {
     carregarFiltros();
@@ -47,41 +58,43 @@ function carregarFiltros() {
         url: '/saldo-receita/api/filtros',
         method: 'GET',
         success: function(data) {
-            // Popular Anos
+            // Anos
+            $('#selectAno').empty().append('<option value="">Selecione o ano...</option>');
             data.anos.forEach(function(ano) {
                 $('#selectAno').append(`<option value="${ano}">${ano}</option>`);
             });
             
-            // Popular Contas
+            // Contas
+            $('#selectConta').empty().append('<option value="">Selecione a conta...</option>');
             data.contas.forEach(function(conta) {
                 $('#selectConta').append(`<option value="${conta}">${conta}</option>`);
             });
             
-            // Popular UGs
+            // UGs
+            $('#selectUG').empty().append('<option value="">Selecione a UG...</option>');
+            $('#selectUG').append('<option value="CONSOLIDADO">CONSOLIDADO</option>');
             data.ugs.forEach(function(ug) {
                 $('#selectUG').append(`<option value="${ug}">${ug}</option>`);
             });
         },
         error: function(xhr) {
-            mostrarErro('#mensagemInicial', 'Erro ao carregar filtros: ' + xhr.responseJSON.erro);
+            let erro = xhr.responseJSON ? xhr.responseJSON.erro : 'Erro desconhecido';
+            mostrarErro('#mensagemInicial', 'Erro ao carregar filtros: ' + erro);
         }
     });
 }
 
 // Configurar eventos
 function configurarEventos() {
-    // Submit do formulário
     $('#formFiltros').on('submit', function(e) {
         e.preventDefault();
         consultarDados();
     });
     
-    // Botão limpar
     $('#btnLimpar').on('click', function() {
         limparFiltros();
     });
     
-    // Botão exportar
     $('#btnExportar').on('click', function() {
         exportarExcel();
     });
@@ -93,11 +106,9 @@ function limparFiltros() {
     $('#selectConta').val('');
     $('#selectUG').val('');
     
-    // Esconder resultados
     $('#areaResultados').hide();
     $('#mensagemInicial').show();
     
-    // Destruir tabela se existir
     if (tabelaDados) {
         tabelaDados.destroy();
         $('#divTabela').empty();
@@ -115,10 +126,7 @@ function consultarDados() {
         return;
     }
     
-    // Mostrar loading
     $('#modalLoading').modal('show');
-    
-    // Esconder mensagem inicial
     $('#mensagemInicial').hide();
     
     $.ajax({
@@ -130,14 +138,19 @@ function consultarDados() {
             ug: ug
         },
         success: function(response) {
-            dadosAtuais = response.dados;
-            construirTabela(response.dados);
+            // Ordenar dados por mês
+            dadosAtuais = response.dados.sort(function(a, b) {
+                return ordemMeses[a.inmes] - ordemMeses[b.inmes];
+            });
+            
+            construirTabela(dadosAtuais);
             $('#areaResultados').show();
             $('#modalLoading').modal('hide');
         },
         error: function(xhr) {
             $('#modalLoading').modal('hide');
-            mostrarErro('#divTabela', 'Erro ao consultar dados: ' + xhr.responseJSON.erro);
+            let erro = xhr.responseJSON ? xhr.responseJSON.erro : 'Erro desconhecido';
+            mostrarErro('#divTabela', 'Erro ao consultar dados: ' + erro);
             $('#areaResultados').show();
         }
     });
@@ -150,13 +163,13 @@ function construirTabela(dados) {
         return;
     }
     
-    // Determinar tipo de conta (17 ou 38 chars)
+    // Verificar tipos de conta
     const tiposConta = [...new Set(dados.map(d => d.tamanho_conta))];
     const temConta17 = tiposConta.includes(17);
     const temConta38 = tiposConta.includes(38);
     const consolidado = dados[0].cocontacorrente === 'CONSOLIDADO';
     
-    // Construir cabeçalho dinamicamente
+    // Definir colunas
     let colunas = ['inmes', 'cocontacorrente', 'intipoadm', 'saldo_contabil_receita'];
     
     if (!consolidado) {
@@ -176,10 +189,10 @@ function construirTabela(dados) {
         }
     }
     
-    // Remover duplicatas (cofonte pode aparecer em ambos)
+    // Remover duplicatas
     colunas = [...new Set(colunas)];
     
-    // Construir HTML da tabela
+    // Construir HTML
     let html = '<table id="tabelaDados" class="table table-striped table-hover">';
     html += '<thead><tr>';
     
@@ -189,27 +202,31 @@ function construirTabela(dados) {
     
     html += '</tr></thead><tbody>';
     
-    // Adicionar linhas
+    // Adicionar dados
     dados.forEach(function(row) {
         html += consolidado ? '<tr class="consolidado">' : '<tr>';
         
         colunas.forEach(function(col) {
             let valor = row[col];
             
-            // Formatação especial para cada coluna
             if (col === 'inmes') {
                 valor = formatarMes(valor);
+                html += `<td data-order="${row[col]}">${valor}</td>`;
             } else if (col === 'saldo_contabil_receita') {
                 valor = formatarNumero(valor);
                 html += `<td class="text-end">${valor}</td>`;
-                return;
+            } else if (col === 'inesfera') {
+                // Mostrar o número da esfera como está no banco
+                if (valor !== null && valor !== undefined && valor !== '') {
+                    html += `<td>${valor}</td>`;
+                } else {
+                    html += `<td class="text-center text-null">-</td>`;
+                }
             } else if (valor === null || valor === undefined || valor === '') {
-                valor = '-';
-                html += `<td class="text-center text-null">${valor}</td>`;
-                return;
+                html += `<td class="text-center text-null">-</td>`;
+            } else {
+                html += `<td>${valor}</td>`;
             }
-            
-            html += `<td>${valor}</td>`;
         });
         
         html += '</tr>';
@@ -217,27 +234,31 @@ function construirTabela(dados) {
     
     html += '</tbody></table>';
     
-    // Inserir tabela
     $('#divTabela').html(html);
     
-    // Destruir DataTable anterior se existir
     if (tabelaDados) {
         tabelaDados.destroy();
     }
     
-    // Inicializar DataTable com filtros individuais
+    // Inicializar DataTable
     tabelaDados = $('#tabelaDados').DataTable({
         pageLength: 25,
         lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "Todos"]],
         dom: 'Blfrtip',
         buttons: [],
+        order: [[0, 'asc']], // Ordenar por mês (primeira coluna)
+        columnDefs: [
+            {
+                targets: 0, // Coluna do mês
+                type: 'num' // Tratar como número para ordenação correta
+            }
+        ],
         initComplete: function() {
-            // Adicionar filtros individuais nas colunas
+            // Adicionar filtros nas colunas
             this.api().columns().every(function() {
                 var column = this;
                 var title = $(column.header()).text();
                 
-                // Não adicionar filtro na coluna de saldo
                 if (title === 'Saldo Contábil') return;
                 
                 var select = $('<select class="form-select form-select-sm"><option value="">Todos</option></select>')
@@ -270,6 +291,16 @@ function formatarMes(mes) {
     return meses[mes] || mes;
 }
 
+// Formatar número
+function formatarNumero(valor) {
+    if (valor === null || valor === undefined) return '';
+    
+    return new Intl.NumberFormat('pt-BR', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    }).format(valor);
+}
+
 // Exportar para Excel
 function exportarExcel() {
     if (!dadosAtuais || dadosAtuais.length === 0) {
@@ -277,14 +308,11 @@ function exportarExcel() {
         return;
     }
     
-    // Criar CSV
     let csv = [];
     
-    // Cabeçalho
     let headers = Object.keys(dadosAtuais[0]).filter(k => k !== 'tamanho_conta');
     csv.push(headers.map(h => nomesColunas[h] || h).join(';'));
     
-    // Dados
     dadosAtuais.forEach(function(row) {
         let linha = headers.map(function(h) {
             let valor = row[h];
@@ -296,8 +324,7 @@ function exportarExcel() {
         csv.push(linha.join(';'));
     });
     
-    // Download
-    let csvContent = '\ufeff' + csv.join('\n'); // BOM para UTF-8
+    let csvContent = '\ufeff' + csv.join('\n');
     let blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     let link = document.createElement('a');
     let url = URL.createObjectURL(blob);

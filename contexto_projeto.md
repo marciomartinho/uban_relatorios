@@ -48,16 +48,140 @@ Sistema web desenvolvido em Python/Flask para gerenciamento e geração de relat
     - Exportação para CSV
     - Formatação monetária brasileira
     - Design responsivo com Bootstrap
+11. **Interface Web - Consulta Saldo Despesa**: ✅ NOVO!
+    - Página totalmente funcional
+    - Sistema de cache implementado para performance
+    - Correção de bugs SQL realizada
+    - Índices otimizados criados
+    - Funciona com 560k+ registros sem travar
 
-### 🔄 Em Progresso
-- ETL para outras planilhas fato
-- Página de Consulta Saldo Despesa
+### 🚀 Sistema de Cache (NOVO!)
+- **Tabela**: `public.cache_filtros_despesa`
+- **Função**: Armazena valores únicos de anos, contas e UGs
+- **Performance**: Reduz tempo de carregamento de minutos para milissegundos
+- **Script**: `scripts/otimizar_despesas.py` para criar/atualizar
 
 ### ⏳ Próximas Etapas
-- Criar página de consulta para despesas
 - Implementar ETL para demais planilhas
 - Desenvolver dashboards com gráficos
 - Implementar relatórios PDF
+- Sistema de autenticação
+
+## 📚 GUIA DO USUÁRIO - Como Atualizar os Dados Mensalmente
+
+### 🎯 O que você vai fazer todo mês
+Todo mês você vai receber 2 arquivos Excel novos com os dados do mês. Você precisa adicionar esses dados no sistema. É como adicionar páginas novas em um livro que já existe.
+
+### 📁 PASSO 1: Preparar os Arquivos
+
+1. **Você vai receber 2 arquivos**:
+   - `ReceitaSaldoJulho.xlsx` (ou Agosto, Setembro, etc.)
+   - `DespesaSaldoJulho.xlsx` (ou Agosto, Setembro, etc.)
+
+2. **Coloque na pasta certa**:
+   - Copie esses arquivos para a pasta: `dados_brutos/fato/`
+   - É a mesma pasta onde estão os arquivos antigos
+
+### 💻 PASSO 2: Abrir o Terminal
+
+1. Abra a pasta do projeto `relatorios_uban` no Windows
+2. Clique com botão direito em área vazia
+3. Escolha "Abrir no Terminal" ou "Abrir PowerShell aqui"
+
+### 🔧 PASSO 3: Ativar o Sistema
+
+No terminal, digite e aperte Enter:
+```powershell
+venv\Scripts\activate
+```
+
+**O que vai aparecer**: `(venv)` no início da linha
+
+### 📊 PASSO 4: Adicionar RECEITAS
+
+Digite e aperte Enter (substitua "Julho" pelo mês correto):
+```powershell
+python scripts/load_receita_saldo_incremental.py ReceitaSaldoJulho.xlsx
+```
+
+**O que vai acontecer**:
+1. Vai mostrar os períodos encontrados no arquivo
+2. Vai perguntar se quer continuar (digite `S` e Enter)
+3. Vai processar (demora 1-2 minutos)
+4. No final mostra "✅ Carga incremental concluída com sucesso!"
+
+### 📈 PASSO 5: Adicionar DESPESAS
+
+Digite e aperte Enter (substitua "Julho" pelo mês correto):
+```powershell
+python scripts/load_despesa_saldo_incremental.py DespesaSaldoJulho.xlsx
+```
+
+**O que vai acontecer**:
+1. Mesma coisa que receitas
+2. Mas demora mais (5-10 minutos) porque tem mais dados
+3. No final mostra "✅ Carga incremental concluída com sucesso!"
+
+### ⚡ PASSO 6: Atualizar o CACHE (MUITO IMPORTANTE!)
+
+**Por que isso é importante?** O cache é como um índice de livro. Se você não atualizar, o sistema não vai mostrar os novos meses nos filtros!
+
+Digite e aperte Enter:
+```powershell
+python scripts/otimizar_despesas.py
+```
+
+**O que vai acontecer**:
+1. Vai recriar a lista de anos, contas e UGs
+2. Demora 2-3 minutos
+3. No final mostra "✨ OTIMIZAÇÃO CONCLUÍDA COM SUCESSO!"
+
+### ✅ PASSO 7: Verificar se Funcionou
+
+1. **Inicie o sistema**:
+```powershell
+python run.py
+```
+
+2. **Abra o navegador** em: http://localhost:5000
+
+3. **Teste**:
+   - Vá em "Consulta Saldo Receita" ou "Consulta Saldo Despesa"
+   - Verifique se o novo mês aparece no filtro de Anos
+
+### 📋 Ver Histórico de Importações
+
+Para ver todas as importações já feitas:
+```powershell
+python scripts/consultar_etl_log.py
+```
+
+### 🆘 Se Der Erro
+
+**"Arquivo não encontrado"**:
+- Verifique se o nome do arquivo está correto
+- Verifique se está na pasta `dados_brutos/fato/`
+
+**"Período já existe"**:
+- O sistema vai perguntar se quer sobrescrever
+- Digite `S` se quiser substituir os dados
+
+**"Erro de conexão"**:
+- Verifique se está conectado na internet
+- Verifique se o banco de dados está acessível
+
+### 📝 Resumo Rápido (Cola no Post-it!)
+
+```
+TODO MÊS:
+1. Copiar arquivos Excel para dados_brutos/fato/
+2. Abrir PowerShell na pasta do projeto
+3. venv\Scripts\activate
+4. python scripts/load_receita_saldo_incremental.py ReceitaSaldoMES.xlsx
+5. python scripts/load_despesa_saldo_incremental.py DespesaSaldoMES.xlsx
+6. python scripts/otimizar_despesas.py
+7. python run.py (para testar)
+```
 
 ## Arquitetura do Sistema
 
@@ -84,7 +208,7 @@ O banco de dados PostgreSQL é o componente central do sistema, responsável por
 ```sql
 etl_control: Última carga de cada tabela
 - tabela_nome: Nome da tabela fato/dimensão
-- ultimo_periodo_carregado: Ex: "2024-07"
+- ultimo_periodo_carregado: Ex: "2025-07"
 - tipo_ultima_carga: "inicial" ou "incremental"
 - total_registros_carregados: Contador acumulado
 
@@ -92,14 +216,13 @@ etl_log: Histórico detalhado de todas as cargas
 - Registra cada execução de ETL
 - Permite rastreabilidade completa
 - Identifica erros e reprocessamentos
-```
 
-#### Transformações de Dados
-Durante o ETL, serão aplicadas transformações como:
-- Extração de ano/mês de colunas de período
-- Cálculos de campos derivados
-- Padronização de formatos
-- Validação de integridade referencial
+cache_filtros_despesa: Cache para performance (NOVO!)
+- tipo_filtro: 'ano', 'conta' ou 'ug'
+- valor: Valor único do filtro
+- descricao: Descrição (para UGs)
+- ordem: Para ordenação
+```
 
 ### 2. Estrutura de Diretórios
 ```
@@ -112,25 +235,29 @@ relatorios_uban/
 │   ├── __init__.py        # Inicialização e configuração Flask
 │   ├── routes/            # Blueprints de rotas
 │   │   ├── main.py        # Rotas principais
-│   │   ├── relatorios.py  # Blueprint de relatórios
-│   │   └── api.py         # Blueprint da API REST
+│   │   ├── saldo_receita.py  # Página de receitas
+│   │   └── saldo_despesa.py  # Página de despesas
 │   ├── static/            # Assets estáticos
 │   │   ├── css/          # Arquivos CSS
 │   │   └── js/           # Arquivos JavaScript
 │   ├── templates/         # Templates HTML (Jinja2)
 │   │   ├── base.html     # Template base
-│   │   └── relatorios/   # Templates específicos
+│   │   └── saldo_receita/ # Templates de receita
+│   │   └── saldo_despesa/ # Templates de despesa
 │   └── modules/           # Módulos reutilizáveis
 │       ├── database.py    # Conexão e helpers do banco
-│       └── etl.py        # Lógica de importação Excel→DB
+│       ├── etl_receita_saldo.py  # ETL de receitas
+│       └── etl_despesa_saldo.py  # ETL de despesas
 ├── models/                # Modelos SQLAlchemy (ORM)
 ├── config.py             # Configurações da aplicação
 ├── .env                  # Variáveis de ambiente (credenciais)
 ├── run.py                # Entry point da aplicação
-├── scripts/                # Scripts de manutenção e setup
-│   ├── create_etl_tables.py # ✅ Criação das tabelas de controle
-│   ├── setup_database.py    # Setup inicial completo
-│   └── load_initial_data.py # Carga inicial dos dados
+├── scripts/              # Scripts de manutenção e setup
+│   ├── create_etl_tables.py     # Criação das tabelas de controle
+│   ├── create_filter_cache.py   # Criação do cache de filtros
+│   ├── otimizar_despesas.py     # Otimização completa (cache + índices)
+│   ├── load_receita_saldo_incremental.py # Carga incremental receitas
+│   └── load_despesa_saldo_incremental.py # Carga incremental despesas
 ```
 
 ### 3. Configuração do Banco de Dados
@@ -139,232 +266,40 @@ relatorios_uban/
 - **Banco criado**: `relatorios_uban` ✅
 - **Conexão**: SQLAlchemy com psycopg2
 - **Tabelas de controle**: `etl_control` e `etl_log` ✅
+- **Cache**: `cache_filtros_despesa` ✅
 
-## ETL ReceitaSaldo - Detalhamento
+## Scripts de Manutenção
 
-### Estrutura da Tabela
-A tabela `receitas.fato_receita_saldo` possui:
-- **Colunas originais**: Dados diretos do Excel
-- **Colunas calculadas**: `saldo_contabil_receita` baseado no primeiro dígito de `cocontacontabil`
-- **Colunas derivadas**: Parse de `cocontacorrente` baseado no tamanho (17 ou 38 chars)
+### Scripts Principais
+```
+# Otimização e Cache
+otimizar_despesas.py       # Cria cache e índices (executar após cada carga)
 
-### Transformações Aplicadas
-1. **Saldo Contábil**:
-   - Se `cocontacontabil` começa com 5: `saldo = vadebito - vacredito`
-   - Se `cocontacontabil` começa com 6: `saldo = vacredito - vadebito`
+# Carga incremental (usar mensalmente)
+load_receita_saldo_incremental.py # Adiciona novos meses de receita
+load_despesa_saldo_incremental.py # Adiciona novos meses de despesa
 
-2. **Parse de COCONTACORRENTE (17 chars)**:
-   - `coclasseorc`: chars 1-8
-   - `cofonte`: chars 9-18
-   - `cocategoriareceita`: char 1
-   - `cofontereceita`: chars 1-2
-   - `cosubfontereceita`: chars 1-3
-   - `corubrica`: chars 1-4
-   - `coalinea`: chars 1-6
-
-3. **Parse de COCONTACORRENTE (38 chars)**:
-   - `inesfera`: char 1 (esfera do governo)
-   - `couo`: chars 2-6 (unidade orçamentária)
-   - `cofuncao`: chars 7-8 (função)
-   - `cosubfuncao`: chars 9-11 (subfunção)
-   - `coprograma`: chars 12-15 (programa)
-   - `coprojeto`: chars 16-19 (projeto/atividade)
-   - `cosubtitulo`: chars 20-23 (subtítulo)
-   - `cofonte`: chars 24-32 (fonte - unificado com receitas)
-   - `conatureza`: chars 33-38 (natureza da despesa)
-   - `incategoria`: char 33 (categoria econômica)
-   - `cogrupo`: char 34 (grupo de despesa)
-   - `comodalidade`: chars 35-36 (modalidade)
-   - `coelemento`: chars 37-38 (elemento de despesa)
-
-## Cargas Incrementais - IMPORTANTE! 📌
-
-### Como Funcionam
-1. **Carga Inicial** (já feita): Janeiro a Junho 2025
-2. **Cargas Incrementais**: Julho, Agosto, etc. (um mês por vez)
-
-### Processo para Carga Incremental
-
-#### Opção 1: Arquivo com Nome Fixo
-```bash
-# Substituir ReceitaSaldo.xlsx pelo arquivo do novo mês
-# Executar:
-python scripts/load_receita_saldo_incremental.py
+# Consultas e verificações
+consultar_etl_log.py       # Ver histórico de cargas (A CRIAR)
 ```
 
-#### Opção 2: Arquivo com Nome do Mês (RECOMENDADO)
-```bash
-# Manter arquivos separados: ReceitaSaldoJulho.xlsx, ReceitaSaldoAgosto.xlsx
-# Executar passando o nome do arquivo:
-python scripts/load_receita_saldo_incremental.py ReceitaSaldoJulho.xlsx
-```
-
-### Script de Carga Incremental (A CRIAR)
-Precisamos criar `scripts/load_receita_saldo_incremental.py` que:
-- NÃO limpa a tabela (mantém dados existentes)
-- Valida se o período já foi carregado (evita duplicatas)
-- Adiciona apenas os novos registros
-- Atualiza o controle ETL
-
-### Validações Importantes
-- Verificar período do arquivo antes de carregar
-- Impedir carga duplicada do mesmo mês
-- Validar totais de crédito/débito para conferência
-
-## Scripts de Análise
-
-### Scripts deletados (não mais necessários)
-- ~~analyze_excel.py~~ - Substituído por inspect_despesa_saldo.py
-- ~~analyze_cocontacorrente.py~~ - Análise inicial concluída  
-- ~~amostra_receitasaldo.xlsx~~ - Arquivo temporário
-
-### Scripts mantidos em scripts/
-```
-create_schemas.py                  # Criar schemas
-create_etl_tables.py              # Criar tabelas de controle
-fix_etl_control.py                # Corrigir registros ETL
-inspect_despesa_saldo.py          # Analisar arquivos Excel
-load_receita_saldo.py             # Carga inicial receitas
-load_receita_saldo_incremental.py # Carga incremental receitas
-load_despesa_saldo.py             # Carga inicial despesas
-load_despesa_saldo_incremental.py # Carga incremental despesas
-```
-
-### Organização dos Arquivos de Dados
-```
-dados_brutos/
-├── fato/
-│   ├── ReceitaSaldo.xlsx          # Jan-Jun (carga inicial) ✅
-│   ├── DespesaSaldo.xlsx          # Jan-Jun (carga inicial) ✅
-│   ├── ReceitaSaldoJulho.xlsx     # Julho (incremental) - A carregar
-│   ├── DespesaSaldoJulho.xlsx     # Julho (incremental) - A carregar
-│   └── ...
-└── dimensao/
-    └── (arquivos de dimensões) - A implementar
-```
-
-### Tabelas Criadas no Banco
+### Tabelas no Banco
 ```sql
 -- Schemas
-public                              -- Tabelas de sistema
-receitas                           -- Dados de receitas
-despesas                           -- Dados de despesas
-dimensoes                          -- Futuras tabelas dimensão
+public                     -- Tabelas de sistema e cache
+receitas                   -- Dados de receitas
+despesas                   -- Dados de despesas
+dimensoes                  -- Futuras tabelas dimensão
 
 -- Tabelas de Controle (schema public)
-etl_control                        -- Controle de cargas por tabela
-etl_log                           -- Log detalhado de todas as cargas
+etl_control                -- Controle de cargas por tabela
+etl_log                    -- Log detalhado de todas as cargas
+cache_filtros_despesa      -- Cache para performance (NOVO!)
 
 -- Tabelas Fato
-receitas.fato_receita_saldo       -- 11.998 registros (Jan-Jun 2025)
-despesas.fato_despesa_saldo       -- 560.110 registros (Jan-Jun 2025)
+receitas.fato_receita_saldo  -- 11.998 registros (Jan-Jun 2025)
+despesas.fato_despesa_saldo  -- 560.110 registros (Jan-Jun 2025)
 ```
-
-## Próximos Passos Recomendados
-
-1. **Criar página Consulta Saldo Despesa**:
-   - Similar à de receita mas com mais campos
-   - Filtros por natureza, elemento, modalidade
-   - Visualização hierárquica de despesas
-
-2. **Carregar dados incrementais (Julho em diante)**:
-   ```bash
-   python scripts/load_receita_saldo_incremental.py ReceitaSaldoJulho.xlsx
-   python scripts/load_despesa_saldo_incremental.py DespesaSaldoJulho.xlsx
-   ```
-
-3. **Implementar ETL para outras tabelas fato**:
-   - Identificar outros arquivos Excel disponíveis
-   - Criar módulos ETL específicos
-   - Seguir padrão estabelecido
-
-4. **Criar tabelas dimensão**:
-   - Dimensão Fonte (cofonte)
-   - Dimensão Conta Contábil (cocontacontabil)
-   - Dimensão UG (coug, noug)
-   - Dimensão Natureza Despesa
-   - Outras dimensões necessárias
-
-5. **Expandir interface web**:
-   - Dashboard com totais e gráficos
-   - Relatórios comparativos receita x despesa
-   - Análise temporal (evolução mensal)
-   - Exportação para PDF
-
-6. **Melhorias futuras**:
-   - Autenticação de usuários
-   - Agendamento automático de cargas
-   - Notificações por email
-   - Cache de consultas frequentes
-   - API REST documentada
-
-#### Fase 1 - ETL e Banco
-1. Criação automática de tabelas baseada nas planilhas Excel
-2. Importação inicial de dados
-3. Sistema de atualização (reimportação) de dados
-4. Validação e tratamento de erros
-
-#### Fase 2 - API e Relatórios
-1. API REST para consulta de dados
-2. Interface web para visualização de relatórios
-3. Filtros dinâmicos (período, categoria, etc.)
-4. Exportação de relatórios (PDF, Excel)
-
-#### Fase 3 - Recursos Avançados
-1. Dashboard com gráficos interativos
-2. Sistema de permissões/usuários
-3. Agendamento de atualizações automáticas
-4. Notificações e alertas
-
-## Padrões e Boas Práticas
-
-### Segurança
-- Credenciais em arquivo `.env` (nunca commitar)
-- Validação de inputs
-- Prepared statements para queries SQL
-
-### Código
-- Blueprints Flask para modularização
-- Separação de responsabilidades (MVC)
-- Docstrings e comentários em português
-- Tratamento de exceções
-
-### Frontend
-- CSS e JS em arquivos separados
-- Mobile-responsive
-- Acessibilidade (ARIA labels)
-
-## Dependências Principais
-```
-flask              # Framework web
-psycopg2-binary   # Driver PostgreSQL
-pandas            # Manipulação de dados
-openpyxl          # Leitura de Excel
-sqlalchemy        # ORM
-python-dotenv     # Variáveis de ambiente
-```
-
-## Próximos Passos Imediatos
-1. ✅ Estrutura de pastas criada
-2. ✅ Configurar conexão segura com PostgreSQL (.env configurado)
-3. ✅ Criar novo banco de dados (relatorios_uban criado)
-4. ✅ Criar tabelas de controle ETL
-5. ⏳ Analisar estrutura das planilhas Excel
-6. ⏳ Implementar ETL básico com transformações
-7. ⏳ Criar primeira rota Flask
-
-## Decisões Técnicas Importantes
-
-### Estratégia de ETL
-- **Pandas** para ler Excel e manipular dados
-- **SQLAlchemy** para gravar no PostgreSQL
-- Transformações aplicadas antes da carga
-- Validações para evitar duplicatas em cargas incrementais
-
-### Organização de Scripts
-- Pasta `scripts/` para manutenção e setup
-- Separação clara entre aplicação (`app/`) e utilitários
-- Scripts podem ser executados independentemente
 
 ## Comandos Úteis
 
@@ -374,31 +309,34 @@ python-dotenv     # Variáveis de ambiente
 venv\Scripts\activate
 ```
 
-### Scripts de manutenção
+### Rotina Mensal de Atualização
 ```bash
-# Setup inicial
-python scripts/create_schemas.py        # Criar schemas no banco
-python scripts/create_etl_tables.py     # Criar tabelas de controle
+# 1. Adicionar receitas do mês
+python scripts/load_receita_saldo_incremental.py ReceitaSaldoMES.xlsx
 
-# Carga inicial de dados
-python scripts/load_receita_saldo.py    # Receitas (apaga e recarrega)
-python scripts/load_despesa_saldo.py    # Despesas (apaga e recarrega)
+# 2. Adicionar despesas do mês
+python scripts/load_despesa_saldo_incremental.py DespesaSaldoMES.xlsx
 
-# Carga incremental
-python scripts/load_receita_saldo_incremental.py [arquivo.xlsx]
-python scripts/load_despesa_saldo_incremental.py [arquivo.xlsx]
+# 3. Atualizar cache (IMPORTANTE!)
+python scripts/otimizar_despesas.py
 
-# Manutenção
-python scripts/fix_etl_control.py       # Corrigir tabelas de controle
-python scripts/inspect_despesa_saldo.py # Analisar estrutura de arquivo
+# 4. Verificar cargas
+python scripts/consultar_etl_log.py
 
-# Executar aplicação web
-python run.py                           # Inicia servidor Flask em http://localhost:5000
+# 5. Testar sistema
+python run.py
 ```
 
-### Executar aplicação
+### Manutenção e Correções
 ```bash
-python run.py
+# Recriar cache do zero
+python scripts/create_filter_cache.py
+
+# Corrigir tabelas de controle
+python scripts/fix_etl_control.py
+
+# Ver estrutura de arquivo Excel
+python scripts/inspect_despesa_saldo.py
 ```
 
 ## Observações Importantes
@@ -406,39 +344,4 @@ python run.py
 - Preferência por explicações passo a passo
 - Sistema inicialmente local, depois será deployado no Railway
 - Dados sensíveis (financeiros/patrimoniais) - atenção à segurança
-
-## Contexto de Negócio
-Sistema para gestão de relatórios organizacionais com foco em:
-- **Relatórios orçamentários**: Análise de planejamento vs realizado
-- **Relatórios financeiros**: Fluxo de caixa, receitas e despesas
-- **Relatórios patrimoniais**: Evolução de ativos e passivos
-
-### Características dos Dados
-- **Volume**: 4+ planilhas fato, com até 1 milhão+ de linhas cada
-- **Periodicidade**: Dados mensais
-- **Histórico**: Janeiro a Junho 2025 (carga inicial)
-- **Atualizações**: Incrementais mensais (Julho em diante)
-- **Transformações**: Parse de strings, cálculos de saldo, múltiplas colunas derivadas
-
-### Tabelas Criadas
-1. **public.etl_control**: Controle de cargas por tabela
-2. **public.etl_log**: Log detalhado de todas as cargas
-3. **receitas.fato_receita_saldo**: Dados de saldo de receitas (11.998 registros)
-
-Os dados fonte estão em planilhas Excel que precisam ser consolidadas em um banco de dados PostgreSQL para permitir análises mais complexas e geração de relatórios padronizados.
-
-## Arquivos e Módulos Principais
-
-### Configuração
-- **.env**: Credenciais do banco (NUNCA commitar!)
-- **config.py**: Centraliza configurações do sistema
-- **.gitignore**: Protege arquivos sensíveis
-
-### Banco de Dados  
-- **app/modules/database.py**: Classe Database com todos os métodos de acesso
-- **scripts/create_etl_tables.py**: Cria tabelas de controle ETL
-
-### ETL (a implementar)
-- **app/modules/etl.py**: Lógica principal de ETL
-- **scripts/load_initial_data.py**: Carga inicial (Jan-Jun)
-- **scripts/update_incremental.py**: Cargas mensais incrementais
+- **SEMPRE atualizar o cache após cargas incrementais!**
