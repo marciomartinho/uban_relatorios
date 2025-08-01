@@ -20,14 +20,22 @@ def get_filtros():
     try:
         # Verificar se existe cache
         cache_exists_query = """
-        SELECT COUNT(*) > 0 
-        FROM information_schema.tables 
-        WHERE table_schema = 'public' 
-        AND table_name = 'cache_filtros_despesa'
+        SELECT EXISTS (
+            SELECT FROM information_schema.tables 
+            WHERE table_schema = 'public' 
+            AND table_name = 'cache_filtros_despesa'
+        );
         """
-        cache_exists = db.execute_query(cache_exists_query)[0][0]
+        result = db.execute_query(cache_exists_query)
+        cache_exists = result[0][0] if result else False
         
+        # Verificar se cache tem dados
+        cache_has_data = False
         if cache_exists:
+            count_result = db.execute_query("SELECT COUNT(*) FROM public.cache_filtros_despesa")
+            cache_has_data = count_result[0][0] > 0 if count_result else False
+        
+        if cache_has_data:
             # Usar cache (MUITO mais rápido)
             anos_query = """
             SELECT valor FROM public.cache_filtros_despesa 
@@ -94,10 +102,12 @@ def get_filtros():
             'anos': anos,
             'contas': contas,
             'ugs': ugs,
-            'cache': cache_exists
+            'cache': cache_has_data
         })
         
     except Exception as e:
+        import traceback
+        print(traceback.format_exc())
         return jsonify({'erro': str(e)}), 500
 
 @saldo_despesa.route('/api/dados')
@@ -124,7 +134,7 @@ def get_dados():
         # Montar query base
         if ug == 'CONSOLIDADO':
             # Se for consolidado, agrupa por mês
-            query = """
+            query = f"""
             SELECT 
                 inmes,
                 'CONSOLIDADO' as cocontacorrente,
@@ -146,14 +156,13 @@ def get_dados():
                 NULL::varchar as coelemento,
                 NULL::varchar as cosubelemento
             FROM despesas.fato_despesa_saldo
-            WHERE coexercicio = :ano AND cocontacontabil = :conta
+            WHERE coexercicio = {ano} AND cocontacontabil = {conta}
             GROUP BY inmes
             ORDER BY inmes
             """
-            params = {"ano": ano, "conta": conta}
         else:
             # Query normal com UG específica
-            query = """
+            query = f"""
             SELECT 
                 inmes,
                 cocontacorrente,
@@ -175,15 +184,14 @@ def get_dados():
                 coelemento,
                 cosubelemento
             FROM despesas.fato_despesa_saldo
-            WHERE coexercicio = :ano 
-                AND cocontacontabil = :conta 
-                AND coug = :ug
+            WHERE coexercicio = {ano} 
+                AND cocontacontabil = {conta} 
+                AND coug = {ug}
             ORDER BY inmes, conatureza, cofonte
             """
-            params = {"ano": ano, "conta": conta, "ug": ug}
         
         # Executar query
-        df = db.read_sql(query, params)
+        df = db.read_sql(query, None)
         
         # Converter para lista de dicionários
         dados = df.to_dict('records')
