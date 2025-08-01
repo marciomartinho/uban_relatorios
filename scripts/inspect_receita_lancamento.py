@@ -12,8 +12,8 @@ from datetime import datetime
 def inspect_receita_lancamento():
     """Analisa o arquivo ReceitaLancamento.xlsx"""
     
-    # Caminho do arquivo
-    file_path = Path("dados_brutos/fato/ReceitaLancamento.xlsx")
+    # Caminho do arquivo (relativo à raiz do projeto)
+    file_path = Path("../dados_brutos/fato/ReceitaLancamento.xlsx")
     
     if not file_path.exists():
         print(f"❌ Arquivo não encontrado: {file_path}")

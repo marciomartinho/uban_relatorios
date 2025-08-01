@@ -35,11 +35,18 @@ Sistema web desenvolvido em Python/Flask para gerenciamento e geração de relat
    - 560.110 registros carregados (Jan-Jun 2025)
    - Parse de natureza despesa implementado
    - Coluna especial `cosubelemento` para contas de 40 chars
-9. **Aplicação Flask**: 
-   - Servidor web funcionando
-   - Sistema de blueprints configurado
-   - Templates base e home criados
-10. **Interface Web - Consulta Saldo Receita**:
+9. **ETL ReceitaLancamento**: ✅ NOVO!
+   - Módulo `etl_receita_lancamento.py` implementado
+   - Tabela `receitas.fato_receita_lancamento` criada e populada
+   - 490.122 registros carregados (2024-01 a 2025-06)
+   - Parse de COCONTACORRENTE (17, 38 e 40 chars)
+   - Campo `tipo_lancamento` (DEBITO/CREDITO)
+   - Sistema de carga incremental implementado
+10. **Aplicação Flask**: 
+    - Servidor web funcionando
+    - Sistema de blueprints configurado
+    - Templates base e home criados
+11. **Interface Web - Consulta Saldo Receita**:
     - Página totalmente funcional
     - Filtros dinâmicos (Ano, Conta, UG)
     - Opção "Consolidado" para somar todas UGs
@@ -48,12 +55,14 @@ Sistema web desenvolvido em Python/Flask para gerenciamento e geração de relat
     - Exportação para CSV
     - Formatação monetária brasileira
     - Design responsivo com Bootstrap
-11. **Interface Web - Consulta Saldo Despesa**: ✅ NOVO!
+12. **Interface Web - Consulta Saldo Despesa**: ✅ NOVO!
     - Página totalmente funcional
     - Sistema de cache implementado para performance
     - Correção de bugs SQL realizada
     - Índices otimizados criados
     - Funciona com 560k+ registros sem travar
+    - Ordenação por mês (Janeiro a Dezembro)
+    - Esfera mostra número do banco (não texto)
 
 ### 🚀 Sistema de Cache (NOVO!)
 - **Tabela**: `public.cache_filtros_despesa`
@@ -62,21 +71,30 @@ Sistema web desenvolvido em Python/Flask para gerenciamento e geração de relat
 - **Script**: `scripts/otimizar_despesas.py` para criar/atualizar
 
 ### ⏳ Próximas Etapas
-- Implementar ETL para demais planilhas
+- Implementar ETL para DespesaLancamento
 - Desenvolver dashboards com gráficos
 - Implementar relatórios PDF
 - Sistema de autenticação
+- Criar páginas de consulta para lançamentos
 
 ## 📚 GUIA DO USUÁRIO - Como Atualizar os Dados Mensalmente
 
 ### 🎯 O que você vai fazer todo mês
-Todo mês você vai receber 2 arquivos Excel novos com os dados do mês. Você precisa adicionar esses dados no sistema. É como adicionar páginas novas em um livro que já existe.
+Todo mês você vai receber 4 arquivos Excel novos com os dados do mês:
+- ReceitaSaldoMês.xlsx
+- DespesaSaldoMês.xlsx
+- ReceitaLancamentoMês.xlsx
+- DespesaLancamentoMês.xlsx (futuro)
+
+Você precisa adicionar esses dados no sistema. É como adicionar páginas novas em um livro que já existe.
 
 ### 📁 PASSO 1: Preparar os Arquivos
 
-1. **Você vai receber 2 arquivos**:
-   - `ReceitaSaldoJulho.xlsx` (ou Agosto, Setembro, etc.)
-   - `DespesaSaldoJulho.xlsx` (ou Agosto, Setembro, etc.)
+1. **Você vai receber 4 arquivos** (exemplo para Julho):
+   - `ReceitaSaldoJulho.xlsx`
+   - `DespesaSaldoJulho.xlsx`
+   - `ReceitaLancamentoJulho.xlsx`
+   - `DespesaLancamentoJulho.xlsx`
 
 2. **Coloque na pasta certa**:
    - Copie esses arquivos para a pasta: `dados_brutos/fato/`
@@ -97,7 +115,7 @@ venv\Scripts\activate
 
 **O que vai aparecer**: `(venv)` no início da linha
 
-### 📊 PASSO 4: Adicionar RECEITAS
+### 📊 PASSO 4: Adicionar RECEITA SALDO
 
 Digite e aperte Enter (substitua "Julho" pelo mês correto):
 ```powershell
@@ -110,7 +128,7 @@ python scripts/load_receita_saldo_incremental.py ReceitaSaldoJulho.xlsx
 3. Vai processar (demora 1-2 minutos)
 4. No final mostra "✅ Carga incremental concluída com sucesso!"
 
-### 📈 PASSO 5: Adicionar DESPESAS
+### 📈 PASSO 5: Adicionar DESPESA SALDO
 
 Digite e aperte Enter (substitua "Julho" pelo mês correto):
 ```powershell
@@ -122,7 +140,19 @@ python scripts/load_despesa_saldo_incremental.py DespesaSaldoJulho.xlsx
 2. Mas demora mais (5-10 minutos) porque tem mais dados
 3. No final mostra "✅ Carga incremental concluída com sucesso!"
 
-### ⚡ PASSO 6: Atualizar o CACHE (MUITO IMPORTANTE!)
+### 📋 PASSO 6: Adicionar RECEITA LANÇAMENTO
+
+Digite e aperte Enter (substitua "Julho" pelo mês correto):
+```powershell
+python scripts/load_receita_lancamento_incremental.py ReceitaLancamentoJulho.xlsx
+```
+
+**O que vai acontecer**:
+1. Similar aos anteriores
+2. Demora uns 5-8 minutos (quase 500 mil registros)
+3. No final mostra "✅ Carga incremental concluída com sucesso!"
+
+### ⚡ PASSO 7: Atualizar o CACHE (MUITO IMPORTANTE!)
 
 **Por que isso é importante?** O cache é como um índice de livro. Se você não atualizar, o sistema não vai mostrar os novos meses nos filtros!
 
@@ -136,7 +166,7 @@ python scripts/otimizar_despesas.py
 2. Demora 2-3 minutos
 3. No final mostra "✨ OTIMIZAÇÃO CONCLUÍDA COM SUCESSO!"
 
-### ✅ PASSO 7: Verificar se Funcionou
+### ✅ PASSO 8: Verificar se Funcionou
 
 1. **Inicie o sistema**:
 ```powershell
@@ -151,7 +181,7 @@ python run.py
 
 ### 📋 Ver Histórico de Importações
 
-Para ver todas as importações já feitas:
+Para ver todas as importações já feitas, crie e execute:
 ```powershell
 python scripts/consultar_etl_log.py
 ```
@@ -179,8 +209,9 @@ TODO MÊS:
 3. venv\Scripts\activate
 4. python scripts/load_receita_saldo_incremental.py ReceitaSaldoMES.xlsx
 5. python scripts/load_despesa_saldo_incremental.py DespesaSaldoMES.xlsx
-6. python scripts/otimizar_despesas.py
-7. python run.py (para testar)
+6. python scripts/load_receita_lancamento_incremental.py ReceitaLancamentoMES.xlsx
+7. python scripts/otimizar_despesas.py
+8. python run.py (para testar)
 ```
 
 ## Arquitetura do Sistema
@@ -194,7 +225,7 @@ O banco de dados PostgreSQL é o componente central do sistema, responsável por
 
 #### Estratégia de Carga de Dados
 1. **Carga Inicial**: 
-   - Dados de Janeiro a Junho (já existentes)
+   - Dados de Janeiro a Junho 2025 (ou período inicial disponível)
    - Apaga e recarrega toda a tabela
    - Registra no `etl_control`
 
@@ -246,18 +277,20 @@ relatorios_uban/
 │   │   └── saldo_despesa/ # Templates de despesa
 │   └── modules/           # Módulos reutilizáveis
 │       ├── database.py    # Conexão e helpers do banco
-│       ├── etl_receita_saldo.py  # ETL de receitas
-│       └── etl_despesa_saldo.py  # ETL de despesas
+│       ├── etl_receita_saldo.py      # ETL de receitas saldo
+│       ├── etl_despesa_saldo.py      # ETL de despesas saldo
+│       └── etl_receita_lancamento.py # ETL de receitas lançamento
 ├── models/                # Modelos SQLAlchemy (ORM)
 ├── config.py             # Configurações da aplicação
 ├── .env                  # Variáveis de ambiente (credenciais)
 ├── run.py                # Entry point da aplicação
 ├── scripts/              # Scripts de manutenção e setup
-│   ├── create_etl_tables.py     # Criação das tabelas de controle
-│   ├── create_filter_cache.py   # Criação do cache de filtros
-│   ├── otimizar_despesas.py     # Otimização completa (cache + índices)
-│   ├── load_receita_saldo_incremental.py # Carga incremental receitas
-│   └── load_despesa_saldo_incremental.py # Carga incremental despesas
+│   ├── load_receita_saldo_incremental.py     # Carga incremental receitas saldo
+│   ├── load_despesa_saldo_incremental.py     # Carga incremental despesas saldo
+│   ├── load_receita_lancamento.py            # Carga inicial receitas lançamento
+│   ├── load_receita_lancamento_incremental.py # Carga incremental receitas lançamento
+│   ├── otimizar_despesas.py                  # Otimização completa (cache + índices)
+│   └── optimize_despesa_indexes.py           # Criar índices (opcional)
 ```
 
 ### 3. Configuração do Banco de Dados
@@ -268,20 +301,86 @@ relatorios_uban/
 - **Tabelas de controle**: `etl_control` e `etl_log` ✅
 - **Cache**: `cache_filtros_despesa` ✅
 
+## ETL ReceitaSaldo - Detalhamento
+
+### Estrutura da Tabela
+A tabela `receitas.fato_receita_saldo` possui:
+- **Colunas originais**: Dados diretos do Excel
+- **Colunas calculadas**: `saldo_contabil_receita` baseado no primeiro dígito de `cocontacontabil`
+- **Colunas derivadas**: Parse de `cocontacorrente` baseado no tamanho (17 ou 38 chars)
+
+### Transformações Aplicadas
+1. **Saldo Contábil**:
+   - Se `cocontacontabil` começa com 5: `saldo = vadebito - vacredito`
+   - Se `cocontacontabil` começa com 6: `saldo = vacredito - vadebito`
+
+2. **Parse de COCONTACORRENTE (17 chars)**:
+   - `coclasseorc`: chars 1-8
+   - `cofonte`: chars 9-18
+   - `cocategoriareceita`: char 1
+   - `cofontereceita`: chars 1-2
+   - `cosubfontereceita`: chars 1-3
+   - `corubrica`: chars 1-4
+   - `coalinea`: chars 1-6
+
+3. **Parse de COCONTACORRENTE (38 chars)**:
+   - `inesfera`: char 1 (esfera do governo)
+   - `couo`: chars 2-6 (unidade orçamentária)
+   - `cofuncao`: chars 7-8 (função)
+   - `cosubfuncao`: chars 9-11 (subfunção)
+   - `coprograma`: chars 12-15 (programa)
+   - `coprojeto`: chars 16-19 (projeto/atividade)
+   - `cosubtitulo`: chars 20-23 (subtítulo)
+   - `cofonte`: chars 24-32 (fonte - unificado com receitas)
+   - `conatureza`: chars 33-38 (natureza da despesa)
+   - `incategoria`: char 33 (categoria econômica)
+   - `cogrupo`: char 34 (grupo de despesa)
+   - `comodalidade`: chars 35-36 (modalidade)
+   - `coelemento`: chars 37-38 (elemento de despesa)
+
+## ETL DespesaSaldo - Detalhamento
+
+### Estrutura da Tabela
+A tabela `despesas.fato_despesa_saldo` possui estrutura similar à ReceitaSaldo, com adição de:
+- **Parse de CONATUREZA**: Extração de grupo, modalidade e elemento
+- **Campo especial**: `cosubelemento` para contas de 40 caracteres (chars 39-40)
+
+## ETL ReceitaLancamento - Detalhamento
+
+### Estrutura da Tabela
+A tabela `receitas.fato_receita_lancamento` possui:
+- **490.122 registros** carregados
+- **Período**: Janeiro 2024 a Junho 2025
+- **Diferencial**: São lançamentos individuais, não saldos
+- **Campo adicional**: `tipo_lancamento` (DEBITO/CREDITO) baseado em INDEBITOCREDITO
+- **Documentos**: Campo NUDOCUMENTO identifica cada lançamento
+- **Parse completo**: Suporta contas de 17, 38 e 40 caracteres
+
 ## Scripts de Manutenção
 
-### Scripts Principais
+### Scripts Principais Ativos
 ```
 # Otimização e Cache
-otimizar_despesas.py       # Cria cache e índices (executar após cada carga)
+otimizar_despesas.py              # Cria cache e índices (executar após cada carga)
 
-# Carga incremental (usar mensalmente)
-load_receita_saldo_incremental.py # Adiciona novos meses de receita
-load_despesa_saldo_incremental.py # Adiciona novos meses de despesa
+# Cargas incrementais mensais
+load_receita_saldo_incremental.py        # Adiciona novos meses de receita saldo
+load_despesa_saldo_incremental.py        # Adiciona novos meses de despesa saldo
+load_receita_lancamento_incremental.py   # Adiciona novos meses de receita lançamento
 
-# Consultas e verificações
-consultar_etl_log.py       # Ver histórico de cargas (A CRIAR)
+# Cargas iniciais (se precisar recarregar)
+load_receita_lancamento.py        # Carga inicial de receita lançamento
+
+# Manutenção opcional
+optimize_despesa_indexes.py       # Criar índices se necessário
 ```
+
+### Scripts Removidos (já executados)
+- ~~create_schemas.py~~ - Schemas já criados
+- ~~create_etl_tables.py~~ - Tabelas ETL já criadas
+- ~~fix_etl_control.py~~ - Correções já aplicadas
+- ~~load_receita_saldo.py~~ - Carga inicial já feita
+- ~~load_despesa_saldo.py~~ - Carga inicial já feita
 
 ### Tabelas no Banco
 ```sql
@@ -294,11 +393,12 @@ dimensoes                  -- Futuras tabelas dimensão
 -- Tabelas de Controle (schema public)
 etl_control                -- Controle de cargas por tabela
 etl_log                    -- Log detalhado de todas as cargas
-cache_filtros_despesa      -- Cache para performance (NOVO!)
+cache_filtros_despesa      -- Cache para performance
 
 -- Tabelas Fato
-receitas.fato_receita_saldo  -- 11.998 registros (Jan-Jun 2025)
-despesas.fato_despesa_saldo  -- 560.110 registros (Jan-Jun 2025)
+receitas.fato_receita_saldo       -- 11.998 registros (Jan-Jun 2025)
+receitas.fato_receita_lancamento  -- 490.122 registros (Jan/2024-Jun/2025)
+despesas.fato_despesa_saldo       -- 560.110 registros (Jan-Jun 2025)
 ```
 
 ## Comandos Úteis
@@ -311,17 +411,17 @@ venv\Scripts\activate
 
 ### Rotina Mensal de Atualização
 ```bash
-# 1. Adicionar receitas do mês
+# 1. Adicionar receitas saldo do mês
 python scripts/load_receita_saldo_incremental.py ReceitaSaldoMES.xlsx
 
-# 2. Adicionar despesas do mês
+# 2. Adicionar despesas saldo do mês
 python scripts/load_despesa_saldo_incremental.py DespesaSaldoMES.xlsx
 
-# 3. Atualizar cache (IMPORTANTE!)
-python scripts/otimizar_despesas.py
+# 3. Adicionar receitas lançamento do mês
+python scripts/load_receita_lancamento_incremental.py ReceitaLancamentoMES.xlsx
 
-# 4. Verificar cargas
-python scripts/consultar_etl_log.py
+# 4. Atualizar cache (IMPORTANTE!)
+python scripts/otimizar_despesas.py
 
 # 5. Testar sistema
 python run.py
@@ -329,15 +429,42 @@ python run.py
 
 ### Manutenção e Correções
 ```bash
-# Recriar cache do zero
-python scripts/create_filter_cache.py
+# Ver estrutura de arquivo Excel novo
+python scripts/inspect_receita_lancamento.py
 
-# Corrigir tabelas de controle
-python scripts/fix_etl_control.py
-
-# Ver estrutura de arquivo Excel
-python scripts/inspect_despesa_saldo.py
+# Recriar índices se necessário
+python scripts/optimize_despesa_indexes.py
 ```
+
+## Próximos Passos Recomendados
+
+1. **Implementar ETL para DespesaLancamento**:
+   - Criar `etl_despesa_lancamento.py`
+   - Seguir padrão do ReceitaLancamento
+   - Volume esperado: ~1 milhão de registros
+
+2. **Criar páginas de consulta para lançamentos**:
+   - Interface para ReceitaLancamento
+   - Interface para DespesaLancamento
+   - Filtros por documento, período, tipo
+
+3. **Criar tabelas dimensão**:
+   - Dimensão Fonte (cofonte)
+   - Dimensão Conta Contábil (cocontacontabil)
+   - Dimensão UG (coug, noug)
+   - Dimensão Natureza Despesa
+   - Dimensão Evento (coevento)
+
+4. **Desenvolver dashboards**:
+   - Totais por período
+   - Comparativo receita x despesa
+   - Evolução temporal
+   - Análise por UG
+
+5. **Melhorias de performance**:
+   - Criar views materializadas
+   - Implementar particionamento por ano
+   - Cache de consultas frequentes
 
 ## Observações Importantes
 - O desenvolvedor é iniciante, então o código deve ser claro e bem comentado
@@ -345,3 +472,36 @@ python scripts/inspect_despesa_saldo.py
 - Sistema inicialmente local, depois será deployado no Railway
 - Dados sensíveis (financeiros/patrimoniais) - atenção à segurança
 - **SEMPRE atualizar o cache após cargas incrementais!**
+
+## Contexto de Negócio
+Sistema para gestão de relatórios organizacionais com foco em:
+- **Relatórios orçamentários**: Análise de planejamento vs realizado
+- **Relatórios financeiros**: Fluxo de caixa, receitas e despesas
+- **Relatórios patrimoniais**: Evolução de ativos e passivos
+
+### Características dos Dados
+- **Volume**: 4+ planilhas fato, com até 1 milhão+ de linhas cada
+- **Periodicidade**: Dados mensais
+- **Histórico**: Janeiro a Junho 2025 (saldos), Janeiro 2024 a Junho 2025 (lançamentos)
+- **Atualizações**: Incrementais mensais (Julho em diante)
+- **Transformações**: Parse de strings, cálculos de saldo, múltiplas colunas derivadas
+
+## Decisões Técnicas Importantes
+
+### Estratégia de ETL
+- **Pandas** para ler Excel e manipular dados
+- **SQLAlchemy** para gravar no PostgreSQL
+- **Chunks**: Processamento em blocos de 5k-10k linhas
+- Transformações aplicadas antes da carga
+- Validações para evitar duplicatas em cargas incrementais
+
+### Performance
+- **Cache de filtros**: Tabela dedicada para valores únicos
+- **Índices otimizados**: Por período, conta, UG
+- **Processamento em chunks**: Para arquivos grandes
+
+### Organização de Scripts
+- Pasta `scripts/` para manutenção e setup
+- Separação clara entre aplicação (`app/`) e utilitários
+- Scripts podem ser executados independentemente
+- Nomenclatura clara: load_[tabela]_incremental.py
