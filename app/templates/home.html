@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow-lg mt-5">
+                <div class="card-body text-center py-5">
+                    <h1 class="display-4 mb-4">
+                        <i class="bi bi-graph-up text-primary"></i>
+                    </h1>
+                    <h2 class="mb-4">Sistema de Relatórios UBAN</h2>
+                    <p class="lead text-muted mb-5">
+                        Sistema de Relatórios Orçamentários, Financeiros e Patrimoniais
+                    </p>
+                    
+                    <div class="alert alert-info" role="alert">
+                        <i class="bi bi-tools"></i> <strong>Sistema em Construção</strong>
+                        <hr>
+                        <p class="mb-0">
+                            Estamos trabalhando para trazer as melhores ferramentas de análise e relatórios para você.
+                        </p>
+                    </div>
+                    
+                    <div class="row mt-5">
+                        <div class="col-md-4">
+                            <div class="card border-0">
+                                <div class="card-body">
+                                    <i class="bi bi-database-fill text-primary fs-1"></i>
+                                    <h5 class="mt-3">Dados Integrados</h5>
+                                    <p class="text-muted">PostgreSQL com ETL automatizado</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card border-0">
+                                <div class="card-body">
+                                    <i class="bi bi-bar-chart-fill text-success fs-1"></i>
+                                    <h5 class="mt-3">Relatórios Dinâmicos</h5>
+                                    <p class="text-muted">Visualizações interativas</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card border-0">
+                                <div class="card-body">
+                                    <i class="bi bi-speedometer2 text-warning fs-1"></i>
+                                    <h5 class="mt-3">Performance</h5>
+                                    <p class="text-muted">Consultas otimizadas</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-5">
+                        <a href="{{ url_for('saldo_receita.consulta') }}" class="btn btn-primary btn-lg">
+                            <i class="bi bi-search"></i> Acessar Consulta Saldo Receita
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
