@@ -1,0 +1,120 @@
+/* Estilos específicos para Consulta Saldo Despesa */
+
+/* Tema vermelho para despesas */
+.bg-danger {
+    background-color: #dc3545 !important;
+}
+
+.btn-danger {
+    background-color: #dc3545;
+    border-color: #dc3545;
+}
+
+.btn-danger:hover {
+    background-color: #c82333;
+    border-color: #bd2130;
+}
+
+/* Tabela customizada */
+#tabelaDados {
+    font-size: 0.85rem;
+}
+
+#tabelaDados thead th {
+    background-color: #f8f9fa;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    white-space: nowrap;
+    font-weight: 600;
+    border-bottom: 2px solid #dee2e6;
+}
+
+#tabelaDados tbody tr:hover {
+    background-color: rgba(220, 53, 69, 0.05);
+}
+
+/* Células numéricas */
+.text-end {
+    text-align: right;
+}
+
+/* Células vazias */
+.text-null {
+    color: #999;
+    font-style: italic;
+}
+
+/* Destaque para consolidado */
+tr.consolidado {
+    background-color: #ffe5e5;
+    font-weight: 600;
+}
+
+/* Responsividade da tabela */
+.table-responsive {
+    max-height: 600px;
+    overflow: auto;
+}
+
+/* Colunas de classificação */
+.col-natureza {
+    font-weight: 500;
+}
+
+.col-funcao {
+    background-color: rgba(0,0,0,0.02);
+}
+
+/* Badges para esfera */
+.badge-esfera {
+    font-size: 0.75rem;
+    font-weight: normal;
+}
+
+.esfera-1 {
+    background-color: #007bff;
+}
+
+.esfera-2 {
+    background-color: #28a745;
+}
+
+/* Filtros do DataTables */
+.dataTables_filter input {
+    border-radius: 20px;
+    padding: 5px 15px;
+    border: 1px solid #ced4da;
+}
+
+.dataTables_length select {
+    border-radius: 5px;
+    padding: 5px;
+}
+
+/* Paginação */
+.dataTables_paginate .pagination {
+    margin-bottom: 0;
+}
+
+/* Informações da tabela */
+.dataTables_info {
+    font-size: 0.875rem;
+    color: #6c757d;
+}
+
+/* Ajustes para impressão */
+@media print {
+    .card {
+        border: none !important;
+        box-shadow: none !important;
+    }
+    
+    .btn, .dataTables_filter, .dataTables_length, .dataTables_paginate {
+        display: none !important;
+    }
+    
+    #tabelaDados {
+        font-size: 10pt;
+    }
+}

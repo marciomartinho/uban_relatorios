@@ -53,9 +53,9 @@
                                 </a>
                             </li>
                             <li>
-                                <a class="dropdown-item disabled" href="#">
+                                <a class="dropdown-item {% if request.endpoint == 'saldo_despesa.consulta' %}active{% endif %}" 
+                                   href="{{ url_for('saldo_despesa.consulta') }}">
                                     <i class="bi bi-arrow-down-circle"></i> Consulta Saldo Despesa
-                                    <span class="badge bg-secondary ms-2">Em breve</span>
                                 </a>
                             </li>
                         </ul>

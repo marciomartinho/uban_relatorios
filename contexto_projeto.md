@@ -28,16 +28,36 @@ Sistema web desenvolvido em Python/Flask para gerenciamento e geração de relat
    - Tabela `receitas.fato_receita_saldo` criada e populada
    - 11.998 registros carregados (Jan-Jun 2025)
    - Transformações aplicadas com sucesso
+   - Sistema de carga incremental implementado
+8. **ETL DespesaSaldo**:
+   - Módulo `etl_despesa_saldo.py` implementado
+   - Tabela `despesas.fato_despesa_saldo` criada e populada
+   - 560.110 registros carregados (Jan-Jun 2025)
+   - Parse de natureza despesa implementado
+   - Coluna especial `cosubelemento` para contas de 40 chars
+9. **Aplicação Flask**: 
+   - Servidor web funcionando
+   - Sistema de blueprints configurado
+   - Templates base e home criados
+10. **Interface Web - Consulta Saldo Receita**:
+    - Página totalmente funcional
+    - Filtros dinâmicos (Ano, Conta, UG)
+    - Opção "Consolidado" para somar todas UGs
+    - Tabela com colunas dinâmicas (17 ou 38 chars)
+    - Filtros por coluna tipo Excel
+    - Exportação para CSV
+    - Formatação monetária brasileira
+    - Design responsivo com Bootstrap
 
 ### 🔄 Em Progresso
 - ETL para outras planilhas fato
-- Sistema de carga incremental
+- Página de Consulta Saldo Despesa
 
 ### ⏳ Próximas Etapas
-- Implementar cargas incrementais mensais
-- Criar ETL para demais planilhas
-- Desenvolver API Flask
-- Criar interface web
+- Criar página de consulta para despesas
+- Implementar ETL para demais planilhas
+- Desenvolver dashboards com gráficos
+- Implementar relatórios PDF
 
 ## Arquitetura do Sistema
 
@@ -193,21 +213,90 @@ Precisamos criar `scripts/load_receita_saldo_incremental.py` que:
 
 ## Scripts de Análise
 
-### Manter ou Remover?
-- `analyze_excel.py`: **MANTER** - Útil para analisar novas planilhas
-- `analyze_cocontacorrente.py`: **REMOVER** - Já serviu seu propósito
+### Scripts deletados (não mais necessários)
+- ~~analyze_excel.py~~ - Substituído por inspect_despesa_saldo.py
+- ~~analyze_cocontacorrente.py~~ - Análise inicial concluída  
+- ~~amostra_receitasaldo.xlsx~~ - Arquivo temporário
+
+### Scripts mantidos em scripts/
+```
+create_schemas.py                  # Criar schemas
+create_etl_tables.py              # Criar tabelas de controle
+fix_etl_control.py                # Corrigir registros ETL
+inspect_despesa_saldo.py          # Analisar arquivos Excel
+load_receita_saldo.py             # Carga inicial receitas
+load_receita_saldo_incremental.py # Carga incremental receitas
+load_despesa_saldo.py             # Carga inicial despesas
+load_despesa_saldo_incremental.py # Carga incremental despesas
+```
 
 ### Organização dos Arquivos de Dados
 ```
 dados_brutos/
 ├── fato/
-│   ├── ReceitaSaldo.xlsx          # Jan-Jun (carga inicial)
-│   ├── ReceitaSaldoJulho.xlsx     # Julho (incremental)
-│   ├── ReceitaSaldoAgosto.xlsx    # Agosto (incremental)
+│   ├── ReceitaSaldo.xlsx          # Jan-Jun (carga inicial) ✅
+│   ├── DespesaSaldo.xlsx          # Jan-Jun (carga inicial) ✅
+│   ├── ReceitaSaldoJulho.xlsx     # Julho (incremental) - A carregar
+│   ├── DespesaSaldoJulho.xlsx     # Julho (incremental) - A carregar
 │   └── ...
 └── dimensao/
-    └── (arquivos de dimensões)
+    └── (arquivos de dimensões) - A implementar
 ```
+
+### Tabelas Criadas no Banco
+```sql
+-- Schemas
+public                              -- Tabelas de sistema
+receitas                           -- Dados de receitas
+despesas                           -- Dados de despesas
+dimensoes                          -- Futuras tabelas dimensão
+
+-- Tabelas de Controle (schema public)
+etl_control                        -- Controle de cargas por tabela
+etl_log                           -- Log detalhado de todas as cargas
+
+-- Tabelas Fato
+receitas.fato_receita_saldo       -- 11.998 registros (Jan-Jun 2025)
+despesas.fato_despesa_saldo       -- 560.110 registros (Jan-Jun 2025)
+```
+
+## Próximos Passos Recomendados
+
+1. **Criar página Consulta Saldo Despesa**:
+   - Similar à de receita mas com mais campos
+   - Filtros por natureza, elemento, modalidade
+   - Visualização hierárquica de despesas
+
+2. **Carregar dados incrementais (Julho em diante)**:
+   ```bash
+   python scripts/load_receita_saldo_incremental.py ReceitaSaldoJulho.xlsx
+   python scripts/load_despesa_saldo_incremental.py DespesaSaldoJulho.xlsx
+   ```
+
+3. **Implementar ETL para outras tabelas fato**:
+   - Identificar outros arquivos Excel disponíveis
+   - Criar módulos ETL específicos
+   - Seguir padrão estabelecido
+
+4. **Criar tabelas dimensão**:
+   - Dimensão Fonte (cofonte)
+   - Dimensão Conta Contábil (cocontacontabil)
+   - Dimensão UG (coug, noug)
+   - Dimensão Natureza Despesa
+   - Outras dimensões necessárias
+
+5. **Expandir interface web**:
+   - Dashboard com totais e gráficos
+   - Relatórios comparativos receita x despesa
+   - Análise temporal (evolução mensal)
+   - Exportação para PDF
+
+6. **Melhorias futuras**:
+   - Autenticação de usuários
+   - Agendamento automático de cargas
+   - Notificações por email
+   - Cache de consultas frequentes
+   - API REST documentada
 
 #### Fase 1 - ETL e Banco
 1. Criação automática de tabelas baseada nas planilhas Excel
@@ -287,18 +376,24 @@ venv\Scripts\activate
 
 ### Scripts de manutenção
 ```bash
-# Criar schemas e tabelas de controle
-python scripts/create_schemas.py
-python scripts/create_etl_tables.py
+# Setup inicial
+python scripts/create_schemas.py        # Criar schemas no banco
+python scripts/create_etl_tables.py     # Criar tabelas de controle
 
-# Carregar dados iniciais de ReceitaSaldo
-python scripts/load_receita_saldo.py
+# Carga inicial de dados
+python scripts/load_receita_saldo.py    # Receitas (apaga e recarrega)
+python scripts/load_despesa_saldo.py    # Despesas (apaga e recarrega)
 
-# Analisar estrutura de planilhas
-python scripts/analyze_excel.py
-
-# Carga incremental (A IMPLEMENTAR)
+# Carga incremental
 python scripts/load_receita_saldo_incremental.py [arquivo.xlsx]
+python scripts/load_despesa_saldo_incremental.py [arquivo.xlsx]
+
+# Manutenção
+python scripts/fix_etl_control.py       # Corrigir tabelas de controle
+python scripts/inspect_despesa_saldo.py # Analisar estrutura de arquivo
+
+# Executar aplicação web
+python run.py                           # Inicia servidor Flask em http://localhost:5000
 ```
 
 ### Executar aplicação

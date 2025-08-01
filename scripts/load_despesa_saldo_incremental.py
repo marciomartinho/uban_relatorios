@@ -1,5 +1,5 @@
 """
-Script para carga incremental de ReceitaSaldo
+Script para carga incremental de DespesaSaldo
 """
 import sys
 import os
@@ -9,7 +9,7 @@ import pandas as pd
 # Adiciona o diretório pai ao path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from app.modules.etl_receita_saldo import ETLReceitaSaldo, validar_carga
+from app.modules.etl_despesa_saldo import ETLDespesaSaldo, validar_carga
 from app.modules.database import db
 
 def verificar_periodo_existente(tabela, periodo):
@@ -25,7 +25,7 @@ def verificar_periodo_existente(tabela, periodo):
 def analisar_arquivo_periodo(arquivo):
     """Analisa o arquivo para identificar o período dos dados"""
     try:
-        print("📖 Lendo arquivo para análise...")
+        print("📖 Lendo arquivo para análise... (pode demorar)")
         df = pd.read_excel(arquivo, nrows=1000)  # Ler apenas primeiras 1000 linhas para análise
         
         # Identificar períodos únicos
@@ -49,15 +49,15 @@ def analisar_arquivo_periodo(arquivo):
 def main():
     """Executa carga incremental"""
     print("=" * 80)
-    print("ETL - RECEITA SALDO (CARGA INCREMENTAL)")
+    print("ETL - DESPESA SALDO (CARGA INCREMENTAL)")
     print("=" * 80)
     
     # Verificar argumento do arquivo
     if len(sys.argv) < 2:
-        arquivo = "dados_brutos/fato/ReceitaSaldo.xlsx"
+        arquivo = "dados_brutos/fato/DespesaSaldo.xlsx"
         print(f"\n⚠️  Nenhum arquivo especificado.")
         print(f"Usando arquivo padrão: {arquivo}")
-        print("\n💡 Dica: Use 'python scripts/load_receita_saldo_incremental.py ReceitaSaldoJulho.xlsx'")
+        print("\n💡 Dica: Use 'python scripts/load_despesa_saldo_incremental.py DespesaSaldoJulho.xlsx'")
     else:
         arquivo = f"dados_brutos/fato/{sys.argv[1]}"
     
@@ -78,7 +78,7 @@ def main():
     print(f"\n📊 Total de linhas no arquivo: {total_linhas:,}")
     
     # Verificar períodos já carregados
-    etl = ETLReceitaSaldo(chunk_size=5000)
+    etl = ETLDespesaSaldo(chunk_size=10000)
     periodos_existentes = []
     
     print(f"\n🔍 Verificando períodos já carregados...")
@@ -129,8 +129,8 @@ def main():
         print(f"   Períodos a recarregar: {', '.join(periodos)}")
     print(f"   Total estimado: {total_linhas:,} registros")
     
-    if total_linhas > 50000:
-        print(f"\n⚠️  ATENÇÃO: Arquivo grande! Tempo estimado: {total_linhas//50000 * 1}-{total_linhas//50000 * 2} minutos")
+    if total_linhas > 100000:
+        print(f"\n⚠️  ATENÇÃO: Arquivo grande! Tempo estimado: {total_linhas//100000 * 2}-{total_linhas//100000 * 3} minutos")
     
     resposta = input("\n✅ Confirma o processamento? (S/n): ")
     if resposta.lower() == 'n':
@@ -158,10 +158,9 @@ def main():
                     SELECT 
                         COUNT(*) as registros,
                         COUNT(DISTINCT coug) as ugs,
-                        COUNT(DISTINCT cofonte) as fontes,
                         SUM(vacredito) as total_credito,
                         SUM(vadebito) as total_debito,
-                        SUM(saldo_contabil_receita) as total_saldo
+                        SUM(saldo_contabil_despesa) as total_saldo
                     FROM {etl.full_table_name}
                     WHERE periodo = :periodo
                     """
@@ -171,10 +170,9 @@ def main():
                         print(f"\n   Período {periodo}:")
                         print(f"      - Registros: {row[0]:,}")
                         print(f"      - UGs: {row[1]}")
-                        print(f"      - Fontes: {row[2]}")
-                        print(f"      - Total Crédito: R$ {row[3]:,.2f}")
-                        print(f"      - Total Débito: R$ {row[4]:,.2f}")
-                        print(f"      - Saldo Contábil: R$ {row[5]:,.2f}")
+                        print(f"      - Total Crédito: R$ {row[2]:,.2f}")
+                        print(f"      - Total Débito: R$ {row[3]:,.2f}")
+                        print(f"      - Saldo Contábil: R$ {row[4]:,.2f}")
         except Exception as e:
             print(f"\n⚠️  Erro ao validar períodos: {e}")
             
