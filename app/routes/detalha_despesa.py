@@ -327,3 +327,134 @@ def get_totais():
         import traceback
         print(traceback.format_exc())
         return jsonify({'erro': str(e)}), 500
+
+@detalha_despesa.route('/api/dados-paginados', methods=['POST'])
+def get_dados_paginados():
+    """Retorna dados paginados para DataTables server-side"""
+    try:
+        # Parâmetros do DataTables
+        draw = request.form.get('draw', type=int)
+        start = request.form.get('start', type=int)
+        length = request.form.get('length', type=int)
+        search_value = request.form.get('search[value]', '')
+        
+        # Parâmetros dos filtros
+        ano = request.form.get('ano')
+        conta = request.form.get('conta')
+        ug = request.form.get('ug')
+        
+        # Validar parâmetros obrigatórios
+        if not all([ano, conta, ug]):
+            return jsonify({'error': 'Parâmetros obrigatórios: ano, conta, ug'}), 400
+        
+        # Ordenação
+        order_column = int(request.form.get('order[0][column]', 0))
+        order_dir = request.form.get('order[0][dir]', 'asc')
+        
+        # Mapeamento de colunas para ordenação
+        columns = ['mes', 'nudocumento', 'coevento', 'conatureza', 'cocontacorrente', 
+                  'valancamento', 'indebitocredito', 'coug', 'dalancamento', 'tipo_lancamento']
+        order_by = columns[order_column] if order_column < len(columns) else 'mes'
+        
+        # Query base
+        if ug == 'CONSOLIDADO':
+            where_clause = """
+            WHERE EXTRACT(YEAR FROM dalancamento) = %s 
+                AND cocontacontabil = %s
+            """
+            params = [ano, conta]
+            count_params = [ano, conta]
+        else:
+            where_clause = """
+            WHERE EXTRACT(YEAR FROM dalancamento) = %s 
+                AND cocontacontabil = %s 
+                AND cougcontab = %s
+            """
+            params = [ano, conta, ug]
+            count_params = [ano, conta, ug]
+        
+        # Adicionar busca se houver
+        if search_value:
+            where_clause += """
+                AND (
+                    CAST(nudocumento AS TEXT) ILIKE %s OR
+                    CAST(coevento AS TEXT) ILIKE %s OR
+                    CAST(cocontacorrente AS TEXT) ILIKE %s OR
+                    CAST(conatureza AS TEXT) ILIKE %s
+                )
+            """
+            search_param = f'%{search_value}%'
+            params.extend([search_param, search_param, search_param, search_param])
+            count_params.extend([search_param, search_param, search_param, search_param])
+        
+        # Query para contar total de registros filtrados
+        count_query = f"""
+            SELECT COUNT(*) as total
+            FROM despesas.fato_despesa_lancamento
+            {where_clause}
+        """
+        
+        count_result = db.read_sql(count_query, count_params)
+        records_filtered = int(count_result['total'][0]) if not count_result.empty else 0
+        
+        # Query para buscar dados paginados
+        data_query = f"""
+            SELECT 
+                CAST(EXTRACT(MONTH FROM dalancamento) AS INTEGER) as mes,
+                nudocumento,
+                coevento,
+                cocontacorrente,
+                valancamento,
+                indebitocredito,
+                coug,
+                dalancamento,
+                tipo_lancamento,
+                conatureza,
+                cofonte,
+                couo,
+                coprograma
+            FROM despesas.fato_despesa_lancamento
+            {where_clause}
+            ORDER BY {order_by} {order_dir.upper()}
+            LIMIT %s OFFSET %s
+        """
+        
+        params.extend([length, start])
+        
+        # Executar query
+        df = db.read_sql(data_query, params)
+        
+        # Converter data para string no formato brasileiro
+        if not df.empty:
+            df['dalancamento'] = pd.to_datetime(df['dalancamento']).dt.strftime('%d/%m/%Y')
+        
+        # Preparar dados para DataTables
+        data = []
+        for _, row in df.iterrows():
+            data.append([
+                row['mes'],
+                row['nudocumento'] or '-',
+                row['coevento'] or '-',
+                row['conatureza'] or '-',
+                row['cocontacorrente'] or '-',
+                row['valancamento'],
+                row['indebitocredito'] or '-',
+                row['coug'] or '-',
+                row['dalancamento'] or '-',
+                row['tipo_lancamento'] or '-'
+            ])
+        
+        # Resposta no formato esperado pelo DataTables
+        response = {
+            'draw': draw,
+            'recordsTotal': records_filtered,  # Total de registros
+            'recordsFiltered': records_filtered,  # Total após filtros
+            'data': data
+        }
+        
+        return jsonify(response)
+        
+    except Exception as e:
+        import traceback
+        print(traceback.format_exc())
+        return jsonify({'error': str(e)}), 500

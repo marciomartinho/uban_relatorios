@@ -172,59 +172,32 @@ function consultarDados() {
     
     $('#modalLoading').modal('show');
     $('#mensagemInicial').hide();
+    $('#avisoLimite').hide(); // Esconder aviso de limite já que não há mais limite
     
-    // Buscar dados com limite
+    // Buscar totais primeiro
     $.ajax({
-        url: '/detalha-despesa/api/dados',
+        url: '/detalha-despesa/api/totais',
         method: 'GET',
         data: {
             ano: ano,
             conta: conta,
-            ug: ug,
-            limite: 1000  // Limite padrão
+            ug: ug
         },
-        success: function(response) {
-            dadosAtuais = response.dados;
-            temMaisRegistros = response.tem_mais;
+        success: function(totais) {
+            totaisGlobais = totais;
+            atualizarTotais(totais);
+            mostrarTopNaturezas(totais.top_naturezas);
             
-            // Mostrar aviso se há mais registros
-            if (temMaisRegistros) {
-                $('#avisoLimite').show();
-                $('#textoAvisoLimite').text(
-                    `Exibindo ${response.total.toLocaleString('pt-BR')} de ${response.total_registros.toLocaleString('pt-BR')} lançamentos. ` +
-                    `Para visualizar todos os registros, exporte para Excel.`
-                );
-            } else {
-                $('#avisoLimite').hide();
-            }
+            // Construir tabela (agora com server-side)
+            construirTabela([]); // Passa array vazio, dados virão do servidor
             
-            // Buscar totais
-            $.ajax({
-                url: '/detalha-despesa/api/totais',
-                method: 'GET',
-                data: {
-                    ano: ano,
-                    conta: conta,
-                    ug: ug
-                },
-                success: function(totais) {
-                    totaisGlobais = totais;
-                    atualizarTotais(totais);
-                    construirTabela(dadosAtuais);
-                    mostrarTopNaturezas(totais.top_naturezas);
-                    $('#areaResultados').show();
-                    $('#modalLoading').modal('hide');
-                },
-                error: function(xhr) {
-                    $('#modalLoading').modal('hide');
-                    console.error('Erro ao buscar totais:', xhr);
-                }
-            });
+            $('#areaResultados').show();
+            $('#modalLoading').modal('hide');
         },
         error: function(xhr) {
             $('#modalLoading').modal('hide');
             let erro = xhr.responseJSON ? xhr.responseJSON.erro : 'Erro desconhecido';
-            mostrarErro('#divTabela', 'Erro ao consultar dados: ' + erro);
+            mostrarErro('#divTabela', 'Erro ao consultar totais: ' + erro);
             $('#areaResultados').show();
         }
     });
@@ -322,58 +295,8 @@ function construirTabela(dados) {
     html += '<th>UG</th>';
     html += '<th>Data</th>';
     html += '<th>Tipo</th>';
-    html += '</tr></thead><tbody>';
-    
-    // Adicionar dados
-    dados.forEach(function(row) {
-        html += '<tr>';
-        
-        // Mês
-        html += `<td data-order="${row.mes}">${formatarMes(row.mes)}</td>`;
-        
-        // Documento
-        html += `<td>${row.nudocumento || '-'}</td>`;
-        
-        // Evento
-        html += `<td>${row.coevento || '-'}</td>`;
-        
-        // Natureza de Despesa
-        if (row.conatureza) {
-            html += `<td><span class="natureza-cell">${row.conatureza}</span></td>`;
-        } else {
-            html += `<td>-</td>`;
-        }
-        
-        // Conta Corrente (truncar se muito grande)
-        let contaCorrente = row.cocontacorrente || '-';
-        if (contaCorrente.length > 20) {
-            html += `<td title="${contaCorrente}">${contaCorrente.substring(0, 20)}...</td>`;
-        } else {
-            html += `<td>${contaCorrente}</td>`;
-        }
-        
-        // Valor
-        let valor = formatarNumero(row.valancamento);
-        let classeValor = row.tipo_lancamento === 'CREDITO' ? 'text-positive' : 'text-negative';
-        html += `<td class="text-end ${classeValor}">${valor}</td>`;
-        
-        // D/C
-        html += `<td class="text-center">${row.indebitocredito || '-'}</td>`;
-        
-        // UG
-        html += `<td>${row.coug || '-'}</td>`;
-        
-        // Data
-        html += `<td>${row.dalancamento || '-'}</td>`;
-        
-        // Tipo
-        let classeTipo = row.tipo_lancamento === 'CREDITO' ? 'badge-credito' : 'badge-debito';
-        html += `<td><span class="badge ${classeTipo}">${row.tipo_lancamento || '-'}</span></td>`;
-        
-        html += '</tr>';
-    });
-    
-    html += '</tbody></table>';
+    html += '</tr></thead>';
+    html += '</table>';
     
     $('#divTabela').html(html);
     
@@ -381,52 +304,106 @@ function construirTabela(dados) {
         tabelaDados.destroy();
     }
     
-    // Inicializar DataTable
+    // Inicializar DataTable com server-side processing
     tabelaDados = $('#tabelaDados').DataTable({
-        pageLength: 25,
-        lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "Todos"]],
-        dom: 'Blfrtip',
-        buttons: [],
-        order: [[0, 'asc'], [8, 'asc']], // Ordenar por mês e data
-        columnDefs: [
-            {
-                targets: 0, // Coluna do mês
-                type: 'num'
+        processing: true,
+        serverSide: true,
+        ajax: {
+            url: '/detalha-despesa/api/dados-paginados',
+            type: 'POST',
+            data: function(d) {
+                d.ano = $('#selectAno').val();
+                d.conta = $('#selectConta').val();
+                d.ug = $('#selectUG').val();
             },
-            {
-                targets: 5, // Coluna de valor
-                type: 'num-fmt'
+            error: function(xhr, error, thrown) {
+                console.error('Erro ao carregar dados:', error);
+                alert('Erro ao carregar dados. Verifique o console.');
+            }
+        },
+        pageLength: 25,
+        lengthMenu: [[10, 25, 50, 100, 500], [10, 25, 50, 100, 500]],
+        order: [[0, 'asc'], [8, 'asc']], // Ordenar por mês e data
+        language: {
+            processing: "Processando...",
+            search: "Buscar:",
+            lengthMenu: "Mostrar _MENU_ registros por página",
+            info: "Mostrando _START_ até _END_ de _TOTAL_ registros",
+            infoEmpty: "Mostrando 0 até 0 de 0 registros",
+            infoFiltered: "(filtrado de _MAX_ registros no total)",
+            loadingRecords: "Carregando...",
+            zeroRecords: "Nenhum registro encontrado",
+            emptyTable: "Nenhum dado disponível na tabela",
+            paginate: {
+                first: "Primeiro",
+                previous: "Anterior",
+                next: "Próximo",
+                last: "Último"
+            }
+        },
+        columns: [
+            { 
+                data: 0,
+                render: function(data) {
+                    return formatarMes(data);
+                }
+            },
+            { data: 1 }, // Documento
+            { data: 2 }, // Evento
+            { 
+                data: 3,
+                render: function(data) {
+                    if (data && data !== '-') {
+                        return '<span class="natureza-cell">' + data + '</span>';
+                    }
+                    return '-';
+                }
+            },
+            { 
+                data: 4, // Conta Corrente - SEM TRUNCAMENTO!
+                className: 'text-nowrap',
+                render: function(data) {
+                    return data || '-';
+                }
+            },
+            { 
+                data: 5,
+                className: 'text-end',
+                render: function(data, type, row) {
+                    if (type === 'display') {
+                        let valor = formatarNumero(data);
+                        let classe = row[9] === 'CREDITO' ? 'text-positive' : 'text-negative';
+                        return '<span class="' + classe + '">' + valor + '</span>';
+                    }
+                    return data;
+                }
+            },
+            { 
+                data: 6,
+                className: 'text-center'
+            },
+            { data: 7 }, // UG
+            { data: 8 }, // Data
+            { 
+                data: 9,
+                render: function(data) {
+                    let classe = data === 'CREDITO' ? 'badge-credito' : 'badge-debito';
+                    return '<span class="badge ' + classe + '">' + data + '</span>';
+                }
             }
         ],
-        initComplete: function() {
-            // Adicionar filtros nas colunas específicas
-            this.api().columns().every(function(index) {
-                var column = this;
-                var title = $(column.header()).text();
-                
-                // Adicionar filtros apenas nas colunas: Mês, Documento, Evento, Natureza e Conta Corrente
-                if (index === 0 || index === 1 || index === 2 || index === 3 || index === 4) {
-                    var select = $('<select class="form-select form-select-sm"><option value="">Todos</option></select>')
-                        .appendTo($(column.header()))
-                        .on('change', function() {
-                            var val = $.fn.dataTable.util.escapeRegex($(this).val());
-                            column.search(val ? '^' + val + '$' : '', true, false).draw();
-                        })
-                        .on('click', function(e) {
-                            e.stopPropagation();
-                        });
-                    
-                    column.data().unique().sort().each(function(d, j) {
-                        if (d && d !== '-') {
-                            // Para natureza, remover tags HTML
-                            if (index === 3) {
-                                d = $(d).text() || d;
-                            }
-                            select.append('<option value="' + d + '">' + d + '</option>');
-                        }
-                    });
+        drawCallback: function(settings) {
+            // Adicionar tooltips nas contas correntes muito longas
+            $('#tabelaDados td:nth-child(5)').each(function() {
+                var $this = $(this);
+                if ($this.text().length > 40) {
+                    $this.attr('title', $this.text());
+                    $this.attr('data-bs-toggle', 'tooltip');
                 }
             });
+            
+            // Inicializar tooltips
+            $('[data-bs-toggle="tooltip"]').tooltip();
         }
     });
 }
@@ -465,80 +442,106 @@ function formatarMoeda(valor) {
 
 // Exportar para Excel
 function exportarExcel() {
-    if (!dadosAtuais || dadosAtuais.length === 0) {
-        alert('Não há dados para exportar!');
+    const ano = $('#selectAno').val();
+    const conta = $('#selectConta').val();
+    const ug = $('#selectUG').val();
+    
+    if (!ano || !conta || !ug) {
+        alert('Por favor, selecione os filtros antes de exportar!');
         return;
     }
     
-    let csv = [];
+    // Mostrar modal de loading
+    $('#modalLoading').modal('show');
     
-    // Cabeçalho
-    csv.push(['Mês', 'Documento', 'Evento', 'Natureza', 'Conta Corrente', 'Valor', 'D/C', 'UG', 'Data', 'Tipo', 'Fonte', 'UO', 'Programa'].join(';'));
-    
-    // Dados
-    dadosAtuais.forEach(function(row) {
-        let linha = [
-            formatarMes(row.mes),
-            row.nudocumento || '',
-            row.coevento || '',
-            row.conatureza || '',
-            row.cocontacorrente || '',
-            (row.valancamento || 0).toString().replace('.', ','),
-            row.indebitocredito || '',
-            row.coug || '',
-            row.dalancamento || '',
-            row.tipo_lancamento || '',
-            row.cofonte || '',
-            row.couo || '',
-            row.coprograma || ''
-        ];
-        csv.push(linha.join(';'));
-    });
-    
-    // Adicionar totais no final (se temos os totais globais)
-    if (totaisGlobais) {
-        csv.push(''); // Linha vazia
-        csv.push(['RESUMO'].join(';'));
-        csv.push(['Tipo', 'Quantidade', 'Valor Total'].join(';'));
-        csv.push(['Créditos', totaisGlobais.credito.quantidade, totaisGlobais.credito.total.toFixed(2).replace('.', ',')].join(';'));
-        csv.push(['Débitos', totaisGlobais.debito.quantidade, totaisGlobais.debito.total.toFixed(2).replace('.', ',')].join(';'));
-        
-        const conta = $('#selectConta').val();
-        if (conta && conta.startsWith('5')) {
-            csv.push(['Saldo (D-C)', '', totaisGlobais.saldo.toFixed(2).replace('.', ',')].join(';'));
-        } else {
-            csv.push(['Saldo (C-D)', '', totaisGlobais.saldo.toFixed(2).replace('.', ',')].join(';'));
-        }
-        
-        // Adicionar top naturezas se existir
-        if (totaisGlobais.top_naturezas && totaisGlobais.top_naturezas.length > 0) {
-            csv.push(''); // Linha vazia
-            csv.push(['TOP 5 NATUREZAS DE DESPESA'].join(';'));
-            csv.push(['Natureza', 'Quantidade', 'Valor Total'].join(';'));
-            totaisGlobais.top_naturezas.forEach(function(nat) {
-                csv.push([nat.natureza, nat.quantidade, nat.total.toFixed(2).replace('.', ',')].join(';'));
+    // Buscar TODOS os dados (sem limite) para exportação
+    $.ajax({
+        url: '/detalha-despesa/api/dados',
+        method: 'GET',
+        data: {
+            ano: ano,
+            conta: conta,
+            ug: ug,
+            limite: 999999  // Limite muito alto para pegar todos os dados
+        },
+        success: function(response) {
+            let csv = [];
+            
+            // Cabeçalho
+            csv.push(['Mês', 'Documento', 'Evento', 'Natureza', 'Conta Corrente', 'Valor', 'D/C', 'UG', 'Data', 'Tipo', 'Fonte', 'UO', 'Programa'].join(';'));
+            
+            // Dados
+            response.dados.forEach(function(row) {
+                let linha = [
+                    formatarMes(row.mes),
+                    row.nudocumento || '',
+                    row.coevento || '',
+                    row.conatureza || '',
+                    row.cocontacorrente || '',
+                    (row.valancamento || 0).toString().replace('.', ','),
+                    row.indebitocredito || '',
+                    row.coug || '',
+                    row.dalancamento || '',
+                    row.tipo_lancamento || '',
+                    row.cofonte || '',
+                    row.couo || '',
+                    row.coprograma || ''
+                ];
+                csv.push(linha.join(';'));
             });
-        }
-        
-        // Aviso sobre limite
-        if (temMaisRegistros) {
+            
+            // Adicionar totais no final (se temos os totais globais)
+            if (totaisGlobais) {
+                csv.push(''); // Linha vazia
+                csv.push(['RESUMO'].join(';'));
+                csv.push(['Tipo', 'Quantidade', 'Valor Total'].join(';'));
+                csv.push(['Créditos', totaisGlobais.credito.quantidade, totaisGlobais.credito.total.toFixed(2).replace('.', ',')].join(';'));
+                csv.push(['Débitos', totaisGlobais.debito.quantidade, totaisGlobais.debito.total.toFixed(2).replace('.', ',')].join(';'));
+                
+                const conta = $('#selectConta').val();
+                if (conta && conta.startsWith('5')) {
+                    csv.push(['Saldo (D-C)', '', totaisGlobais.saldo.toFixed(2).replace('.', ',')].join(';'));
+                } else {
+                    csv.push(['Saldo (C-D)', '', totaisGlobais.saldo.toFixed(2).replace('.', ',')].join(';'));
+                }
+                
+                // Adicionar top naturezas se existir
+                if (totaisGlobais.top_naturezas && totaisGlobais.top_naturezas.length > 0) {
+                    csv.push(''); // Linha vazia
+                    csv.push(['TOP 5 NATUREZAS DE DESPESA'].join(';'));
+                    csv.push(['Natureza', 'Quantidade', 'Valor Total'].join(';'));
+                    totaisGlobais.top_naturezas.forEach(function(nat) {
+                        csv.push([nat.natureza, nat.quantidade, nat.total.toFixed(2).replace('.', ',')].join(';'));
+                    });
+                }
+            }
+            
+            // Adicionar informação sobre total de registros
             csv.push(''); // Linha vazia
-            csv.push(['ATENÇÃO: Esta exportação contém apenas os primeiros 1.000 registros.'].join(';'));
-            csv.push(['Para exportar todos os registros, utilize a funcionalidade de exportação completa do sistema.'].join(';'));
+            csv.push([`Total de registros exportados: ${response.dados.length.toLocaleString('pt-BR')}`].join(';'));
+            
+            // Criar arquivo
+            let csvContent = '\ufeff' + csv.join('\n');
+            let blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            let link = document.createElement('a');
+            let url = URL.createObjectURL(blob);
+            
+            link.setAttribute('href', url);
+            link.setAttribute('download', `detalha_despesa_${$('#selectAno').val()}_${$('#selectConta').val()}_${$('#selectUG').val()}.csv`);
+            link.style.visibility = 'hidden';
+            
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            $('#modalLoading').modal('hide');
+            
+            // Mostrar mensagem de sucesso
+            alert(`Exportação concluída! ${response.dados.length.toLocaleString('pt-BR')} registros exportados.`);
+        },
+        error: function(xhr) {
+            $('#modalLoading').modal('hide');
+            alert('Erro ao exportar dados. Tente novamente.');
         }
-    }
-    
-    // Criar arquivo
-    let csvContent = '\ufeff' + csv.join('\n');
-    let blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    let link = document.createElement('a');
-    let url = URL.createObjectURL(blob);
-    
-    link.setAttribute('href', url);
-    link.setAttribute('download', `detalha_despesa_${$('#selectAno').val()}_${$('#selectConta').val()}_${$('#selectUG').val()}.csv`);
-    link.style.visibility = 'hidden';
-    
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    });
 }

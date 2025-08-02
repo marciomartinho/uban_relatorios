@@ -68,6 +68,17 @@
     padding-top: 8px;
 }
 
+/* Garantir que conta corrente não seja truncada */
+#tabelaDados td:nth-child(5) {
+    white-space: nowrap;
+    min-width: 200px;
+}
+
+/* Adicionar scroll horizontal se necessário */
+.dataTables_wrapper {
+    overflow-x: auto;
+}
+
 /* Filtros nas colunas */
 #tabelaDados thead th select {
     width: 100%;
