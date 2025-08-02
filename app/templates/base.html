@@ -75,10 +75,10 @@
                                 </a>
                             </li>
                             <li>
-                                <a class="dropdown-item disabled" 
-                                   href="#">
-                                    <i class="bi bi-file-earmark-minus"></i> Detalha Conta Contábil Despesa (Em breve)
-                                </a>
+                            <a class="dropdown-item {% if request.endpoint == 'detalha_despesa.consulta' %}active{% endif %}" 
+                            href="{{ url_for('detalha_despesa.consulta') }}">
+                                <i class="bi bi-file-earmark-minus"></i> Detalha Conta Contábil Despesa
+                            </a>
                             </li>
                         </ul>
                     </li>
