@@ -1,4 +1,56 @@
-/* Estilos específicos para Consulta Saldo Despesa */
+/* Estilos específicos para Consulta Saldo Despesa - Versão Melhorada */
+
+/* Cards de Totais */
+.border-left-danger {
+    border-left: 0.25rem solid #e74a3b!important;
+}
+
+.border-left-info {
+    border-left: 0.25rem solid #36b9cc!important;
+}
+
+.border-left-warning {
+    border-left: 0.25rem solid #f6c23e!important;
+}
+
+.border-left-primary {
+    border-left: 0.25rem solid #4e73df!important;
+}
+
+.text-xs {
+    font-size: .7rem;
+}
+
+.font-weight-bold {
+    font-weight: 700!important;
+}
+
+.text-gray-800 {
+    color: #5a5c69!important;
+}
+
+/* Cards de natureza */
+#cardTopNaturezas {
+    border-top: 3px solid #dc3545;
+}
+
+.natureza-item {
+    padding: 8px 12px;
+    margin-bottom: 5px;
+    background-color: #f8f9fa;
+    border-radius: 5px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.progress {
+    background-color: #e9ecef;
+}
+
+.progress-bar {
+    transition: width 0.6s ease;
+}
 
 /* Tema vermelho para despesas */
 .bg-danger {
@@ -28,15 +80,47 @@
     white-space: nowrap;
     font-weight: 600;
     border-bottom: 2px solid #dee2e6;
+    vertical-align: top;
+    padding-top: 8px;
+}
+
+/* Filtros nas colunas */
+#tabelaDados thead th select {
+    width: 100%;
+    margin-top: 5px;
+    font-weight: normal;
+    font-size: 0.8rem;
 }
 
 #tabelaDados tbody tr:hover {
     background-color: rgba(220, 53, 69, 0.05);
 }
 
+/* Footer da tabela */
+#tabelaDados tfoot {
+    font-weight: 700;
+    background-color: #f8f9fa;
+    border-top: 2px solid #dee2e6;
+}
+
+#tabelaDados tfoot th {
+    padding: 12px 8px;
+}
+
 /* Células numéricas */
 .text-end {
     text-align: right;
+}
+
+/* Valores negativos e positivos */
+.text-negative {
+    color: #e74a3b;
+    font-weight: 600;
+}
+
+.text-positive {
+    color: #1cc88a;
+    font-weight: 600;
 }
 
 /* Células vazias */
@@ -81,6 +165,10 @@ tr.consolidado {
 }
 
 /* Filtros do DataTables */
+.dataTables_wrapper {
+    margin-top: 20px;
+}
+
 .dataTables_filter input {
     border-radius: 20px;
     padding: 5px 15px;
@@ -97,10 +185,34 @@ tr.consolidado {
     margin-bottom: 0;
 }
 
+.page-link {
+    color: #dc3545;
+}
+
+.page-item.active .page-link {
+    background-color: #dc3545;
+    border-color: #dc3545;
+}
+
 /* Informações da tabela */
 .dataTables_info {
     font-size: 0.875rem;
     color: #6c757d;
+}
+
+/* Ajustes para cards em telas pequenas */
+@media (max-width: 768px) {
+    .card {
+        margin-bottom: 1rem;
+    }
+    
+    .col-auto i {
+        font-size: 1.5rem!important;
+    }
+    
+    #cardTopNaturezas {
+        display: none!important;
+    }
 }
 
 /* Ajustes para impressão */
@@ -116,5 +228,21 @@ tr.consolidado {
     
     #tabelaDados {
         font-size: 10pt;
+    }
+    
+    .border-left-danger,
+    .border-left-info,
+    .border-left-warning,
+    .border-left-primary {
+        border-left: none!important;
+    }
+    
+    #cardTopNaturezas {
+        display: none !important;
+    }
+    
+    /* Garantir que o footer seja impresso */
+    #tabelaDados tfoot {
+        display: table-footer-group !important;
     }
 }
