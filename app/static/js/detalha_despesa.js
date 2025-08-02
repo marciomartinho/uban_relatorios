@@ -1,23 +1,22 @@
-// JavaScript para Detalha Conta Contábil Despesa
+// JavaScript para Detalha Conta Contábil Despesa - Versão DuckDB
 console.log('Arquivo detalha_despesa.js carregado');
 
 let tabelaDados = null;
 let dadosAtuais = [];
 let totaisGlobais = null;
-let temMaisRegistros = false;
 
 // Mapeamento de nomes de colunas
 const nomesColunas = {
     'mes': 'Mês',
     'nudocumento': 'Documento',
     'coevento': 'Evento',
+    'conatureza': 'Natureza',
     'cocontacorrente': 'Conta Corrente',
     'valancamento': 'Valor',
     'indebitocredito': 'D/C',
     'coug': 'UG',
     'dalancamento': 'Data',
     'tipo_lancamento': 'Tipo',
-    'conatureza': 'Natureza',
     'cofonte': 'Fonte',
     'couo': 'UO',
     'coprograma': 'Programa'
@@ -32,9 +31,29 @@ const ordemMeses = {
 // Inicialização
 $(document).ready(function() {
     console.log('Página carregada, iniciando...');
+    console.log('🦆 Usando dados do DuckDB local');
+    
+    // IMPORTANTE: Garantir que o modal está fechado ao carregar
+    setTimeout(function() {
+        $('#modalLoading').modal('hide');
+        $('.modal-backdrop').remove();
+        $('body').removeClass('modal-open');
+        $('body').css('overflow', 'auto');
+    }, 100);
+    
     carregarFiltros();
     configurarEventos();
 });
+
+// Função para mostrar erros
+function mostrarErro(elemento, mensagem) {
+    $(elemento).html(`
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <i class="bi bi-exclamation-triangle"></i> ${mensagem}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    `);
+}
 
 // Carregar opções dos filtros
 function carregarFiltros() {
@@ -53,7 +72,13 @@ function carregarFiltros() {
             $('#selectAno, #selectConta, #selectUG').prop('disabled', true);
         },
         success: function(data) {
-            console.log('Filtros carregados:', data);
+            console.log('✅ Filtros carregados com sucesso:', data);
+            
+            // Verificar se data existe
+            if (!data) {
+                console.error('❌ Resposta vazia da API');
+                return;
+            }
             
             // Anos
             $('#selectAno').empty().append('<option value="">Selecione o ano...</option>');
@@ -76,31 +101,32 @@ function carregarFiltros() {
             $('#selectUG').append('<option value="CONSOLIDADO">CONSOLIDADO</option>');
             if (data.ugs && data.ugs.length > 0) {
                 data.ugs.forEach(function(ug) {
-                    if (typeof ug === 'object') {
-                        $('#selectUG').append(`<option value="${ug.valor}">${ug.texto}</option>`);
-                    } else {
-                        $('#selectUG').append(`<option value="${ug}">${ug}</option>`);
-                    }
+                    $('#selectUG').append(`<option value="${ug}">${ug}</option>`);
                 });
             }
             
-            // Mostrar aviso sobre cache
-            if (data.cache_disponivel === false) {
-                console.warn('Cache não disponível. Considere executar scripts/otimizar_despesas.py');
+            // Adicionar badge indicando fonte local
+            if (data.fonte === 'DuckDB Local' && !$('#badgeLocal').length) {
+                $('h2').append(' <span id="badgeLocal" class="badge bg-danger ms-2">DuckDB Local</span>');
             }
             
             // Habilitar selects novamente
             $('#selectAno, #selectConta, #selectUG').prop('disabled', false);
         },
         error: function(xhr, textStatus, errorThrown) {
-            console.error('Erro ao carregar filtros:', textStatus, errorThrown);
-            console.error('Detalhes:', xhr);
+            console.error('❌ Erro ao carregar filtros:', textStatus, errorThrown);
+            console.error('Status:', xhr.status);
+            console.error('Response:', xhr.responseText);
             
             let erro = 'Erro desconhecido';
             if (textStatus === 'timeout') {
-                erro = 'Tempo limite excedido. Execute scripts/otimizar_despesas.py para melhorar performance.';
+                erro = 'Tempo limite excedido. A consulta está demorando muito.';
+            } else if (xhr.status === 500) {
+                erro = 'Erro no servidor. Verifique se o DuckDB está acessível.';
             } else if (xhr.responseJSON && xhr.responseJSON.erro) {
                 erro = xhr.responseJSON.erro;
+            } else if (xhr.responseText) {
+                erro = 'Erro no servidor: ' + xhr.responseText.substring(0, 200);
             }
             
             mostrarErro('#mensagemInicial', 'Erro ao carregar filtros: ' + erro);
@@ -156,7 +182,6 @@ function limparFiltros() {
     // Limpar variáveis globais
     dadosAtuais = [];
     totaisGlobais = null;
-    temMaisRegistros = false;
 }
 
 // Consultar dados
@@ -172,7 +197,7 @@ function consultarDados() {
     
     $('#modalLoading').modal('show');
     $('#mensagemInicial').hide();
-    $('#avisoLimite').hide(); // Esconder aviso de limite já que não há mais limite
+    $('#avisoLimite').hide();
     
     // Buscar totais primeiro
     $.ajax({
@@ -184,15 +209,44 @@ function consultarDados() {
             ug: ug
         },
         success: function(totais) {
+            console.log('✅ Totais carregados:', totais);
             totaisGlobais = totais;
             atualizarTotais(totais);
             mostrarTopNaturezas(totais.top_naturezas);
             
-            // Construir tabela (agora com server-side)
-            construirTabela([]); // Passa array vazio, dados virão do servidor
-            
-            $('#areaResultados').show();
-            $('#modalLoading').modal('hide');
+            // Buscar dados
+            $.ajax({
+                url: '/detalha-despesa/api/dados',
+                method: 'GET',
+                data: {
+                    ano: ano,
+                    conta: conta,
+                    ug: ug
+                },
+                success: function(response) {
+                    console.log('✅ Dados carregados:', response);
+                    dadosAtuais = response.dados;
+                    
+                    // Mostrar aviso se tem mais dados
+                    if (response.tem_mais) {
+                        $('#avisoLimite').show();
+                        $('#textoAvisoLimite').html(
+                            `<strong>Atenção:</strong> Mostrando ${response.total.toLocaleString('pt-BR')} de ${response.total_registros.toLocaleString('pt-BR')} registros. 
+                            Use a exportação para obter todos os dados.`
+                        );
+                    }
+                    
+                    construirTabela(dadosAtuais);
+                    $('#areaResultados').show();
+                    $('#modalLoading').modal('hide');
+                },
+                error: function(xhr) {
+                    $('#modalLoading').modal('hide');
+                    let erro = xhr.responseJSON ? xhr.responseJSON.erro : 'Erro desconhecido';
+                    mostrarErro('#divTabela', 'Erro ao consultar dados: ' + erro);
+                    $('#areaResultados').show();
+                }
+            });
         },
         error: function(xhr) {
             $('#modalLoading').modal('hide');
@@ -214,13 +268,6 @@ function atualizarTotais(totais) {
     
     const totalLancamentos = totais.credito.quantidade + totais.debito.quantidade;
     $('#totalLancamentos').text(totalLancamentos.toLocaleString('pt-BR'));
-    
-    // Mostrar informação sobre limite
-    if (temMaisRegistros) {
-        $('#infoLimite').html('<i class="bi bi-exclamation-triangle"></i> Limitado a 1.000');
-    } else {
-        $('#infoLimite').text('');
-    }
     
     // Mostrar fórmula do saldo baseado na conta
     const conta = $('#selectConta').val();
@@ -295,8 +342,49 @@ function construirTabela(dados) {
     html += '<th>UG</th>';
     html += '<th>Data</th>';
     html += '<th>Tipo</th>';
-    html += '</tr></thead>';
-    html += '</table>';
+    html += '</tr></thead><tbody>';
+    
+    // Adicionar dados
+    dados.forEach(function(row) {
+        html += '<tr>';
+        
+        // Mês
+        html += `<td data-order="${row.mes}">${formatarMes(row.mes)}</td>`;
+        
+        // Documento
+        html += `<td>${row.nudocumento || '-'}</td>`;
+        
+        // Evento
+        html += `<td>${row.coevento || '-'}</td>`;
+        
+        // Natureza
+        html += `<td><span class="natureza-cell">${row.conatureza || '-'}</span></td>`;
+        
+        // Conta Corrente - SEM TRUNCAMENTO
+        html += `<td class="text-nowrap">${row.cocontacorrente || '-'}</td>`;
+        
+        // Valor
+        let valor = formatarNumero(row.valancamento);
+        let classeValor = row.tipo_lancamento === 'CREDITO' ? 'text-positive' : 'text-negative';
+        html += `<td class="text-end ${classeValor}">${valor}</td>`;
+        
+        // D/C
+        html += `<td class="text-center">${row.indebitocredito || '-'}</td>`;
+        
+        // UG
+        html += `<td>${row.coug || '-'}</td>`;
+        
+        // Data
+        html += `<td>${row.dalancamento || '-'}</td>`;
+        
+        // Tipo
+        let classeTipo = row.tipo_lancamento === 'CREDITO' ? 'badge-credito' : 'badge-debito';
+        html += `<td><span class="badge ${classeTipo}">${row.tipo_lancamento || '-'}</span></td>`;
+        
+        html += '</tr>';
+    });
+    
+    html += '</tbody></table>';
     
     $('#divTabela').html(html);
     
@@ -304,92 +392,22 @@ function construirTabela(dados) {
         tabelaDados.destroy();
     }
     
-    // Inicializar DataTable com server-side processing
+    // Inicializar DataTable
     tabelaDados = $('#tabelaDados').DataTable({
-        processing: true,
-        serverSide: true,
-        ajax: {
-            url: '/detalha-despesa/api/dados-paginados',
-            type: 'POST',
-            data: function(d) {
-                d.ano = $('#selectAno').val();
-                d.conta = $('#selectConta').val();
-                d.ug = $('#selectUG').val();
-            },
-            error: function(xhr, error, thrown) {
-                console.error('Erro ao carregar dados:', error);
-                alert('Erro ao carregar dados. Verifique o console.');
-            }
-        },
         pageLength: 25,
-        lengthMenu: [[10, 25, 50, 100, 500], [10, 25, 50, 100, 500]],
-        order: [[0, 'asc'], [8, 'asc']], // Ordenar por mês e data
+        lengthMenu: [[10, 25, 50, 100, 500, -1], [10, 25, 50, 100, 500, "Todos"]],
         language: {
-            processing: "Processando...",
-            search: "Buscar:",
-            lengthMenu: "Mostrar _MENU_ registros por página",
-            info: "Mostrando _START_ até _END_ de _TOTAL_ registros",
-            infoEmpty: "Mostrando 0 até 0 de 0 registros",
-            infoFiltered: "(filtrado de _MAX_ registros no total)",
-            loadingRecords: "Carregando...",
-            zeroRecords: "Nenhum registro encontrado",
-            emptyTable: "Nenhum dado disponível na tabela",
-            paginate: {
-                first: "Primeiro",
-                previous: "Anterior",
-                next: "Próximo",
-                last: "Último"
-            }
+            url: '//cdn.datatables.net/plug-ins/1.13.7/i18n/pt-BR.json'
         },
-        columns: [
-            { 
-                data: 0,
-                render: function(data) {
-                    return formatarMes(data);
-                }
+        order: [[0, 'asc'], [8, 'asc']], // Ordenar por mês e data
+        columnDefs: [
+            {
+                targets: 0, // Coluna do mês
+                type: 'num'
             },
-            { data: 1 }, // Documento
-            { data: 2 }, // Evento
-            { 
-                data: 3,
-                render: function(data) {
-                    if (data && data !== '-') {
-                        return '<span class="natureza-cell">' + data + '</span>';
-                    }
-                    return '-';
-                }
-            },
-            { 
-                data: 4, // Conta Corrente - SEM TRUNCAMENTO!
-                className: 'text-nowrap',
-                render: function(data) {
-                    return data || '-';
-                }
-            },
-            { 
-                data: 5,
-                className: 'text-end',
-                render: function(data, type, row) {
-                    if (type === 'display') {
-                        let valor = formatarNumero(data);
-                        let classe = row[9] === 'CREDITO' ? 'text-positive' : 'text-negative';
-                        return '<span class="' + classe + '">' + valor + '</span>';
-                    }
-                    return data;
-                }
-            },
-            { 
-                data: 6,
-                className: 'text-center'
-            },
-            { data: 7 }, // UG
-            { data: 8 }, // Data
-            { 
-                data: 9,
-                render: function(data) {
-                    let classe = data === 'CREDITO' ? 'badge-credito' : 'badge-debito';
-                    return '<span class="badge ' + classe + '">' + data + '</span>';
-                }
+            {
+                targets: 5, // Coluna de valor
+                type: 'num-fmt'
             }
         ],
         drawCallback: function(settings) {
@@ -404,6 +422,59 @@ function construirTabela(dados) {
             
             // Inicializar tooltips
             $('[data-bs-toggle="tooltip"]').tooltip();
+        },
+        initComplete: function() {
+            // Adicionar filtros nas colunas específicas
+            this.api().columns().every(function(index) {
+                var column = this;
+                
+                // Adicionar filtros apenas nas colunas: Mês, Documento, Evento, Natureza
+                if (index === 0 || index === 1 || index === 2 || index === 3 || index === 4) {
+                    var select = $('<select class="form-select form-select-sm mt-1"><option value="">Todos</option></select>')
+                        .appendTo($(column.header()))
+                        .on('change', function() {
+                            var val = $.fn.dataTable.util.escapeRegex($(this).val());
+                            column.search(val ? '^' + val + '$' : '', true, false).draw();
+                        })
+                        .on('click', function(e) {
+                            e.stopPropagation();
+                        });
+                    
+                    // Coletar valores únicos
+                    var valores = [];
+                    column.data().unique().each(function(d) {
+                        if (d && d !== '-') {
+                            valores.push(d);
+                        }
+                    });
+                    
+                    // Ordenar valores
+                    if (index === 0) { // Se for a coluna de mês
+                        valores.sort(function(a, b) {
+                            return parseInt(a) - parseInt(b); // Ordenar numericamente
+                        });
+                    } else {
+                        valores.sort(); // Ordenar alfabeticamente para outras colunas
+                    }
+                    
+                    // Adicionar valores ao select
+                    valores.forEach(function(d) {
+                        let displayText = d;
+                        if (index === 0) { // Se for a coluna de mês
+                            displayText = formatarMes(d);
+                        }
+                        select.append('<option value="' + d + '">' + displayText + '</option>');
+                    });
+                }
+            });
+            
+            // Forçar fechamento do modal após construir a tabela
+            setTimeout(function() {
+                $('#modalLoading').modal('hide');
+                $('.modal-backdrop').remove();
+                $('body').removeClass('modal-open');
+                $('body').css('overflow', 'auto');
+            }, 500);
         }
     });
 }
@@ -440,7 +511,7 @@ function formatarMoeda(valor) {
     }).format(valor);
 }
 
-// Exportar para Excel
+// Exportar para Excel melhorado
 function exportarExcel() {
     const ano = $('#selectAno').val();
     const conta = $('#selectConta').val();
@@ -451,10 +522,10 @@ function exportarExcel() {
         return;
     }
     
-    // Mostrar modal de loading
+    // Mostrar loading
     $('#modalLoading').modal('show');
     
-    // Buscar TODOS os dados (sem limite) para exportação
+    // Buscar TODOS os dados (sem limite)
     $.ajax({
         url: '/detalha-despesa/api/dados',
         method: 'GET',
@@ -462,9 +533,11 @@ function exportarExcel() {
             ano: ano,
             conta: conta,
             ug: ug,
-            limite: 999999  // Limite muito alto para pegar todos os dados
+            limite: 999999  // Pegar todos os registros
         },
         success: function(response) {
+            console.log(`📊 Exportando ${response.dados.length} registros...`);
+            
             let csv = [];
             
             // Cabeçalho
@@ -495,15 +568,11 @@ function exportarExcel() {
                 csv.push(''); // Linha vazia
                 csv.push(['RESUMO'].join(';'));
                 csv.push(['Tipo', 'Quantidade', 'Valor Total'].join(';'));
-                csv.push(['Créditos', totaisGlobais.credito.quantidade, totaisGlobais.credito.total.toFixed(2).replace('.', ',')].join(';'));
-                csv.push(['Débitos', totaisGlobais.debito.quantidade, totaisGlobais.debito.total.toFixed(2).replace('.', ',')].join(';'));
+                csv.push(['Créditos', totaisGlobais.credito.quantidade.toLocaleString('pt-BR'), totaisGlobais.credito.total.toFixed(2).replace('.', ',')].join(';'));
+                csv.push(['Débitos', totaisGlobais.debito.quantidade.toLocaleString('pt-BR'), totaisGlobais.debito.total.toFixed(2).replace('.', ',')].join(';'));
                 
-                const conta = $('#selectConta').val();
-                if (conta && conta.startsWith('5')) {
-                    csv.push(['Saldo (D-C)', '', totaisGlobais.saldo.toFixed(2).replace('.', ',')].join(';'));
-                } else {
-                    csv.push(['Saldo (C-D)', '', totaisGlobais.saldo.toFixed(2).replace('.', ',')].join(';'));
-                }
+                const formulaSaldo = conta.startsWith('5') ? 'Saldo (D-C)' : 'Saldo (C-D)';
+                csv.push([formulaSaldo, '', totaisGlobais.saldo.toFixed(2).replace('.', ',')].join(';'));
                 
                 // Adicionar top naturezas se existir
                 if (totaisGlobais.top_naturezas && totaisGlobais.top_naturezas.length > 0) {
@@ -511,7 +580,7 @@ function exportarExcel() {
                     csv.push(['TOP 5 NATUREZAS DE DESPESA'].join(';'));
                     csv.push(['Natureza', 'Quantidade', 'Valor Total'].join(';'));
                     totaisGlobais.top_naturezas.forEach(function(nat) {
-                        csv.push([nat.natureza, nat.quantidade, nat.total.toFixed(2).replace('.', ',')].join(';'));
+                        csv.push([nat.natureza, nat.quantidade.toLocaleString('pt-BR'), nat.total.toFixed(2).replace('.', ',')].join(';'));
                     });
                 }
             }
@@ -519,6 +588,7 @@ function exportarExcel() {
             // Adicionar informação sobre total de registros
             csv.push(''); // Linha vazia
             csv.push([`Total de registros exportados: ${response.dados.length.toLocaleString('pt-BR')}`].join(';'));
+            csv.push([`Fonte: ${response.fonte || 'DuckDB Local'}`].join(';'));
             
             // Criar arquivo
             let csvContent = '\ufeff' + csv.join('\n');
@@ -527,7 +597,7 @@ function exportarExcel() {
             let url = URL.createObjectURL(blob);
             
             link.setAttribute('href', url);
-            link.setAttribute('download', `detalha_despesa_${$('#selectAno').val()}_${$('#selectConta').val()}_${$('#selectUG').val()}.csv`);
+            link.setAttribute('download', `detalha_despesa_${ano}_${conta}_${ug}.csv`);
             link.style.visibility = 'hidden';
             
             document.body.appendChild(link);
@@ -536,12 +606,13 @@ function exportarExcel() {
             
             $('#modalLoading').modal('hide');
             
-            // Mostrar mensagem de sucesso
-            alert(`Exportação concluída! ${response.dados.length.toLocaleString('pt-BR')} registros exportados.`);
+            // Mensagem de sucesso
+            alert(`✅ Exportação concluída!\n\n📊 Total exportado: ${response.dados.length.toLocaleString('pt-BR')} registros`);
         },
         error: function(xhr) {
             $('#modalLoading').modal('hide');
-            alert('Erro ao exportar dados. Tente novamente.');
+            alert('❌ Erro ao exportar dados. Tente novamente.');
+            console.error('Erro na exportação:', xhr);
         }
     });
 }
