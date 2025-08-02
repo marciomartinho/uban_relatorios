@@ -1,0 +1,167 @@
+/* Estilos específicos para Detalha Conta Contábil Receita */
+
+/* Cards de Totais */
+.border-left-success {
+    border-left: 0.25rem solid #1cc88a!important;
+}
+
+.border-left-danger {
+    border-left: 0.25rem solid #e74a3b!important;
+}
+
+.border-left-primary {
+    border-left: 0.25rem solid #4e73df!important;
+}
+
+.border-left-info {
+    border-left: 0.25rem solid #36b9cc!important;
+}
+
+.text-xs {
+    font-size: .7rem;
+}
+
+.font-weight-bold {
+    font-weight: 700!important;
+}
+
+.text-gray-800 {
+    color: #5a5c69!important;
+}
+
+/* Tabela customizada */
+#tabelaDados {
+    font-size: 0.85rem;
+}
+
+#tabelaDados thead th {
+    background-color: #f8f9fa;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    white-space: nowrap;
+    font-weight: 600;
+    border-bottom: 2px solid #dee2e6;
+    vertical-align: top;
+    padding-top: 8px;
+}
+
+/* Filtros nas colunas */
+#tabelaDados thead th select {
+    width: 100%;
+    margin-top: 5px;
+    font-weight: normal;
+    font-size: 0.8rem;
+}
+
+#tabelaDados tbody tr:hover {
+    background-color: rgba(0, 123, 255, 0.05);
+}
+
+/* Células numéricas */
+.text-end {
+    text-align: right;
+}
+
+/* Tipo de lançamento */
+.badge-debito {
+    background-color: #e74a3b;
+    color: white;
+}
+
+.badge-credito {
+    background-color: #1cc88a;
+    color: white;
+}
+
+/* Células com valores negativos */
+.text-negative {
+    color: #e74a3b;
+}
+
+/* Células com valores positivos */
+.text-positive {
+    color: #1cc88a;
+}
+
+/* Responsividade da tabela */
+.table-responsive {
+    max-height: 600px;
+    overflow: auto;
+}
+
+/* Tooltips customizados */
+.tooltip-inner {
+    max-width: 300px;
+    text-align: left;
+}
+
+/* Botões de exportação */
+.btn-sm {
+    padding: 0.25rem 0.75rem;
+    font-size: 0.875rem;
+}
+
+/* Loading overlay para tabela */
+.table-loading {
+    position: relative;
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+/* Filtros do DataTables */
+.dataTables_filter input {
+    border-radius: 20px;
+    padding: 5px 15px;
+    border: 1px solid #ced4da;
+}
+
+.dataTables_length select {
+    border-radius: 5px;
+    padding: 5px;
+}
+
+/* Paginação */
+.dataTables_paginate .pagination {
+    margin-bottom: 0;
+}
+
+/* Informações da tabela */
+.dataTables_info {
+    font-size: 0.875rem;
+    color: #6c757d;
+}
+
+/* Ajustes para cards em telas pequenas */
+@media (max-width: 768px) {
+    .card {
+        margin-bottom: 1rem;
+    }
+    
+    .col-auto i {
+        font-size: 1.5rem!important;
+    }
+}
+
+/* Ajustes para impressão */
+@media print {
+    .card {
+        border: none !important;
+        box-shadow: none !important;
+    }
+    
+    .btn, .dataTables_filter, .dataTables_length, .dataTables_paginate {
+        display: none !important;
+    }
+    
+    #tabelaDados {
+        font-size: 10pt;
+    }
+    
+    .border-left-success,
+    .border-left-danger,
+    .border-left-primary,
+    .border-left-info {
+        border-left: none!important;
+    }
+}

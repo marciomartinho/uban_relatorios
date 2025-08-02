@@ -70,6 +70,16 @@ Sistema web desenvolvido em Python/Flask para gerenciamento e geração de relat
     - Funciona com 560k+ registros sem travar
     - Ordenação por mês (Janeiro a Dezembro)
     - Esfera mostra número do banco (não texto)
+14. **Interface Web - Detalha Conta Contábil Receita**: ✅ NOVO!
+    - Página totalmente funcional para análise detalhada de lançamentos
+    - Filtros: Ano, Conta Contábil e UG Contábil (com opção CONSOLIDADO)
+    - Cards de resumo: Total Créditos, Total Débitos, Saldo e Total de Lançamentos
+    - Saldo calculado dinamicamente: contas 5* (Débito-Crédito), contas 6* (Crédito-Débito)
+    - Tabela detalhada com colunas: Mês, Documento, Evento, Conta Corrente, Valor, D/C, UG, Data, Tipo
+    - Filtros tipo Excel nas colunas: Mês, Documento, Evento e Conta Corrente
+    - Ordenação por mês e depois por data
+    - Exportação para CSV com resumo no final
+    - Valores coloridos: verde para créditos, vermelho para débitos
 
 ### 🚀 Sistema de Cache
 - **Tabela**: `public.cache_filtros_despesa`
@@ -79,10 +89,11 @@ Sistema web desenvolvido em Python/Flask para gerenciamento e geração de relat
 
 ### ⏳ Em Andamento
 - Carregamento inicial de DespesaLancamento (tabela criada, aguardando processamento)
+- Interface Web - Detalha Conta Contábil Despesa (próxima etapa)
 
 ### 📋 Próximas Etapas
 - Completar carga inicial de DespesaLancamento
-- Criar páginas de consulta para lançamentos (Receita e Despesa)
+- Criar página Detalha Conta Contábil Despesa (similar à de Receita)
 - Desenvolver dashboards com gráficos
 - Implementar relatórios PDF
 - Sistema de autenticação
@@ -299,14 +310,28 @@ relatorios_uban/
 │   ├── routes/            # Blueprints de rotas
 │   │   ├── main.py        # Rotas principais
 │   │   ├── saldo_receita.py  # Página de receitas
-│   │   └── saldo_despesa.py  # Página de despesas
+│   │   ├── saldo_despesa.py  # Página de despesas
+│   │   └── detalha_receita.py # Página detalha conta contábil receita ✅ NOVO!
 │   ├── static/            # Assets estáticos
 │   │   ├── css/          # Arquivos CSS
+│   │   │   ├── base.css
+│   │   │   ├── saldo_receita.css
+│   │   │   ├── saldo_despesa.css
+│   │   │   └── detalha_receita.css ✅ NOVO!
 │   │   └── js/           # Arquivos JavaScript
+│   │       ├── base.js
+│   │       ├── saldo_receita.js
+│   │       ├── saldo_despesa.js
+│   │       └── detalha_receita.js ✅ NOVO!
 │   ├── templates/         # Templates HTML (Jinja2)
-│   │   ├── base.html     # Template base
+│   │   ├── base.html     # Template base (atualizado com novo menu)
+│   │   ├── home.html
 │   │   ├── saldo_receita/ # Templates de receita
-│   │   └── saldo_despesa/ # Templates de despesa
+│   │   │   └── consulta_saldo_receita.html
+│   │   ├── saldo_despesa/ # Templates de despesa
+│   │   │   └── consulta_saldo_despesa.html
+│   │   └── detalha_receita/ # Templates detalha receita ✅ NOVO!
+│   │       └── consulta_detalha_receita.html
 │   └── modules/           # Módulos reutilizáveis
 │       ├── database.py    # Conexão e helpers do banco
 │       ├── etl_receita_saldo.py      # ETL de receitas saldo
@@ -325,7 +350,8 @@ relatorios_uban/
 │   ├── load_despesa_lancamento.py            # Carga inicial despesas lançamento ✅ NOVO!
 │   ├── load_despesa_lancamento_incremental.py # Carga incremental despesas lançamento ✅ NOVO!
 │   ├── otimizar_despesas.py                  # Otimização completa (cache + índices)
-│   └── inspect_despesa_lancamento.py         # Inspeção de estrutura ✅ NOVO!
+│   ├── inspect_despesa_lancamento.py         # Inspeção de estrutura ✅ NOVO!
+│   └── inspect_campos_lancamentos.py         # Inspeção campos das tabelas lançamento ✅ NOVO!
 ```
 
 ### 3. Configuração do Banco de Dados
@@ -391,6 +417,44 @@ A tabela `receitas.fato_receita_lancamento` possui:
 - **Documentos**: Campo NUDOCUMENTO identifica cada lançamento
 - **Parse completo**: Suporta contas de 17, 38 e 40 caracteres
 
+### Campos da Tabela receitas.fato_receita_lancamento
+```sql
+-- Campos principais
+1. coexercicio (integer NOT NULL) - Ano do exercício
+2. coug (integer NOT NULL) - Código da UG
+3. nudocumento (varchar(20) NOT NULL) - Número do documento
+4. nulancamento (integer NOT NULL) - Número do lançamento
+5. coevento (integer) - Código do evento
+6. cocontacontabil (bigint) - Conta contábil
+7. cocontacorrente (varchar(50)) - Conta corrente (17, 38 ou 40 chars)
+8. inmes (integer) - Mês do lançamento
+9. dalancamento (date) - Data do lançamento (ATENÇÃO: nome é dalancamento, não dtlancamento)
+10. valancamento (numeric) - Valor do lançamento
+11. indebitocredito (varchar(1)) - Indicador D/C
+12. cougcontab (integer) - UG contábil (usado no filtro da página)
+13. tipo_lancamento (varchar(10)) - DEBITO ou CREDITO
+
+-- Campos derivados do parse de cocontacorrente
+14-26. Campos de 17 chars (classificação orçamentária)
+27-39. Campos de 38 chars (natureza despesa)
+40. cosubelemento (varchar(2)) - Para contas de 40 chars
+
+-- Campos de controle
+41. periodo (varchar(7)) - Período no formato YYYY-MM
+42. data_carga (timestamp) - Data/hora da carga
+```
+
+### ⚠️ IMPORTANTE - Erros Comuns e Como Resolver
+
+1. **Nome do campo de data**: O campo é `dalancamento` (com apenas um 'l'), NÃO `dtlancamento`
+2. **UG vs UG Contábil**: 
+   - No filtro da página usar: `cougcontab` (UG Contábil)
+   - Na tabela mostrar: `coug` (UG)
+3. **Cálculo do Saldo**:
+   - Contas começando com 5: Saldo = Débitos - Créditos
+   - Contas começando com 6: Saldo = Créditos - Débitos
+4. **Ordem de exibição**: Primeiro por mês (numérico), depois por data
+
 ## ETL DespesaLancamento - Detalhamento ✅ NOVO!
 
 ### Estrutura da Tabela
@@ -407,6 +471,59 @@ A tabela `despesas.fato_despesa_lancamento` possui:
 2. **Otimização para grandes volumes**: Leitura completa + processamento em chunks
 3. **Índices específicos**: Adicionados em `conatureza` e `coevento` para performance
 4. **Validação de tamanhos**: Log da distribuição de tamanhos de COCONTACORRENTE
+
+## Interface Web - Detalha Conta Contábil Receita ✅ NOVO!
+
+### Arquivos Criados
+1. **app/routes/detalha_receita.py** - Blueprint com 3 rotas:
+   - `/consulta` - Página principal
+   - `/api/filtros` - Retorna valores únicos para os filtros
+   - `/api/dados` - Retorna lançamentos filtrados
+   - `/api/totais` - Retorna totais de débito/crédito e saldo
+
+2. **app/templates/detalha_receita/consulta_detalha_receita.html**:
+   - Layout com cards de resumo no topo
+   - Tabela detalhada dos lançamentos
+   - Modal de loading
+
+3. **app/static/css/detalha_receita.css**:
+   - Estilos para cards coloridos
+   - Classes para valores positivos/negativos
+   - Badges para tipo de lançamento
+
+4. **app/static/js/detalha_receita.js**:
+   - Carregamento dinâmico de filtros
+   - Construção da tabela com DataTables
+   - Filtros tipo Excel nas colunas
+   - Exportação para CSV
+
+### Integração no Sistema
+1. **Atualização do base.html**:
+   - Novo menu dropdown "Detalha Conta Contábil"
+   - Submenu para Receita (funcional)
+   - Submenu para Despesa (desabilitado temporariamente)
+
+2. **Registro no __init__.py**:
+   ```python
+   from app.routes.detalha_receita import detalha_receita
+   app.register_blueprint(detalha_receita, url_prefix='/detalha-receita')
+   ```
+
+### Funcionalidades Implementadas
+- **Filtros**: Ano, Conta Contábil, UG Contábil (com opção CONSOLIDADO)
+- **Cards de Resumo**: Total Créditos, Total Débitos, Saldo, Total de Lançamentos
+- **Fórmula do Saldo**: Mostra dinamicamente (D-C) ou (C-D) baseado na conta
+- **Tabela**: Mês, Documento, Evento, Conta Corrente, Valor, D/C, UG, Data, Tipo
+- **Filtros nas Colunas**: Mês, Documento, Evento e Conta Corrente
+- **Ordenação**: Por mês (numérico) e depois por data
+- **Cores**: Verde para créditos, vermelho para débitos
+- **Exportação**: CSV com resumo dos totais no final
+
+### Possíveis Problemas e Soluções
+1. **Erro de sintaxe JavaScript**: Verificar final do arquivo, sem caracteres extras
+2. **Campos não encontrados**: Usar `dalancamento` em vez de `dtlancamento`
+3. **Filtros não carregam**: Verificar se as queries SQL estão corretas
+4. **Performance**: Considerar limitar resultados ou implementar paginação server-side
 
 ## Scripts de Manutenção
 
@@ -428,6 +545,7 @@ load_despesa_lancamento.py        # Carga inicial de despesa lançamento ✅ NOV
 # Inspeção de arquivos
 inspect_receita_lancamento.py     # Analisa estrutura de arquivo de receita
 inspect_despesa_lancamento.py     # Analisa estrutura de arquivo de despesa ✅ NOVO!
+inspect_campos_lancamentos.py     # Lista campos das tabelas de lançamento ✅ NOVO!
 ```
 
 ### Scripts Removidos (já executados)
@@ -492,6 +610,9 @@ python scripts/inspect_despesa_lancamento.py
 
 # Carregar dados iniciais (se necessário)
 python scripts/load_despesa_lancamento.py
+
+# Inspecionar campos das tabelas
+python scripts/inspect_campos_lancamentos.py
 ```
 
 ## Próximos Passos Recomendados
@@ -501,11 +622,10 @@ python scripts/load_despesa_lancamento.py
    - Validar dados carregados
    - Testar performance com 1M+ registros
 
-2. **Criar páginas de consulta para lançamentos**:
-   - Interface para ReceitaLancamento
-   - Interface para DespesaLancamento
-   - Filtros por documento, período, tipo
-   - Considerar paginação para grandes volumes
+2. **Criar página Detalha Conta Contábil Despesa**:
+   - Copiar estrutura da página de Receita
+   - Ajustar queries para tabela `despesas.fato_despesa_lancamento`
+   - Considerar paginação server-side devido ao volume
 
 3. **Criar tabelas dimensão**:
    - Dimensão Fonte (cofonte)
@@ -534,6 +654,7 @@ python scripts/load_despesa_lancamento.py
 - Dados sensíveis (financeiros/patrimoniais) - atenção à segurança
 - **SEMPRE atualizar o cache após cargas incrementais!**
 - **SEMPRE fechar o Excel antes de processar arquivos!**
+- **Campo de data é `dalancamento`, NÃO `dtlancamento`!**
 
 ## Contexto de Negócio
 Sistema para gestão de relatórios organizacionais com foco em:

@@ -61,6 +61,28 @@
                         </ul>
                     </li>
                     
+                    <!-- Menu Detalha Conta Contábil com submenu -->
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" 
+                           data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-journal-text"></i> Detalha Conta Contábil
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li>
+                                <a class="dropdown-item {% if request.endpoint == 'detalha_receita.consulta' %}active{% endif %}" 
+                                   href="{{ url_for('detalha_receita.consulta') }}">
+                                    <i class="bi bi-file-earmark-plus"></i> Detalha Conta Contábil Receita
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item disabled" 
+                                   href="#">
+                                    <i class="bi bi-file-earmark-minus"></i> Detalha Conta Contábil Despesa (Em breve)
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+                    
                     <li class="nav-item">
                         <a class="nav-link {% if request.endpoint == 'main.sobre' %}active{% endif %}" 
                            href="{{ url_for('main.sobre') }}">

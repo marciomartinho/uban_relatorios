@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/detalha_receita.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h2 class="mb-4">
+        <i class="bi bi-file-earmark-plus text-success"></i> Detalha Conta Contábil Receita
+    </h2>
+    
+    <!-- Filtros -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">
+                <i class="bi bi-funnel"></i> Filtros de Pesquisa
+            </h5>
+        </div>
+        <div class="card-body">
+            <form id="formFiltros">
+                <div class="row">
+                    <div class="col-md-3 mb-3">
+                        <label for="selectAno" class="form-label">Ano</label>
+                        <select class="form-select" id="selectAno" name="ano" required>
+                            <option value="">Selecione o ano...</option>
+                        </select>
+                    </div>
+                    
+                    <div class="col-md-4 mb-3">
+                        <label for="selectConta" class="form-label">Conta Contábil</label>
+                        <select class="form-select" id="selectConta" name="conta" required>
+                            <option value="">Selecione a conta...</option>
+                        </select>
+                    </div>
+                    
+                    <div class="col-md-3 mb-3">
+                        <label for="selectUG" class="form-label">UG Contábil</label>
+                        <select class="form-select" id="selectUG" name="ug" required>
+                            <option value="">Selecione a UG Contábil...</option>
+                            <option value="CONSOLIDADO">CONSOLIDADO</option>
+                        </select>
+                    </div>
+                    
+                    <div class="col-md-2 mb-3">
+                        <label class="form-label">&nbsp;</label>
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-search"></i> Consultar
+                            </button>
+                            <button type="button" class="btn btn-secondary" id="btnLimpar">
+                                <i class="bi bi-eraser"></i> Limpar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Área de Resultados -->
+    <div id="areaResultados" style="display: none;">
+        <!-- Cards de Totais -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card border-left-success shadow">
+                    <div class="card-body">
+                        <div class="row no-gutters align-items-center">
+                            <div class="col mr-2">
+                                <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                    Total Créditos
+                                </div>
+                                <div class="h5 mb-0 font-weight-bold text-gray-800" id="totalCreditos">
+                                    R$ 0,00
+                                </div>
+                                <div class="text-muted small" id="qtdCreditos">0 lançamentos</div>
+                            </div>
+                            <div class="col-auto">
+                                <i class="bi bi-arrow-up-circle text-success" style="font-size: 2rem;"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-3">
+                <div class="card border-left-danger shadow">
+                    <div class="card-body">
+                        <div class="row no-gutters align-items-center">
+                            <div class="col mr-2">
+                                <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">
+                                    Total Débitos
+                                </div>
+                                <div class="h5 mb-0 font-weight-bold text-gray-800" id="totalDebitos">
+                                    R$ 0,00
+                                </div>
+                                <div class="text-muted small" id="qtdDebitos">0 lançamentos</div>
+                            </div>
+                            <div class="col-auto">
+                                <i class="bi bi-arrow-down-circle text-danger" style="font-size: 2rem;"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-3">
+                <div class="card border-left-primary shadow">
+                    <div class="card-body">
+                        <div class="row no-gutters align-items-center">
+                            <div class="col mr-2">
+                                <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                    Saldo
+                                </div>
+                                <div class="h5 mb-0 font-weight-bold text-gray-800" id="saldoTotal">
+                                    R$ 0,00
+                                </div>
+                                <div class="text-muted small" id="formulaSaldo"></div>
+                            </div>
+                            <div class="col-auto">
+                                <i class="bi bi-calculator text-primary" style="font-size: 2rem;"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-3">
+                <div class="card border-left-info shadow">
+                    <div class="card-body">
+                        <div class="row no-gutters align-items-center">
+                            <div class="col mr-2">
+                                <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                    Total de Lançamentos
+                                </div>
+                                <div class="h5 mb-0 font-weight-bold text-gray-800" id="totalLancamentos">
+                                    0
+                                </div>
+                            </div>
+                            <div class="col-auto">
+                                <i class="bi bi-journal-text text-info" style="font-size: 2rem;"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Tabela de Resultados -->
+        <div class="card shadow-sm">
+            <div class="card-header bg-light">
+                <div class="row align-items-center">
+                    <div class="col">
+                        <h5 class="mb-0">
+                            <i class="bi bi-table"></i> Lançamentos Detalhados
+                        </h5>
+                    </div>
+                    <div class="col-auto">
+                        <button type="button" class="btn btn-sm btn-success" id="btnExportar">
+                            <i class="bi bi-download"></i> Exportar Excel
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                <div id="divTabela" class="table-responsive">
+                    <!-- Tabela será inserida aqui via JavaScript -->
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Mensagem inicial -->
+    <div id="mensagemInicial" class="text-center py-5">
+        <i class="bi bi-info-circle text-muted" style="font-size: 3rem;"></i>
+        <p class="text-muted mt-3">
+            Selecione os filtros acima e clique em "Consultar" para visualizar os lançamentos detalhados.
+        </p>
+    </div>
+</div>
+
+<!-- Modal de Loading -->
+<div class="modal fade" id="modalLoading" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content">
+            <div class="modal-body text-center py-4">
+                <div class="spinner-border text-primary mb-3" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+                <p class="mb-0">Carregando dados...</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/detalha_receita.js') }}"></script>
+{% endblock %}

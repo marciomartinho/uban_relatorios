@@ -23,6 +23,9 @@ def create_app(config_name='default'):
     
     from app.routes.saldo_despesa import saldo_despesa as saldo_despesa_blueprint
     app.register_blueprint(saldo_despesa_blueprint, url_prefix='/saldo-despesa')
+
+    from app.routes.detalha_receita import detalha_receita
+    app.register_blueprint(detalha_receita, url_prefix='/detalha-receita')
     
     # Registrar filtros customizados para o Jinja2
     @app.template_filter('formato_moeda')
