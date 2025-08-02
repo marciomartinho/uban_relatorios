@@ -26,13 +26,33 @@ const ordemMeses = {
 // Inicialização
 $(document).ready(function() {
     console.log('Página carregada, iniciando...');
+    
+    // IMPORTANTE: Garantir que o modal está fechado ao carregar a página
+    setTimeout(function() {
+        $('#modalLoading').modal('hide');
+        $('.modal-backdrop').remove();
+        $('body').removeClass('modal-open');
+        $('body').css('overflow', 'auto');
+    }, 100);
+    
     carregarFiltros();
     configurarEventos();
 });
 
+// Função para mostrar erros
+function mostrarErro(elemento, mensagem) {
+    $(elemento).html(`
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <i class="bi bi-exclamation-triangle"></i> ${mensagem}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    `);
+}
+
 // Carregar opções dos filtros
 function carregarFiltros() {
     console.log('Iniciando carregamento de filtros...');
+    console.log('🦆 Usando dados do DuckDB local');
     
     const url = '/detalha-receita/api/filtros';
     console.log('URL da API:', url);
@@ -47,7 +67,14 @@ function carregarFiltros() {
             $('#selectAno, #selectConta, #selectUG').prop('disabled', true);
         },
         success: function(data) {
-            console.log('Filtros carregados:', data);
+            console.log('✅ Filtros carregados com sucesso:', data);
+            
+            // Verificar se data existe
+            if (!data) {
+                console.error('❌ Resposta vazia da API');
+                $('#modalLoading').modal('hide');
+                return;
+            }
             
             // Anos
             $('#selectAno').empty().append('<option value="">Selecione o ano...</option>');
@@ -74,20 +101,40 @@ function carregarFiltros() {
                 });
             }
             
+            // Adicionar badge indicando fonte local
+            if (data.fonte === 'DuckDB Local' && !$('#badgeLocal').length) {
+                $('h2').append(' <span id="badgeLocal" class="badge bg-info ms-2">DuckDB Local</span>');
+            }
+            
             // Habilitar selects novamente
             $('#selectAno, #selectConta, #selectUG').prop('disabled', false);
+            
+            // Fechar modal de loading se estiver aberto
+            $('#modalLoading').modal('hide');
+            $('.modal-backdrop').remove();
         },
         error: function(xhr, textStatus, errorThrown) {
-            console.error('Erro ao carregar filtros:', textStatus, errorThrown);
-            console.error('Detalhes:', xhr);
+            console.error('❌ Erro ao carregar filtros:', textStatus, errorThrown);
+            console.error('Status:', xhr.status);
+            console.error('Response:', xhr.responseText);
+            console.error('Detalhes completos:', xhr);
+            
+            // IMPORTANTE: Fechar o modal de loading em caso de erro
+            $('#modalLoading').modal('hide');
+            $('.modal-backdrop').remove();
             
             let erro = 'Erro desconhecido';
             if (textStatus === 'timeout') {
                 erro = 'Tempo limite excedido. A consulta está demorando muito.';
+            } else if (xhr.status === 500) {
+                erro = 'Erro no servidor. Verifique se o DuckDB está acessível.';
             } else if (xhr.responseJSON && xhr.responseJSON.erro) {
                 erro = xhr.responseJSON.erro;
+            } else if (xhr.responseText) {
+                erro = 'Erro no servidor: ' + xhr.responseText.substring(0, 200);
             }
             
+            // Mostrar erro na tela
             mostrarErro('#mensagemInicial', 'Erro ao carregar filtros: ' + erro);
             
             // Habilitar selects novamente
@@ -134,6 +181,9 @@ function limparFiltros() {
     $('#qtdDebitos').text('0 lançamentos');
     $('#totalLancamentos').text('0');
     $('#formulaSaldo').text('');
+    
+    // Limpar variáveis
+    dadosAtuais = [];
 }
 
 // Consultar dados
@@ -160,7 +210,16 @@ function consultarDados() {
             ug: ug
         },
         success: function(response) {
+            console.log('✅ Dados carregados:', response);
             dadosAtuais = response.dados;
+            
+            // Mostrar aviso se tem mais dados
+            if (response.tem_mais) {
+                mostrarErro('#divTabela', 
+                    `<i class="bi bi-info-circle"></i> Mostrando ${response.total} de ${response.total_real} registros. 
+                    Use a exportação para obter todos os dados.`
+                );
+            }
             
             // Buscar totais
             $.ajax({
@@ -172,6 +231,7 @@ function consultarDados() {
                     ug: ug
                 },
                 success: function(totais) {
+                    console.log('✅ Totais carregados:', totais);
                     atualizarTotais(totais);
                     construirTabela(dadosAtuais);
                     $('#areaResultados').show();
@@ -179,7 +239,8 @@ function consultarDados() {
                 },
                 error: function(xhr) {
                     $('#modalLoading').modal('hide');
-                    console.error('Erro ao buscar totais:', xhr);
+                    console.error('❌ Erro ao buscar totais:', xhr);
+                    mostrarErro('#divTabela', 'Erro ao buscar totais');
                 }
             });
         },
@@ -198,9 +259,11 @@ function atualizarTotais(totais) {
     $('#totalDebitos').text(formatarMoeda(totais.debito.total));
     $('#saldoTotal').text(formatarMoeda(totais.saldo));
     
-    $('#qtdCreditos').text(totais.credito.quantidade + ' lançamentos');
-    $('#qtdDebitos').text(totais.debito.quantidade + ' lançamentos');
-    $('#totalLancamentos').text(totais.credito.quantidade + totais.debito.quantidade);
+    $('#qtdCreditos').text(totais.credito.quantidade.toLocaleString('pt-BR') + ' lançamentos');
+    $('#qtdDebitos').text(totais.debito.quantidade.toLocaleString('pt-BR') + ' lançamentos');
+    
+    const totalLancamentos = totais.credito.quantidade + totais.debito.quantidade;
+    $('#totalLancamentos').text(totalLancamentos.toLocaleString('pt-BR'));
     
     // Mostrar fórmula do saldo baseado na conta
     const conta = $('#selectConta').val();
@@ -288,9 +351,10 @@ function construirTabela(dados) {
     tabelaDados = $('#tabelaDados').DataTable({
         pageLength: 25,
         lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "Todos"]],
-        dom: 'Blfrtip',
-        buttons: [],
-        order: [[0, 'asc'], [6, 'asc']], // Ordenar por mês e data
+        language: {
+            url: '//cdn.datatables.net/plug-ins/1.13.7/i18n/pt-BR.json'
+        },
+        order: [[0, 'asc'], [7, 'asc']], // Ordenar por mês e data
         columnDefs: [
             {
                 targets: 0, // Coluna do mês
@@ -308,8 +372,9 @@ function construirTabela(dados) {
                 var title = $(column.header()).text();
                 
                 // Adicionar filtros apenas nas colunas: Mês, Documento, Evento e Conta Corrente
+                // Adicionar filtros nas colunas específicas
                 if (index === 0 || index === 1 || index === 2 || index === 3) {
-                    var select = $('<select class="form-select form-select-sm"><option value="">Todos</option></select>')
+                    var select = $('<select class="form-select form-select-sm mt-1"><option value="">Todos</option></select>')
                         .appendTo($(column.header()))
                         .on('change', function() {
                             var val = $.fn.dataTable.util.escapeRegex($(this).val());
@@ -319,15 +384,43 @@ function construirTabela(dados) {
                             e.stopPropagation();
                         });
                     
-                    column.data().unique().sort().each(function(d, j) {
+                    // Coletar valores únicos
+                    var valores = [];
+                    column.data().unique().each(function(d) {
                         if (d && d !== '-') {
-                            select.append('<option value="' + d + '">' + d + '</option>');
+                            valores.push(d);
                         }
+                    });
+                    
+                    // Ordenar valores
+                    if (index === 0) { // Se for a coluna de mês
+                        valores.sort(function(a, b) {
+                            return parseInt(a) - parseInt(b); // Ordenar numericamente
+                        });
+                    } else {
+                        valores.sort(); // Ordenar alfabeticamente para outras colunas
+                    }
+                    
+                    // Adicionar valores ao select
+                    valores.forEach(function(d) {
+                        let displayText = d;
+                        if (index === 0) { // Se for a coluna de mês
+                            displayText = formatarMes(d);
+                        }
+                        select.append('<option value="' + d + '">' + displayText + '</option>');
                     });
                 }
             });
         }
     });
+
+    // Forçar fechamento do modal após construir a tabela
+    setTimeout(function() {
+        $('#modalLoading').modal('hide');
+        $('.modal-backdrop').remove();
+        $('body').removeClass('modal-open');
+        $('body').css('overflow', 'auto');
+    }, 500);
 }
 
 // Formatar mês
@@ -362,59 +455,120 @@ function formatarMoeda(valor) {
     }).format(valor);
 }
 
-// Exportar para Excel
+// Exportar para Excel melhorado
 function exportarExcel() {
-    if (!dadosAtuais || dadosAtuais.length === 0) {
-        alert('Não há dados para exportar!');
+    const ano = $('#selectAno').val();
+    const conta = $('#selectConta').val();
+    const ug = $('#selectUG').val();
+    
+    if (!ano || !conta || !ug) {
+        alert('Por favor, selecione os filtros antes de exportar!');
         return;
     }
     
-    let csv = [];
+    // Mostrar loading
+    $('#modalLoading').modal('show');
     
-    // Cabeçalho
-    csv.push(['Mês', 'Documento', 'Evento', 'Conta Corrente', 'Valor', 'D/C', 'UG', 'Data', 'Tipo'].join(';'));
-    
-    // Dados
-    dadosAtuais.forEach(function(row) {
-        let linha = [
-            formatarMes(row.mes),
-            row.nudocumento || '',
-            row.coevento || '',
-            row.cocontacorrente || '',
-            (row.valancamento || 0).toString().replace('.', ','),
-            row.indebitocredito || '',
-            row.coug || '',
-            row.dalancamento || '',
-            row.tipo_lancamento || ''
-        ];
-        csv.push(linha.join(';'));
+    // Buscar TODOS os dados (sem limite)
+    $.ajax({
+        url: '/detalha-receita/api/dados',
+        method: 'GET',
+        data: {
+            ano: ano,
+            conta: conta,
+            ug: ug,
+            limite: 999999  // Pegar todos os registros
+        },
+        success: function(response) {
+            console.log(`📊 Exportando ${response.dados.length} registros...`);
+            
+            let csv = [];
+            
+            // Cabeçalho
+            csv.push(['Mês', 'Documento', 'Evento', 'Conta Corrente', 'Valor', 'D/C', 'UG', 'Data', 'Tipo', 'Fonte', 'Classificação'].join(';'));
+            
+            // Dados
+            response.dados.forEach(function(row) {
+                let linha = [
+                    formatarMes(row.mes),
+                    row.nudocumento || '',
+                    row.coevento || '',
+                    row.cocontacorrente || '',
+                    (row.valancamento || 0).toString().replace('.', ','),
+                    row.indebitocredito || '',
+                    row.coug || '',
+                    row.dalancamento || '',
+                    row.tipo_lancamento || '',
+                    row.cofonte || '',
+                    row.coclasseorc || ''
+                ];
+                csv.push(linha.join(';'));
+            });
+            
+            // Buscar totais para adicionar no final
+            $.ajax({
+                url: '/detalha-receita/api/totais',
+                method: 'GET',
+                data: { ano: ano, conta: conta, ug: ug },
+                success: function(totais) {
+                    // Adicionar resumo no final
+                    csv.push(''); // Linha vazia
+                    csv.push(['RESUMO'].join(';'));
+                    csv.push(['Tipo', 'Quantidade', 'Valor Total'].join(';'));
+                    csv.push(['Créditos', totais.credito.quantidade.toLocaleString('pt-BR'), totais.credito.total.toFixed(2).replace('.', ',')].join(';'));
+                    csv.push(['Débitos', totais.debito.quantidade.toLocaleString('pt-BR'), totais.debito.total.toFixed(2).replace('.', ',')].join(';'));
+                    
+                    const formulaSaldo = conta.startsWith('5') ? 'Saldo (D-C)' : 'Saldo (C-D)';
+                    csv.push([formulaSaldo, '', totais.saldo.toFixed(2).replace('.', ',')].join(';'));
+                    
+                    csv.push(''); // Linha vazia
+                    csv.push([`Total de registros exportados: ${response.dados.length.toLocaleString('pt-BR')}`].join(';'));
+                    csv.push([`Fonte: ${response.fonte || 'DuckDB Local'}`].join(';'));
+                    
+                    // Criar arquivo
+                    let csvContent = '\ufeff' + csv.join('\n');
+                    let blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                    let link = document.createElement('a');
+                    let url = URL.createObjectURL(blob);
+                    
+                    link.setAttribute('href', url);
+                    link.setAttribute('download', `detalha_receita_${ano}_${conta}_${ug}.csv`);
+                    link.style.visibility = 'hidden';
+                    
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    
+                    $('#modalLoading').modal('hide');
+                    
+                    // Mensagem de sucesso
+                    if (response.tem_mais) {
+                        alert(`✅ Exportação concluída!\n\n📊 Total exportado: ${response.dados.length.toLocaleString('pt-BR')} registros`);
+                    }
+                },
+                error: function() {
+                    // Se falhar ao buscar totais, exportar sem resumo
+                    let csvContent = '\ufeff' + csv.join('\n');
+                    let blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                    let link = document.createElement('a');
+                    let url = URL.createObjectURL(blob);
+                    
+                    link.setAttribute('href', url);
+                    link.setAttribute('download', `detalha_receita_${ano}_${conta}_${ug}.csv`);
+                    link.style.visibility = 'hidden';
+                    
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    
+                    $('#modalLoading').modal('hide');
+                }
+            });
+        },
+        error: function(xhr) {
+            $('#modalLoading').modal('hide');
+            alert('❌ Erro ao exportar dados. Tente novamente.');
+            console.error('Erro na exportação:', xhr);
+        }
     });
-    
-    // Adicionar totais no final
-    csv.push(''); // Linha vazia
-    csv.push(['RESUMO'].join(';'));
-    csv.push(['Tipo', 'Quantidade', 'Valor Total'].join(';'));
-    
-    let totalCredito = dadosAtuais.filter(d => d.tipo_lancamento === 'CREDITO').reduce((sum, d) => sum + (d.valancamento || 0), 0);
-    let totalDebito = dadosAtuais.filter(d => d.tipo_lancamento === 'DEBITO').reduce((sum, d) => sum + (d.valancamento || 0), 0);
-    let qtdCredito = dadosAtuais.filter(d => d.tipo_lancamento === 'CREDITO').length;
-    let qtdDebito = dadosAtuais.filter(d => d.tipo_lancamento === 'DEBITO').length;
-    
-    csv.push(['Créditos', qtdCredito, totalCredito.toFixed(2).replace('.', ',')].join(';'));
-    csv.push(['Débitos', qtdDebito, totalDebito.toFixed(2).replace('.', ',')].join(';'));
-    csv.push(['Saldo (C-D)', '', (totalCredito - totalDebito).toFixed(2).replace('.', ',')].join(';'));
-    
-    // Criar arquivo
-    let csvContent = '\ufeff' + csv.join('\n');
-    let blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    let link = document.createElement('a');
-    let url = URL.createObjectURL(blob);
-    
-    link.setAttribute('href', url);
-    link.setAttribute('download', `detalha_receita_${$('#selectAno').val()}_${$('#selectConta').val()}_${$('#selectUG').val()}.csv`);
-    link.style.visibility = 'hidden';
-    
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
 }

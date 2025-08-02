@@ -695,3 +695,58 @@ Sistema para gestão de relatórios organizacionais com foco em:
 - Scripts podem ser executados independentemente
 - Nomenclatura clara: load_[tabela]_incremental.py
 - Scripts de inspeção para análise de novos arquivos
+
+Sistema de Lançamentos com DuckDB
+✅ O que fizemos hoje:
+
+Instalamos o DuckDB no ambiente virtual existente
+Criamos a estrutura local para armazenar lançamentos:
+
+Pasta: dados_brutos/fato/db_local/
+Banco: lancamentos.duckdb
+
+
+Migramos 1.5 milhão de registros do PostgreSQL para DuckDB
+Criamos módulos ETL otimizados para processar Excel direto no DuckDB
+Criamos scripts de carga mensal para você usar todo mês
+
+📁 Arquivos criados:
+relatorios_uban/
+├── app/modules/
+│   ├── database_duckdb.py              # Conexão com DuckDB
+│   ├── etl_lancamento_duckdb.py        # ETL base
+│   ├── etl_receita_lancamento_duckdb.py # ETL receitas
+│   └── etl_despesa_lancamento_duckdb.py # ETL despesas
+├── scripts/
+│   ├── criar_tabelas_duckdb.py         # Cria estrutura (já executado)
+│   ├── migrar_lancamentos_para_duckdb.py # Migração inicial (já executado)
+│   ├── load_receita_lancamento_duckdb.py # Carga mensal receitas
+│   ├── load_despesa_lancamento_duckdb.py # Carga mensal despesas
+│   └── consultar_lancamentos_duckdb.py   # Consultas rápidas
+└── dados_brutos/fato/db_local/
+    └── lancamentos.duckdb               # Banco com 1.5M registros
+🎯 Como usar MENSALMENTE:
+Para carregar ReceitaLancamentoJulho.xlsx:
+bash# 1. Ativar ambiente virtual
+venv\Scripts\activate
+
+# 2. Carregar receitas
+python scripts/load_receita_lancamento_duckdb.py ReceitaLancamentoJulho.xlsx
+Para carregar DespesaLancamentoJulho.xlsx:
+bashpython scripts/load_despesa_lancamento_duckdb.py DespesaLancamentoJulho.xlsx
+Para fazer consultas rápidas:
+bashpython scripts/consultar_lancamentos_duckdb.py
+🚀 Vantagens do novo sistema:
+
+Performance: DuckDB é MUITO mais rápido para análises locais
+Simplicidade: Apenas 1 arquivo .duckdb para backup
+Economia: Não consome recursos da VPS
+Autonomia: Funciona offline, sem depender de internet
+Escalabilidade: Suporta bilhões de registros facilmente
+
+⚠️ IMPORTANTE - O que NÃO muda:
+
+✅ Sistema web continua funcionando normalmente
+✅ Tabelas de SALDO continuam no PostgreSQL da VPS
+✅ Scripts de saldo (load_receita_saldo_incremental.py, etc) continuam iguais
+✅ Páginas web de consulta de saldo continuam funcionando
