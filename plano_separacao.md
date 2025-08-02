@@ -174,7 +174,7 @@ load_dotenv()
 def get_vps_engine():
     """Conecta no PostgreSQL da VPS para buscar saldos"""
     return create_engine(os.getenv('VPS_DATABASE_URL'))
-    # VPS_DATABASE_URL=postgresql://marciomartinho:contdf001@31.97.128.109:5432/relatorios_uban
+    
 
 # Conexão DuckDB local (lançamentos)
 def get_local_db():
