@@ -12,7 +12,7 @@
     
     <!-- Filtros -->
     <div class="card shadow-sm mb-4">
-        <div class="card-header bg-primary text-white">
+        <div class="card-header bg-success text-white">
             <h5 class="mb-0">
                 <i class="bi bi-funnel"></i> Filtros de Pesquisa
             </h5>
@@ -45,7 +45,7 @@
                     <div class="col-md-2 mb-3">
                         <label class="form-label">&nbsp;</label>
                         <div class="d-grid gap-2">
-                            <button type="submit" class="btn btn-primary">
+                            <button type="submit" class="btn btn-success">
                                 <i class="bi bi-search"></i> Consultar
                             </button>
                             <button type="button" class="btn btn-secondary" id="btnLimpar">
@@ -60,6 +60,104 @@
     
     <!-- Área de Resultados -->
     <div id="areaResultados" style="display: none;">
+        <!-- Cards de Totais -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card border-left-success shadow">
+                    <div class="card-body">
+                        <div class="row no-gutters align-items-center">
+                            <div class="col mr-2">
+                                <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                    Saldo Total
+                                </div>
+                                <div class="h5 mb-0 font-weight-bold text-gray-800" id="saldoTotal">
+                                    R$ 0,00
+                                </div>
+                            </div>
+                            <div class="col-auto">
+                                <i class="bi bi-calculator text-success" style="font-size: 2rem;"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-3">
+                <div class="card border-left-info shadow">
+                    <div class="card-body">
+                        <div class="row no-gutters align-items-center">
+                            <div class="col mr-2">
+                                <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                    Total de Registros
+                                </div>
+                                <div class="h5 mb-0 font-weight-bold text-gray-800" id="totalRegistros">
+                                    0
+                                </div>
+                            </div>
+                            <div class="col-auto">
+                                <i class="bi bi-table text-info" style="font-size: 2rem;"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-3">
+                <div class="card border-left-warning shadow">
+                    <div class="card-body">
+                        <div class="row no-gutters align-items-center">
+                            <div class="col mr-2">
+                                <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                    Média Mensal
+                                </div>
+                                <div class="h5 mb-0 font-weight-bold text-gray-800" id="mediaMensal">
+                                    R$ 0,00
+                                </div>
+                            </div>
+                            <div class="col-auto">
+                                <i class="bi bi-graph-up text-warning" style="font-size: 2rem;"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-3">
+                <div class="card border-left-primary shadow">
+                    <div class="card-body">
+                        <div class="row no-gutters align-items-center">
+                            <div class="col mr-2">
+                                <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                    Meses com Dados
+                                </div>
+                                <div class="h5 mb-0 font-weight-bold text-gray-800" id="mesesComDados">
+                                    0
+                                </div>
+                            </div>
+                            <div class="col-auto">
+                                <i class="bi bi-calendar3 text-primary" style="font-size: 2rem;"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Top 5 Classificações Orçamentárias -->
+        <div class="card shadow-sm mb-4" id="cardTopClassificacoes" style="display: none;">
+            <div class="card-header bg-light">
+                <h6 class="mb-0">
+                    <i class="bi bi-bar-chart"></i> Top 5 Classificações Orçamentárias
+                </h6>
+            </div>
+            <div class="card-body">
+                <div id="divTopClassificacoes" class="small">
+                    <!-- Será preenchido via JavaScript -->
+                </div>
+            </div>
+        </div>
+        
+        <!-- Tabela de Resultados -->
         <div class="card shadow-sm">
             <div class="card-header bg-light">
                 <div class="row align-items-center">
@@ -97,7 +195,7 @@
     <div class="modal-dialog modal-dialog-centered modal-sm">
         <div class="modal-content">
             <div class="modal-body text-center py-4">
-                <div class="spinner-border text-primary mb-3" role="status">
+                <div class="spinner-border text-success mb-3" role="status">
                     <span class="visually-hidden">Carregando...</span>
                 </div>
                 <p class="mb-0">Carregando dados...</p>
