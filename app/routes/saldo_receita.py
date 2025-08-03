@@ -16,39 +16,95 @@ def consulta():
 
 @saldo_receita.route('/api/filtros')
 def get_filtros():
-    """Retorna os valores únicos para os filtros"""
+    """Retorna apenas os anos únicos - filtros iniciais"""
     try:
-        # Buscar anos únicos
+        # Buscar apenas anos únicos inicialmente
         anos_query = """
         SELECT DISTINCT coexercicio 
         FROM receitas.fato_receita_saldo 
         ORDER BY coexercicio DESC
         """
-        anos = [row[0] for row in db.execute_query(anos_query)]
-        
-        # Buscar contas contábeis únicas
-        contas_query = """
-        SELECT DISTINCT cocontacontabil 
-        FROM receitas.fato_receita_saldo 
-        ORDER BY cocontacontabil
-        """
-        contas = [row[0] for row in db.execute_query(contas_query)]
-        
-        # Buscar UGs únicas
-        ugs_query = """
-        SELECT DISTINCT coug 
-        FROM receitas.fato_receita_saldo 
-        ORDER BY coug
-        """
-        ugs = [row[0] for row in db.execute_query(ugs_query)]
+        result = db.execute_query(anos_query)
+        anos = [row[0] for row in result]
         
         return jsonify({
-            'anos': anos,
-            'contas': contas,
+            'anos': anos
+        })
+        
+    except Exception as e:
+        print(f"Erro em get_filtros: {str(e)}")
+        return jsonify({'erro': str(e)}), 500
+
+@saldo_receita.route('/api/contas-por-ano')
+def get_contas_por_ano():
+    """Retorna as contas contábeis disponíveis para um ano específico"""
+    try:
+        ano = request.args.get('ano')
+        
+        if not ano:
+            return jsonify({'erro': 'Ano é obrigatório'}), 400
+            
+        # Validar que ano é numérico para evitar SQL injection
+        try:
+            int(ano)
+        except ValueError:
+            return jsonify({'erro': 'Ano deve ser numérico'}), 400
+            
+        # Buscar contas contábeis que possuem dados no ano selecionado
+        contas_query = f"""
+        SELECT DISTINCT cocontacontabil 
+        FROM receitas.fato_receita_saldo 
+        WHERE coexercicio = '{ano}'
+        ORDER BY cocontacontabil
+        """
+        
+        result = db.execute_query(contas_query)
+        contas = [row[0] for row in result]
+        
+        return jsonify({
+            'contas': contas
+        })
+        
+    except Exception as e:
+        print(f"Erro em get_contas_por_ano: {str(e)}")
+        return jsonify({'erro': str(e)}), 500
+
+@saldo_receita.route('/api/ugs-por-ano-conta')
+def get_ugs_por_ano_conta():
+    """Retorna as UGs disponíveis para um ano e conta específicos"""
+    try:
+        ano = request.args.get('ano')
+        conta = request.args.get('conta')
+        
+        if not all([ano, conta]):
+            return jsonify({'erro': 'Ano e conta são obrigatórios'}), 400
+            
+        # Validar que ano é numérico para evitar SQL injection
+        try:
+            int(ano)
+        except ValueError:
+            return jsonify({'erro': 'Ano deve ser numérico'}), 400
+            
+        # Escapar conta para evitar SQL injection
+        conta_escaped = conta.replace("'", "''")
+            
+        # Buscar UGs que possuem dados no ano e conta selecionados
+        ugs_query = f"""
+        SELECT DISTINCT coug 
+        FROM receitas.fato_receita_saldo 
+        WHERE coexercicio = '{ano}' AND cocontacontabil = '{conta_escaped}'
+        ORDER BY coug
+        """
+        
+        result = db.execute_query(ugs_query)
+        ugs = [row[0] for row in result]
+        
+        return jsonify({
             'ugs': ugs
         })
         
     except Exception as e:
+        print(f"Erro em get_ugs_por_ano_conta: {str(e)}")
         return jsonify({'erro': str(e)}), 500
 
 @saldo_receita.route('/api/dados')
@@ -149,4 +205,5 @@ def get_dados():
         })
         
     except Exception as e:
+        print(f"Erro em get_dados: {str(e)}")
         return jsonify({'erro': str(e)}), 500

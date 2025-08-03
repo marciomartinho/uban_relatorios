@@ -21,25 +21,35 @@
             <form id="formFiltros">
                 <div class="row">
                     <div class="col-md-3 mb-3">
-                        <label for="selectAno" class="form-label">Ano</label>
+                        <label for="selectAno" class="form-label">
+                            Ano
+                            <span class="badge bg-secondary ms-1">1º</span>
+                        </label>
                         <select class="form-select" id="selectAno" name="ano" required>
                             <option value="">Selecione o ano...</option>
                         </select>
                     </div>
                     
                     <div class="col-md-4 mb-3">
-                        <label for="selectConta" class="form-label">Conta Contábil</label>
-                        <select class="form-select" id="selectConta" name="conta" required>
-                            <option value="">Selecione a conta...</option>
+                        <label for="selectConta" class="form-label">
+                            Conta Contábil
+                            <span class="badge bg-secondary ms-1">2º</span>
+                        </label>
+                        <select class="form-select" id="selectConta" name="conta" required disabled>
+                            <option value="">Primeiro selecione o ano...</option>
                         </select>
+                        <small class="text-muted">Mostrando apenas contas com dados no ano selecionado</small>
                     </div>
                     
                     <div class="col-md-3 mb-3">
-                        <label for="selectUG" class="form-label">UG</label>
-                        <select class="form-select" id="selectUG" name="ug" required>
-                            <option value="">Selecione a UG...</option>
-                            <option value="CONSOLIDADO">CONSOLIDADO</option>
+                        <label for="selectUG" class="form-label">
+                            UG
+                            <span class="badge bg-secondary ms-1">3º</span>
+                        </label>
+                        <select class="form-select" id="selectUG" name="ug" required disabled>
+                            <option value="">Primeiro selecione a conta...</option>
                         </select>
+                        <small class="text-muted">Mostrando apenas UGs com dados na conta selecionada</small>
                     </div>
                     
                     <div class="col-md-2 mb-3">
@@ -60,17 +70,36 @@
     
     <!-- Área de Resultados -->
     <div id="areaResultados" style="display: none;">
+        <!-- Indicador de Filtros Ativos -->
+        <div id="indicadorFiltros" class="alert alert-info mb-3" style="display: none;">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <i class="bi bi-info-circle"></i>
+                    <strong>Filtros ativos na tabela:</strong> 
+                    <span class="badge bg-primary">0</span> filtros aplicados
+                    <small class="text-muted ms-2">(Os cards são atualizados automaticamente com os filtros)</small>
+                </div>
+                <button type="button" class="btn btn-sm btn-outline-primary" id="btnResetarFiltrosTabela">
+                    <i class="bi bi-arrow-counterclockwise"></i> Resetar Filtros
+                </button>
+            </div>
+        </div>
+        
         <!-- Cards de Totais -->
         <div class="row mb-4">
             <div class="col-md-3">
-                <div class="card border-left-success shadow">
+                <div class="card border-left-success shadow h-100">
                     <div class="card-body">
                         <div class="row no-gutters align-items-center">
                             <div class="col mr-2">
                                 <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
                                     Saldo Total
+                                    <i class="bi bi-question-circle-fill ms-1" 
+                                       data-bs-toggle="tooltip" 
+                                       data-bs-placement="top" 
+                                       title="Soma total dos saldos contábeis considerando os filtros aplicados na tabela"></i>
                                 </div>
-                                <div class="h5 mb-0 font-weight-bold text-gray-800" id="saldoTotal">
+                                <div class="h5 mb-0 font-weight-bold text-gray-800 card-value-animate" id="saldoTotal">
                                     R$ 0,00
                                 </div>
                             </div>
@@ -83,14 +112,18 @@
             </div>
             
             <div class="col-md-3">
-                <div class="card border-left-info shadow">
+                <div class="card border-left-info shadow h-100">
                     <div class="card-body">
                         <div class="row no-gutters align-items-center">
                             <div class="col mr-2">
                                 <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
                                     Total de Registros
+                                    <i class="bi bi-question-circle-fill ms-1" 
+                                       data-bs-toggle="tooltip" 
+                                       data-bs-placement="top" 
+                                       title="Quantidade de registros visíveis após aplicar os filtros"></i>
                                 </div>
-                                <div class="h5 mb-0 font-weight-bold text-gray-800" id="totalRegistros">
+                                <div class="h5 mb-0 font-weight-bold text-gray-800 card-value-animate" id="totalRegistros">
                                     0
                                 </div>
                             </div>
@@ -103,14 +136,18 @@
             </div>
             
             <div class="col-md-3">
-                <div class="card border-left-warning shadow">
+                <div class="card border-left-warning shadow h-100">
                     <div class="card-body">
                         <div class="row no-gutters align-items-center">
                             <div class="col mr-2">
                                 <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
                                     Média Mensal
+                                    <i class="bi bi-question-circle-fill ms-1" 
+                                       data-bs-toggle="tooltip" 
+                                       data-bs-placement="top" 
+                                       title="Valor médio por mês considerando apenas os meses com dados nos registros filtrados"></i>
                                 </div>
-                                <div class="h5 mb-0 font-weight-bold text-gray-800" id="mediaMensal">
+                                <div class="h5 mb-0 font-weight-bold text-gray-800 card-value-animate" id="mediaMensal">
                                     R$ 0,00
                                 </div>
                             </div>
@@ -123,14 +160,18 @@
             </div>
             
             <div class="col-md-3">
-                <div class="card border-left-primary shadow">
+                <div class="card border-left-primary shadow h-100">
                     <div class="card-body">
                         <div class="row no-gutters align-items-center">
                             <div class="col mr-2">
                                 <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
                                     Meses com Dados
+                                    <i class="bi bi-question-circle-fill ms-1" 
+                                       data-bs-toggle="tooltip" 
+                                       data-bs-placement="top" 
+                                       title="Quantidade de meses diferentes presentes nos registros filtrados"></i>
                                 </div>
-                                <div class="h5 mb-0 font-weight-bold text-gray-800" id="mesesComDados">
+                                <div class="h5 mb-0 font-weight-bold text-gray-800 card-value-animate" id="mesesComDados">
                                     0
                                 </div>
                             </div>
@@ -148,6 +189,7 @@
             <div class="card-header bg-light">
                 <h6 class="mb-0">
                     <i class="bi bi-bar-chart"></i> Top 5 Classificações Orçamentárias
+                    <small class="text-muted">(baseado nos filtros aplicados)</small>
                 </h6>
             </div>
             <div class="card-body">
@@ -203,6 +245,16 @@
         </div>
     </div>
 </div>
+
+<script>
+// Inicializar tooltips do Bootstrap
+document.addEventListener('DOMContentLoaded', function() {
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl)
+    });
+});
+</script>
 {% endblock %}
 
 {% block scripts %}

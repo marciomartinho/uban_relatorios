@@ -1,4 +1,4 @@
-/* Estilos específicos para Consulta Saldo Receita - Versão Melhorada */
+/* Estilos específicos para Consulta Saldo Receita - Versão com Cards Dinâmicos */
 
 /* Cards de Totais */
 .border-left-success {
@@ -29,6 +29,47 @@
     color: #5a5c69!important;
 }
 
+/* Animação para valores dos cards */
+.card-value-animate {
+    transition: all 0.3s ease;
+}
+
+.card-value-animate.updating {
+    transform: scale(1.05);
+    color: #1cc88a !important;
+}
+
+/* Indicador de filtros ativos */
+#indicadorFiltros {
+    background-color: #d1ecf1;
+    border-color: #bee5eb;
+    color: #0c5460;
+}
+
+#indicadorFiltros .badge {
+    font-size: 0.875rem;
+}
+
+/* Tooltips nos cards */
+.bi-question-circle-fill {
+    font-size: 0.75rem;
+    opacity: 0.6;
+    cursor: help;
+}
+
+.bi-question-circle-fill:hover {
+    opacity: 1;
+}
+
+/* Cards com hover effect */
+.card {
+    transition: all 0.2s ease;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+}
+
 /* Cards de classificação */
 #cardTopClassificacoes {
     border-top: 3px solid #1cc88a;
@@ -42,6 +83,11 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
+    transition: all 0.2s ease;
+}
+
+.classificacao-item:hover {
+    background-color: #e9ecef;
 }
 
 .progress {
@@ -90,6 +136,16 @@
     margin-top: 5px;
     font-weight: normal;
     font-size: 0.8rem;
+}
+
+.filter-column {
+    background-color: #fff;
+    border: 1px solid #ced4da;
+}
+
+.filter-column:focus {
+    border-color: #1cc88a;
+    box-shadow: 0 0 0 0.2rem rgba(28, 200, 138, 0.25);
 }
 
 #tabelaDados tbody tr:hover {
@@ -177,6 +233,11 @@ tr.consolidado {
     border: 1px solid #ced4da;
 }
 
+.dataTables_filter input:focus {
+    border-color: #1cc88a;
+    box-shadow: 0 0 0 0.2rem rgba(28, 200, 138, 0.25);
+}
+
 .dataTables_length select {
     border-radius: 5px;
     padding: 5px;
@@ -202,6 +263,11 @@ tr.consolidado {
     color: #6c757d;
 }
 
+/* Botão resetar filtros */
+#btnResetarFiltrosTabela {
+    font-size: 0.875rem;
+}
+
 /* Ajustes para cards em telas pequenas */
 @media (max-width: 768px) {
     .card {
@@ -215,16 +281,59 @@ tr.consolidado {
     #cardTopClassificacoes {
         display: none!important;
     }
+    
+    #indicadorFiltros .d-flex {
+        flex-direction: column;
+        align-items: start!important;
+    }
+    
+    #btnResetarFiltrosTabela {
+        margin-top: 10px;
+    }
 }
 
-/* Ajustes para impressão */
+/* Animações para transições suaves */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+#indicadorFiltros {
+    animation: fadeIn 0.3s ease;
+}
+
+/* Badges nos labels dos filtros */
+.form-label .badge {
+    font-size: 0.7rem;
+    vertical-align: middle;
+}
+
+/* Selects desabilitados */
+select:disabled {
+    background-color: #e9ecef;
+    cursor: not-allowed;
+}
+
+/* Texto de ajuda nos filtros */
+.col-md-3 small.text-muted,
+.col-md-4 small.text-muted {
+    display: block;
+    margin-top: 0.25rem;
+    font-size: 0.75rem;
+}
 @media print {
     .card {
         border: none !important;
         box-shadow: none !important;
     }
     
-    .btn, .dataTables_filter, .dataTables_length, .dataTables_paginate {
+    .btn, .dataTables_filter, .dataTables_length, .dataTables_paginate, #indicadorFiltros {
         display: none !important;
     }
     
@@ -246,5 +355,12 @@ tr.consolidado {
     /* Garantir que o footer seja impresso */
     #tabelaDados tfoot {
         display: table-footer-group !important;
+    }
+    
+    /* Mostrar todos os registros na impressão */
+    #tabelaDados_wrapper .dataTables_length,
+    #tabelaDados_wrapper .dataTables_paginate,
+    #tabelaDados_wrapper .dataTables_filter {
+        display: none !important;
     }
 }
