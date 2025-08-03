@@ -3,6 +3,7 @@ console.log('Arquivo detalha_receita.js carregado');
 
 let tabelaDados = null;
 let dadosAtuais = [];
+let totaisOriginais = null; // Guardar totais originais
 
 // Mapeamento de nomes de colunas
 const nomesColunas = {
@@ -184,6 +185,7 @@ function limparFiltros() {
     
     // Limpar variáveis
     dadosAtuais = [];
+    totaisOriginais = null;
 }
 
 // Consultar dados
@@ -232,6 +234,7 @@ function consultarDados() {
                 },
                 success: function(totais) {
                     console.log('✅ Totais carregados:', totais);
+                    totaisOriginais = totais; // Guardar totais originais
                     atualizarTotais(totais);
                     construirTabela(dadosAtuais);
                     $('#areaResultados').show();
@@ -279,6 +282,51 @@ function atualizarTotais(totais) {
     } else {
         $('#saldoTotal').removeClass('text-negative').addClass('text-positive');
     }
+}
+
+// Função para recalcular totais baseado nos dados filtrados da tabela
+function recalcularTotaisFiltrados() {
+    if (!tabelaDados) return;
+    
+    // Obter dados filtrados visíveis na tabela
+    const dadosFiltrados = tabelaDados.rows({ filter: 'applied' }).data();
+    
+    let totalCredito = 0;
+    let totalDebito = 0;
+    let qtdCredito = 0;
+    let qtdDebito = 0;
+    
+    // Percorrer dados filtrados
+    dadosFiltrados.each(function(row) {
+        const valor = parseFloat(row.valancamento) || 0;
+        
+        if (row.tipo_lancamento === 'CREDITO') {
+            totalCredito += valor;
+            qtdCredito++;
+        } else if (row.tipo_lancamento === 'DEBITO') {
+            totalDebito += valor;
+            qtdDebito++;
+        }
+    });
+    
+    // Calcular saldo baseado no tipo de conta
+    const conta = $('#selectConta').val();
+    let saldo = 0;
+    if (conta && conta.startsWith('5')) {
+        saldo = totalDebito - totalCredito;
+    } else {
+        saldo = totalCredito - totalDebito;
+    }
+    
+    // Criar objeto de totais filtrados
+    const totaisFiltrados = {
+        credito: { total: totalCredito, quantidade: qtdCredito },
+        debito: { total: totalDebito, quantidade: qtdDebito },
+        saldo: saldo
+    };
+    
+    // Atualizar cards com novos valores
+    atualizarTotais(totaisFiltrados);
 }
 
 // Construir tabela com os dados
@@ -365,14 +413,44 @@ function construirTabela(dados) {
                 type: 'num-fmt'
             }
         ],
+        data: dados, // Passar os dados para o DataTable
+        columns: [
+            { data: 'mes', render: function(data) { return formatarMes(data); } },
+            { data: 'nudocumento', defaultContent: '-' },
+            { data: 'coevento', defaultContent: '-' },
+            { data: 'cocontacorrente', defaultContent: '-' },
+            { 
+                data: 'valancamento',
+                render: function(data, type, row) {
+                    if (type === 'display') {
+                        let valor = formatarNumero(data);
+                        let classeValor = row.tipo_lancamento === 'CREDITO' ? 'text-positive' : 'text-negative';
+                        return `<span class="${classeValor}">${valor}</span>`;
+                    }
+                    return data;
+                },
+                className: 'text-end'
+            },
+            { data: 'indebitocredito', defaultContent: '-', className: 'text-center' },
+            { data: 'coug', defaultContent: '-' },
+            { data: 'dalancamento', defaultContent: '-' },
+            { 
+                data: 'tipo_lancamento',
+                render: function(data) {
+                    let classeTipo = data === 'CREDITO' ? 'badge-credito' : 'badge-debito';
+                    return `<span class="badge ${classeTipo}">${data || '-'}</span>`;
+                }
+            }
+        ],
         initComplete: function() {
+            var api = this.api();
+            
             // Adicionar filtros nas colunas específicas
-            this.api().columns().every(function(index) {
+            api.columns().every(function(index) {
                 var column = this;
                 var title = $(column.header()).text();
                 
                 // Adicionar filtros apenas nas colunas: Mês, Documento, Evento e Conta Corrente
-                // Adicionar filtros nas colunas específicas
                 if (index === 0 || index === 1 || index === 2 || index === 3) {
                     var select = $('<select class="form-select form-select-sm mt-1"><option value="">Todos</option></select>')
                         .appendTo($(column.header()))
@@ -410,6 +488,11 @@ function construirTabela(dados) {
                         select.append('<option value="' + d + '">' + displayText + '</option>');
                     });
                 }
+            });
+            
+            // Adicionar evento para recalcular totais quando a tabela for filtrada
+            api.on('search.dt draw.dt', function() {
+                recalcularTotaisFiltrados();
             });
         }
     });
@@ -466,6 +549,111 @@ function exportarExcel() {
         return;
     }
     
+    // Verificar se quer exportar apenas dados filtrados
+    const exportarFiltrados = confirm('Deseja exportar apenas os dados filtrados na tabela?\n\nOK = Dados filtrados\nCancelar = Todos os dados');
+    
+    if (exportarFiltrados && tabelaDados) {
+        // Exportar apenas dados filtrados
+        exportarDadosFiltrados();
+    } else {
+        // Exportar todos os dados
+        exportarTodosDados();
+    }
+}
+
+// Função para exportar apenas dados filtrados
+function exportarDadosFiltrados() {
+    if (!tabelaDados) return;
+    
+    const ano = $('#selectAno').val();
+    const conta = $('#selectConta').val();
+    const ug = $('#selectUG').val();
+    
+    // Obter dados filtrados
+    const dadosFiltrados = [];
+    tabelaDados.rows({ filter: 'applied' }).data().each(function(row) {
+        dadosFiltrados.push(row);
+    });
+    
+    console.log(`📊 Exportando ${dadosFiltrados.length} registros filtrados...`);
+    
+    let csv = [];
+    
+    // Cabeçalho
+    csv.push(['Mês', 'Documento', 'Evento', 'Conta Corrente', 'Valor', 'D/C', 'UG', 'Data', 'Tipo', 'Fonte', 'Classificação'].join(';'));
+    
+    // Dados
+    dadosFiltrados.forEach(function(row) {
+        let linha = [
+            formatarMes(row.mes),
+            row.nudocumento || '',
+            row.coevento || '',
+            row.cocontacorrente || '',
+            (row.valancamento || 0).toString().replace('.', ','),
+            row.indebitocredito || '',
+            row.coug || '',
+            row.dalancamento || '',
+            row.tipo_lancamento || '',
+            row.cofonte || '',
+            row.coclasseorc || ''
+        ];
+        csv.push(linha.join(';'));
+    });
+    
+    // Calcular totais dos dados filtrados
+    let totalCredito = 0;
+    let totalDebito = 0;
+    let qtdCredito = 0;
+    let qtdDebito = 0;
+    
+    dadosFiltrados.forEach(function(row) {
+        const valor = parseFloat(row.valancamento) || 0;
+        if (row.tipo_lancamento === 'CREDITO') {
+            totalCredito += valor;
+            qtdCredito++;
+        } else if (row.tipo_lancamento === 'DEBITO') {
+            totalDebito += valor;
+            qtdDebito++;
+        }
+    });
+    
+    const saldo = conta.startsWith('5') ? totalDebito - totalCredito : totalCredito - totalDebito;
+    
+    // Adicionar resumo
+    csv.push(''); // Linha vazia
+    csv.push(['RESUMO DOS DADOS FILTRADOS'].join(';'));
+    csv.push(['Tipo', 'Quantidade', 'Valor Total'].join(';'));
+    csv.push(['Créditos', qtdCredito.toLocaleString('pt-BR'), totalCredito.toFixed(2).replace('.', ',')].join(';'));
+    csv.push(['Débitos', qtdDebito.toLocaleString('pt-BR'), totalDebito.toFixed(2).replace('.', ',')].join(';'));
+    
+    const formulaSaldo = conta.startsWith('5') ? 'Saldo (D-C)' : 'Saldo (C-D)';
+    csv.push([formulaSaldo, '', saldo.toFixed(2).replace('.', ',')].join(';'));
+    
+    csv.push(''); // Linha vazia
+    csv.push([`Total de registros exportados: ${dadosFiltrados.length.toLocaleString('pt-BR')}`].join(';'));
+    csv.push([`Fonte: DuckDB Local`].join(';'));
+    
+    // Criar arquivo
+    let csvContent = '\ufeff' + csv.join('\n');
+    let blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    let link = document.createElement('a');
+    let url = URL.createObjectURL(blob);
+    
+    link.setAttribute('href', url);
+    link.setAttribute('download', `detalha_receita_${ano}_${conta}_${ug}_filtrado.csv`);
+    link.style.visibility = 'hidden';
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+// Função para exportar todos os dados (mantida como estava)
+function exportarTodosDados() {
+    const ano = $('#selectAno').val();
+    const conta = $('#selectConta').val();
+    const ug = $('#selectUG').val();
+    
     // Mostrar loading
     $('#modalLoading').modal('show');
     
@@ -513,7 +701,7 @@ function exportarExcel() {
                 success: function(totais) {
                     // Adicionar resumo no final
                     csv.push(''); // Linha vazia
-                    csv.push(['RESUMO'].join(';'));
+                    csv.push(['RESUMO TOTAL'].join(';'));
                     csv.push(['Tipo', 'Quantidade', 'Valor Total'].join(';'));
                     csv.push(['Créditos', totais.credito.quantidade.toLocaleString('pt-BR'), totais.credito.total.toFixed(2).replace('.', ',')].join(';'));
                     csv.push(['Débitos', totais.debito.quantidade.toLocaleString('pt-BR'), totais.debito.total.toFixed(2).replace('.', ',')].join(';'));
