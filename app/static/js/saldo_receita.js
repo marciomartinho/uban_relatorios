@@ -258,12 +258,26 @@ function consultarDados() {
             
             dadosFiltrados = [...dadosOriginais];
             
+            // Calcular totais ANTES de construir a tabela
             calcularTotais(dadosOriginais);
             atualizarCards();
+            
+            // Construir a tabela
             construirTabela(dadosOriginais);
+            
+            // Mostrar classificações
             mostrarTopClassificacoes();
             
+            // Forçar redimensionamento da tabela após mostrar
             $('#areaResultados').show();
+            
+            // Ajustar colunas após a área estar visível
+            if (tabelaDados) {
+                setTimeout(function() {
+                    tabelaDados.columns.adjust().draw();
+                }, 100);
+            }
+            
             $('#modalLoading').modal('hide');
         },
         error: function(xhr) {
@@ -277,7 +291,16 @@ function consultarDados() {
 
 // Função para recalcular totais com base nos filtros aplicados
 function recalcularTotaisComFiltros() {
-    if (!tabelaDados) return;
+    if (!tabelaDados || !dadosOriginais || dadosOriginais.length === 0) return;
+    
+    // Verificar se a tabela está pronta
+    try {
+        if (!tabelaDados.data() || !tabelaDados.data().any()) {
+            return;
+        }
+    } catch (e) {
+        return;
+    }
     
     // Obter dados filtrados do DataTable
     dadosFiltrados = [];
@@ -632,7 +655,10 @@ function construirTabela(dados) {
         },
         drawCallback: function(settings) {
             // Recalcular totais sempre que a tabela for redesenhada
-            recalcularTotaisComFiltros();
+            // Mas apenas se a tabela estiver completamente inicializada
+            if (this.api().data().any()) {
+                recalcularTotaisComFiltros();
+            }
         },
         initComplete: function() {
             var api = this.api();
@@ -671,6 +697,11 @@ function construirTabela(dados) {
             api.on('search.dt', function() {
                 recalcularTotaisComFiltros();
             });
+            
+            // Garantir que os totais sejam calculados após a inicialização completa
+            setTimeout(function() {
+                recalcularTotaisComFiltros();
+            }, 100);
         }
     });
 }
