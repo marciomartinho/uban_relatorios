@@ -1,4 +1,4 @@
-/* Estilos específicos para Consulta Saldo Despesa - Versão Melhorada */
+/* Estilos especificos para Consulta Saldo Despesa - Versao com Cards Dinamicos */
 
 /* Cards de Totais */
 .border-left-danger {
@@ -29,6 +29,47 @@
     color: #5a5c69!important;
 }
 
+/* Animacao para valores dos cards */
+.card-value-animate {
+    transition: all 0.3s ease;
+}
+
+.card-value-animate.updating {
+    transform: scale(1.05);
+    color: #dc3545 !important;
+}
+
+/* Indicador de filtros ativos */
+#indicadorFiltros {
+    background-color: #d1ecf1;
+    border-color: #bee5eb;
+    color: #0c5460;
+}
+
+#indicadorFiltros .badge {
+    font-size: 0.875rem;
+}
+
+/* Tooltips nos cards */
+.bi-question-circle-fill {
+    font-size: 0.75rem;
+    opacity: 0.6;
+    cursor: help;
+}
+
+.bi-question-circle-fill:hover {
+    opacity: 1;
+}
+
+/* Cards com hover effect */
+.card {
+    transition: all 0.2s ease;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+}
+
 /* Cards de natureza */
 #cardTopNaturezas {
     border-top: 3px solid #dc3545;
@@ -42,6 +83,11 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
+    transition: all 0.2s ease;
+}
+
+.natureza-item:hover {
+    background-color: #e9ecef;
 }
 
 .progress {
@@ -65,6 +111,59 @@
 .btn-danger:hover {
     background-color: #c82333;
     border-color: #bd2130;
+}
+
+/* Badges nos labels dos filtros */
+.form-label .badge {
+    font-size: 0.7rem;
+    vertical-align: middle;
+}
+
+/* Selects desabilitados */
+select:disabled {
+    background-color: #e9ecef;
+    cursor: not-allowed;
+}
+
+/* Texto de ajuda nos filtros */
+.col-md-3 small.text-muted,
+.col-md-4 small.text-muted {
+    display: block;
+    margin-top: 0.25rem;
+    font-size: 0.75rem;
+}
+
+/* Garantir largura total da tabela */
+#divTabela {
+    width: 100%;
+    overflow-x: auto;
+}
+
+#tabelaDados {
+    width: 100% !important;
+}
+
+#tabelaDados_wrapper {
+    width: 100% !important;
+}
+
+.dataTables_wrapper {
+    width: 100%;
+}
+
+.dataTables_scrollBody {
+    overflow-x: auto !important;
+}
+
+.dataTables_scrollHeadInner,
+.dataTables_scrollBody table {
+    width: 100% !important;
+}
+
+/* Remover larguras fixas das colunas */
+#tabelaDados th,
+#tabelaDados td {
+    white-space: nowrap;
 }
 
 /* Tabela customizada */
@@ -92,6 +191,16 @@
     font-size: 0.8rem;
 }
 
+.filter-column {
+    background-color: #fff;
+    border: 1px solid #ced4da;
+}
+
+.filter-column:focus {
+    border-color: #dc3545;
+    box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25);
+}
+
 #tabelaDados tbody tr:hover {
     background-color: rgba(220, 53, 69, 0.05);
 }
@@ -107,7 +216,7 @@
     padding: 12px 8px;
 }
 
-/* Células numéricas */
+/* Celulas numericas */
 .text-end {
     text-align: right;
 }
@@ -123,7 +232,7 @@
     font-weight: 600;
 }
 
-/* Células vazias */
+/* Celulas vazias */
 .text-null {
     color: #999;
     font-style: italic;
@@ -141,27 +250,13 @@ tr.consolidado {
     overflow: auto;
 }
 
-/* Colunas de classificação */
+/* Colunas de classificacao */
 .col-natureza {
     font-weight: 500;
 }
 
 .col-funcao {
     background-color: rgba(0,0,0,0.02);
-}
-
-/* Badges para esfera */
-.badge-esfera {
-    font-size: 0.75rem;
-    font-weight: normal;
-}
-
-.esfera-1 {
-    background-color: #007bff;
-}
-
-.esfera-2 {
-    background-color: #28a745;
 }
 
 /* Filtros do DataTables */
@@ -175,12 +270,17 @@ tr.consolidado {
     border: 1px solid #ced4da;
 }
 
+.dataTables_filter input:focus {
+    border-color: #dc3545;
+    box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25);
+}
+
 .dataTables_length select {
     border-radius: 5px;
     padding: 5px;
 }
 
-/* Paginação */
+/* Paginacao */
 .dataTables_paginate .pagination {
     margin-bottom: 0;
 }
@@ -194,10 +294,15 @@ tr.consolidado {
     border-color: #dc3545;
 }
 
-/* Informações da tabela */
+/* Informacoes da tabela */
 .dataTables_info {
     font-size: 0.875rem;
     color: #6c757d;
+}
+
+/* Botao resetar filtros */
+#btnResetarFiltrosTabela {
+    font-size: 0.875rem;
 }
 
 /* Ajustes para cards em telas pequenas */
@@ -213,16 +318,41 @@ tr.consolidado {
     #cardTopNaturezas {
         display: none!important;
     }
+    
+    #indicadorFiltros .d-flex {
+        flex-direction: column;
+        align-items: start!important;
+    }
+    
+    #btnResetarFiltrosTabela {
+        margin-top: 10px;
+    }
 }
 
-/* Ajustes para impressão */
+/* Animacoes para transicoes suaves */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+#indicadorFiltros {
+    animation: fadeIn 0.3s ease;
+}
+
+/* Ajustes para impressao */
 @media print {
     .card {
         border: none !important;
         box-shadow: none !important;
     }
     
-    .btn, .dataTables_filter, .dataTables_length, .dataTables_paginate {
+    .btn, .dataTables_filter, .dataTables_length, .dataTables_paginate, #indicadorFiltros {
         display: none !important;
     }
     
@@ -244,5 +374,12 @@ tr.consolidado {
     /* Garantir que o footer seja impresso */
     #tabelaDados tfoot {
         display: table-footer-group !important;
+    }
+    
+    /* Mostrar todos os registros na impressao */
+    #tabelaDados_wrapper .dataTables_length,
+    #tabelaDados_wrapper .dataTables_paginate,
+    #tabelaDados_wrapper .dataTables_filter {
+        display: none !important;
     }
 }

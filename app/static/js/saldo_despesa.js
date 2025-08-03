@@ -1,7 +1,13 @@
-// JavaScript para Consulta Saldo Despesa - Versão Melhorada
+// JavaScript para Consulta Saldo Despesa - Versao com Cards Dinamicos
+
+// Verificar se jQuery esta carregado
+if (typeof jQuery === 'undefined') {
+    console.error('jQuery nao esta carregado!');
+}
 
 let tabelaDados = null;
-let dadosAtuais = [];
+let dadosOriginais = [];
+let dadosFiltrados = [];
 let totaisGlobais = {
     totalGeral: 0,
     totalPorMes: {},
@@ -14,7 +20,7 @@ const nomesColunas = {
     'cocontacorrente': 'Conta Corrente',
     'intipoadm': 'Tipo Adm',
     'saldo_contabil_despesa': 'Saldo Contábil',
-    'conatureza': 'Classificação Orçamentária',
+    'conatureza': 'Natureza Despesa',
     'cofonte': 'Fonte',
     'inesfera': 'Esfera',
     'couo': 'UO',
@@ -22,7 +28,11 @@ const nomesColunas = {
     'cosubfuncao': 'Subfunção',
     'coprograma': 'Programa',
     'coprojeto': 'Projeto',
-    'cosubtitulo': 'Subtítulo'
+    'cosubtitulo': 'Subtítulo',
+    'cogrupo': 'Grupo',
+    'comodalidade': 'Modalidade',
+    'coelemento': 'Elemento',
+    'cosubelemento': 'Subelemento'
 };
 
 // Ordem correta dos meses
@@ -41,66 +51,43 @@ const ordemMeses = {
     12: 'Dezembro'
 };
 
-// Inicialização
+// Mapeamento reverso de meses (nome para numero)
+const mesesParaNumero = {};
+Object.entries(ordemMeses).forEach(([num, nome]) => {
+    mesesParaNumero[nome] = parseInt(num);
+});
+
+// Inicializacao
 $(document).ready(function() {
+    console.log('Document ready - iniciando carregamento dos filtros');
     carregarFiltros();
     configurarEventos();
 });
 
-// Carregar opções dos filtros
+// Carregar opcoes dos filtros
 function carregarFiltros() {
+    console.log('Carregando filtros...');
     $.ajax({
         url: '/saldo-despesa/api/filtros',
         method: 'GET',
-        timeout: 30000,
-        beforeSend: function() {
-            $('#selectAno').html('<option>Carregando...</option>');
-            $('#selectConta').html('<option>Carregando...</option>');
-            $('#selectUG').html('<option>Carregando...</option>');
-        },
         success: function(data) {
+            console.log('Filtros carregados:', data);
             // Anos
             $('#selectAno').empty().append('<option value="">Selecione o ano...</option>');
-            data.anos.forEach(function(ano) {
-                $('#selectAno').append(`<option value="${ano}">${ano}</option>`);
-            });
-            
-            // Contas
-            $('#selectConta').empty().append('<option value="">Selecione a conta...</option>');
-            data.contas.forEach(function(conta) {
-                $('#selectConta').append(`<option value="${conta}">${conta}</option>`);
-            });
-            
-            // UGs
-            $('#selectUG').empty().append('<option value="">Selecione a UG...</option>');
-            $('#selectUG').append('<option value="CONSOLIDADO">CONSOLIDADO</option>');
-            
-            if (data.ugs && data.ugs.length > 0) {
-                if (typeof data.ugs[0] === 'object') {
-                    data.ugs.forEach(function(ug) {
-                        $('#selectUG').append(`<option value="${ug.valor}">${ug.texto}</option>`);
-                    });
-                } else {
-                    data.ugs.forEach(function(ug) {
-                        $('#selectUG').append(`<option value="${ug}">${ug}</option>`);
-                    });
-                }
+            if (data.anos && data.anos.length > 0) {
+                data.anos.forEach(function(ano) {
+                    $('#selectAno').append('<option value="' + ano + '">' + ano + '</option>');
+                });
             }
             
-            if (data.cache === false) {
-                console.warn('⚠️ Cache não disponível. Execute scripts/otimizar_despesas.py');
-            }
+            // Desabilitar selects dependentes inicialmente
+            $('#selectConta').prop('disabled', true);
+            $('#selectUG').prop('disabled', true);
         },
-        error: function(xhr, status, error) {
-            let mensagem = 'Erro ao carregar filtros';
-            if (status === 'timeout') {
-                mensagem = 'Timeout! Execute scripts/otimizar_despesas.py';
-            }
-            mostrarErro('#mensagemInicial', mensagem);
-            
-            $('#selectAno').html('<option value="">Erro ao carregar</option>');
-            $('#selectConta').html('<option value="">Erro ao carregar</option>');
-            $('#selectUG').html('<option value="">Erro ao carregar</option>');
+        error: function(xhr) {
+            console.error('Erro ao carregar filtros:', xhr);
+            let erro = xhr.responseJSON ? xhr.responseJSON.erro : 'Erro desconhecido';
+            mostrarErro('#mensagemInicial', 'Erro ao carregar filtros: ' + erro);
         }
     });
 }
@@ -119,13 +106,105 @@ function configurarEventos() {
     $('#btnExportar').on('click', function() {
         exportarExcel();
     });
+    
+    // Evento para resetar filtros da tabela
+    $('#btnResetarFiltrosTabela').on('click', function() {
+        if (tabelaDados) {
+            // Limpar todos os filtros de coluna
+            tabelaDados.columns().every(function() {
+                var column = this;
+                var select = $(column.header()).find('select');
+                if (select.length > 0) {
+                    select.val('');
+                }
+            });
+            
+            // Limpar busca global
+            tabelaDados.search('').draw();
+            
+            // Recalcular totais com todos os dados
+            recalcularTotaisComFiltros();
+        }
+    });
+    
+    // Evento para mudanca de ano - carregar contas disponiveis
+    $('#selectAno').on('change', function() {
+        const ano = $(this).val();
+        
+        // Limpar e desabilitar selects dependentes
+        $('#selectConta').empty()
+            .append('<option value="">Selecione a conta...</option>')
+            .prop('disabled', true);
+        $('#selectUG').empty()
+            .append('<option value="">Selecione a UG...</option>')
+            .prop('disabled', true);
+            
+        if (ano) {
+            // Buscar contas disponiveis para o ano selecionado
+            $.ajax({
+                url: '/saldo-despesa/api/contas-por-ano',
+                method: 'GET',
+                data: { ano: ano },
+                success: function(data) {
+                    $('#selectConta').prop('disabled', false);
+                    data.contas.forEach(function(conta) {
+                        $('#selectConta').append('<option value="' + conta + '">' + conta + '</option>');
+                    });
+                },
+                error: function(xhr) {
+                    let erro = xhr.responseJSON ? xhr.responseJSON.erro : 'Erro desconhecido';
+                    alert('Erro ao carregar contas: ' + erro);
+                }
+            });
+        }
+    });
+    
+    // Evento para mudanca de conta - carregar UGs disponiveis
+    $('#selectConta').on('change', function() {
+        const ano = $('#selectAno').val();
+        const conta = $(this).val();
+        
+        // Limpar e desabilitar select de UG
+        $('#selectUG').empty()
+            .append('<option value="">Selecione a UG...</option>')
+            .prop('disabled', true);
+            
+        if (ano && conta) {
+            // Buscar UGs disponiveis para o ano e conta selecionados
+            $.ajax({
+                url: '/saldo-despesa/api/ugs-por-ano-conta',
+                method: 'GET',
+                data: { 
+                    ano: ano,
+                    conta: conta 
+                },
+                success: function(data) {
+                    $('#selectUG').prop('disabled', false);
+                    
+                    // Adicionar opcao CONSOLIDADO sempre
+                    $('#selectUG').append('<option value="CONSOLIDADO">CONSOLIDADO</option>');
+                    
+                    // Adicionar UGs disponiveis
+                    data.ugs.forEach(function(ug) {
+                        $('#selectUG').append('<option value="' + ug + '">' + ug + '</option>');
+                    });
+                },
+                error: function(xhr) {
+                    let erro = xhr.responseJSON ? xhr.responseJSON.erro : 'Erro desconhecido';
+                    alert('Erro ao carregar UGs: ' + erro);
+                }
+            });
+        }
+    });
 }
 
 // Limpar filtros
 function limparFiltros() {
     $('#selectAno').val('');
-    $('#selectConta').val('');
-    $('#selectUG').val('');
+    $('#selectConta').val('').prop('disabled', true)
+        .empty().append('<option value="">Primeiro selecione o ano...</option>');
+    $('#selectUG').val('').prop('disabled', true)
+        .empty().append('<option value="">Primeiro selecione a conta...</option>');
     
     $('#areaResultados').hide();
     $('#mensagemInicial').show();
@@ -138,14 +217,16 @@ function limparFiltros() {
     // Limpar cards de totais
     $('#saldoTotal').text('R$ 0,00');
     $('#totalRegistros').text('0');
-    $('#mediasMensal').text('R$ 0,00');
+    $('#mediaMensal').text('R$ 0,00');
     $('#mesesComDados').text('0');
     
     // Esconder card de naturezas
     $('#cardTopNaturezas').hide();
+    $('#indicadorFiltros').hide();
     
-    // Limpar variáveis globais
-    dadosAtuais = [];
+    // Limpar variaveis globais
+    dadosOriginais = [];
+    dadosFiltrados = [];
     totaisGlobais = {
         totalGeral: 0,
         totalPorMes: {},
@@ -176,17 +257,35 @@ function consultarDados() {
             ug: ug
         },
         success: function(response) {
-            // Ordenar dados por mês
-            dadosAtuais = response.dados.sort(function(a, b) {
+            // Ordenar dados por mes e armazenar
+            dadosOriginais = response.dados.sort(function(a, b) {
                 return a.inmes - b.inmes;
             });
             
-            calcularTotais(dadosAtuais);
-            atualizarCards();
-            construirTabela(dadosAtuais);
-            mostrarTopNaturezas();
+            dadosFiltrados = [...dadosOriginais];
             
+            // Calcular totais ANTES de construir a tabela
+            calcularTotais(dadosOriginais);
+            atualizarCards();
+            
+            // Mostrar a area ANTES de construir a tabela
             $('#areaResultados').show();
+            
+            // Pequeno delay para garantir que o DOM esta atualizado
+            setTimeout(function() {
+                // Construir a tabela apos a area estar visivel
+                construirTabela(dadosOriginais);
+                
+                // Mostrar naturezas
+                mostrarTopNaturezas();
+                
+                // Forcar recalculo da largura das colunas
+                if (tabelaDados) {
+                    tabelaDados.columns.adjust();
+                    $(window).trigger('resize');
+                }
+            }, 50);
+            
             $('#modalLoading').modal('hide');
         },
         error: function(xhr) {
@@ -196,6 +295,68 @@ function consultarDados() {
             $('#areaResultados').show();
         }
     });
+}
+
+// Funcao para recalcular totais com base nos filtros aplicados
+function recalcularTotaisComFiltros() {
+    if (!tabelaDados || !dadosOriginais || dadosOriginais.length === 0) return;
+    
+    // Verificar se a tabela esta pronta
+    try {
+        if (!tabelaDados.data() || !tabelaDados.data().any()) {
+            return;
+        }
+    } catch (e) {
+        return;
+    }
+    
+    // Obter dados filtrados do DataTable
+    dadosFiltrados = [];
+    
+    // Usar a API do DataTables para obter os dados filtrados
+    var dadosVisiveis = tabelaDados.rows({ search: 'applied', page: 'all' }).data();
+    
+    // Para cada linha visivel, recuperar o objeto original
+    for (var i = 0; i < dadosVisiveis.length; i++) {
+        var rowData = dadosVisiveis[i];
+        
+        // Encontrar o dado original correspondente
+        var dadoOriginal = dadosOriginais.find(function(d) {
+            // Comparar usando multiplos campos para garantir match correto
+            return d.inmes == rowData.inmes && 
+                   d.cocontacorrente === rowData.cocontacorrente &&
+                   d.saldo_contabil_despesa === rowData.saldo_contabil_despesa;
+        });
+        
+        if (dadoOriginal) {
+            dadosFiltrados.push(dadoOriginal);
+        }
+    }
+    
+    // Recalcular totais com dados filtrados
+    calcularTotais(dadosFiltrados);
+    atualizarCards();
+    mostrarTopNaturezas();
+    
+    // Atualizar indicador de filtros ativos
+    var filtrosAtivos = 0;
+    tabelaDados.columns().every(function() {
+        var column = this;
+        var select = $(column.header()).find('select');
+        if (select.length > 0 && select.val() !== '') {
+            filtrosAtivos++;
+        }
+    });
+    
+    if (tabelaDados.search() !== '') {
+        filtrosAtivos++;
+    }
+    
+    if (filtrosAtivos > 0) {
+        $('#indicadorFiltros').show().find('.badge').text(filtrosAtivos);
+    } else {
+        $('#indicadorFiltros').hide();
+    }
 }
 
 // Calcular totais
@@ -213,13 +374,13 @@ function calcularTotais(dados) {
         // Total geral
         totaisGlobais.totalGeral += saldo;
         
-        // Total por mês
+        // Total por mes
         if (!totaisGlobais.totalPorMes[row.inmes]) {
             totaisGlobais.totalPorMes[row.inmes] = 0;
         }
         totaisGlobais.totalPorMes[row.inmes] += saldo;
         
-        // Total por natureza (apenas se não for consolidado)
+        // Total por natureza de despesa
         if (row.conatureza) {
             if (!totaisGlobais.totalPorNatureza[row.conatureza]) {
                 totaisGlobais.totalPorNatureza[row.conatureza] = {
@@ -246,18 +407,24 @@ function atualizarCards() {
     }
     
     // Total de registros
-    $('#totalRegistros').text(dadosAtuais.length.toLocaleString('pt-BR'));
+    $('#totalRegistros').text(dadosFiltrados.length.toLocaleString('pt-BR'));
     
-    // Número de meses com dados
+    // Numero de meses com dados
     const mesesComDados = Object.keys(totaisGlobais.totalPorMes).length;
     $('#mesesComDados').text(mesesComDados);
     
-    // Média mensal
+    // Media mensal
     const mediaMensal = mesesComDados > 0 ? totaisGlobais.totalGeral / mesesComDados : 0;
     $('#mediaMensal').text(formatarMoeda(mediaMensal));
+    
+    // Animacao nos cards quando atualizados
+    $('.card-value-animate').addClass('updating');
+    setTimeout(function() {
+        $('.card-value-animate').removeClass('updating');
+    }, 300);
 }
 
-// Mostrar top naturezas
+// Mostrar top naturezas de despesa
 function mostrarTopNaturezas() {
     const naturezas = Object.entries(totaisGlobais.totalPorNatureza)
         .map(([natureza, dados]) => ({
@@ -278,27 +445,25 @@ function mostrarTopNaturezas() {
     
     naturezas.forEach(function(nat) {
         const percentual = (Math.abs(nat.total) / valorMaximo) * 100;
-        const corBarra = nat.total < 0 ? 'bg-danger' : 'bg-success';
+        const corBarra = nat.total >= 0 ? 'bg-success' : 'bg-danger';
         
-        html += `
-            <div class="natureza-item">
-                <div style="flex: 1;">
-                    <strong>${nat.natureza}</strong>
-                    <small class="text-muted">(${nat.quantidade} registros)</small>
-                </div>
-                <div style="width: 150px; text-align: right;">
-                    ${formatarMoeda(nat.total)}
-                </div>
-            </div>
-            <div class="progress mb-2" style="height: 10px;">
-                <div class="progress-bar ${corBarra}" role="progressbar" 
-                     style="width: ${percentual}%" 
-                     aria-valuenow="${percentual}" 
-                     aria-valuemin="0" 
-                     aria-valuemax="100">
-                </div>
-            </div>
-        `;
+        html += '<div class="natureza-item">';
+        html += '<div style="flex: 1;">';
+        html += '<strong>' + nat.natureza + '</strong>';
+        html += '<small class="text-muted">(' + nat.quantidade + ' registros)</small>';
+        html += '</div>';
+        html += '<div style="width: 150px; text-align: right;">';
+        html += formatarMoeda(nat.total);
+        html += '</div>';
+        html += '</div>';
+        html += '<div class="progress mb-2" style="height: 10px;">';
+        html += '<div class="progress-bar ' + corBarra + '" role="progressbar" ';
+        html += 'style="width: ' + percentual + '%" ';
+        html += 'aria-valuenow="' + percentual + '" ';
+        html += 'aria-valuemin="0" ';
+        html += 'aria-valuemax="100">';
+        html += '</div>';
+        html += '</div>';
     });
     
     $('#divTopNaturezas').html(html);
@@ -325,12 +490,17 @@ function construirTabela(dados) {
         ]);
     }
     
-    // Construir HTML
+    // Destruir tabela anterior se existir
+    if (tabelaDados) {
+        tabelaDados.destroy();
+    }
+    
+    // Construir HTML da tabela
     let html = '<table id="tabelaDados" class="table table-striped table-hover">';
     html += '<thead><tr>';
     
     colunas.forEach(function(col) {
-        html += `<th>${nomesColunas[col] || col}</th>`;
+        html += '<th>' + (nomesColunas[col] || col) + '</th>';
     });
     
     html += '</tr></thead><tbody>';
@@ -344,21 +514,21 @@ function construirTabela(dados) {
             
             if (col === 'inmes') {
                 valor = ordemMeses[valor] || valor;
-                html += `<td data-order="${row[col]}">${valor}</td>`;
+                html += '<td data-order="' + row[col] + '">' + valor + '</td>';
             } else if (col === 'saldo_contabil_despesa') {
                 valor = formatarNumero(valor);
                 const classe = row[col] < 0 ? 'text-negative' : 'text-positive';
-                html += `<td class="text-end ${classe}">${valor}</td>`;
+                html += '<td class="text-end ' + classe + '">' + valor + '</td>';
             } else if (col === 'inesfera') {
                 if (valor !== null && valor !== undefined && valor !== '') {
-                    html += `<td>${valor}</td>`;
+                    html += '<td>' + valor + '</td>';
                 } else {
-                    html += `<td class="text-center text-null">-</td>`;
+                    html += '<td class="text-center text-null">-</td>';
                 }
             } else if (valor === null || valor === undefined || valor === '') {
-                html += `<td class="text-center text-null">-</td>`;
+                html += '<td class="text-center text-null">-</td>';
             } else {
-                html += `<td>${valor}</td>`;
+                html += '<td>' + valor + '</td>';
             }
         });
         
@@ -374,7 +544,7 @@ function construirTabela(dados) {
             html += '<th>TOTAL GERAL</th>';
         } else if (col === 'saldo_contabil_despesa') {
             const classe = totaisGlobais.totalGeral < 0 ? 'text-negative' : 'text-positive';
-            html += `<th class="text-end ${classe}">${formatarNumero(totaisGlobais.totalGeral)}</th>`;
+            html += '<th class="text-end ' + classe + '">' + formatarNumero(totaisGlobais.totalGeral) + '</th>';
         } else {
             html += '<th></th>';
         }
@@ -385,53 +555,83 @@ function construirTabela(dados) {
     
     $('#divTabela').html(html);
     
-    if (tabelaDados) {
-        tabelaDados.destroy();
-    }
+    // Preparar dados para o DataTables no formato correto
+    var dadosDataTable = dados.map(function(row) {
+        var rowData = {};
+        colunas.forEach(function(col) {
+            if (col === 'inmes') {
+                rowData[col] = row[col]; // Manter numero original
+            } else {
+                rowData[col] = row[col];
+            }
+        });
+        return rowData;
+    });
     
     // Inicializar DataTable
     tabelaDados = $('#tabelaDados').DataTable({
+        data: dadosDataTable,
+        columns: colunas.map(function(col) {
+            return { 
+                data: col,
+                render: function(data, type, row) {
+                    if (col === 'inmes') {
+                        if (type === 'display') {
+                            return ordemMeses[data] || data;
+                        }
+                        return data; // Para ordenacao, usar numero
+                    } else if (col === 'saldo_contabil_despesa') {
+                        if (type === 'display') {
+                            const classe = data < 0 ? 'text-negative' : 'text-positive';
+                            return '<span class="' + classe + '">' + formatarNumero(data) + '</span>';
+                        }
+                        return data; // Para ordenacao, usar valor numerico
+                    } else if (data === null || data === undefined || data === '') {
+                        if (type === 'display') {
+                            return '<span class="text-center text-null">-</span>';
+                        }
+                        return '';
+                    }
+                    return data;
+                }
+            };
+        }),
         pageLength: 25,
         lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "Todos"]],
         dom: '<"row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>>rtip',
-        order: [[0, 'asc']], // Ordenar por mês
-        columnDefs: [
-            {
-                targets: 0, // Coluna do mês
-                type: 'num' // Tratar como número para ordenação correta
-            }
-        ],
+        order: [[0, 'asc']],
+        autoWidth: false, // Desabilitar calculo automatico de largura
+        scrollX: true, // Permitir scroll horizontal se necessario
         language: {
             search: "Buscar:",
-            lengthMenu: "Mostrar _MENU_ registros por página",
-            info: "Mostrando _START_ até _END_ de _TOTAL_ registros",
-            infoEmpty: "Mostrando 0 até 0 de 0 registros",
+            lengthMenu: "Mostrar _MENU_ registros por pagina",
+            info: "Mostrando _START_ ate _END_ de _TOTAL_ registros",
+            infoEmpty: "Mostrando 0 ate 0 de 0 registros",
             infoFiltered: "(filtrado de _MAX_ registros no total)",
             loadingRecords: "Carregando...",
             zeroRecords: "Nenhum registro encontrado",
-            emptyTable: "Nenhum dado disponível na tabela",
+            emptyTable: "Nenhum dado disponivel na tabela",
             paginate: {
                 first: "Primeiro",
                 previous: "Anterior",
-                next: "Próximo",
-                last: "Último"
+                next: "Proximo",
+                last: "Ultimo"
             }
         },
         footerCallback: function(row, data, start, end, display) {
-            // Atualizar o total da página atual
             var api = this.api();
             
-            // Total da página atual
+            // Total da pagina atual
             var pageTotal = api
                 .column(3, { page: 'current' })
                 .data()
                 .reduce(function(a, b) {
-                    return a + (parseFloat(b.replace(/[^\d,-]/g, '').replace(',', '.')) || 0);
+                    return a + (b || 0);
                 }, 0);
             
-            // Atualizar footer se necessário
+            // Atualizar footer
             if (display.length < data.length) {
-                $(api.column(0).footer()).html('TOTAL DA PÁGINA');
+                $(api.column(0).footer()).html('TOTAL DA PAGINA');
                 $(api.column(3).footer()).html(
                     '<span class="' + (pageTotal < 0 ? 'text-negative' : 'text-positive') + '">' + 
                     formatarNumero(pageTotal) + '</span>'
@@ -444,16 +644,25 @@ function construirTabela(dados) {
                 );
             }
         },
+        drawCallback: function(settings) {
+            // Recalcular totais sempre que a tabela for redesenhada
+            // Mas apenas se a tabela estiver completamente inicializada
+            if (this.api().data().any()) {
+                recalcularTotaisComFiltros();
+            }
+        },
         initComplete: function() {
+            var api = this.api();
+            
             // Adicionar filtros nas colunas
-            this.api().columns().every(function(index) {
+            api.columns().every(function(index) {
                 var column = this;
                 var title = $(column.header()).text();
                 
-                // Pular colunas que não devem ter filtro
-                if (title === 'Saldo Contábil' || index === 0) return;
+                // Pular coluna de saldo contabil
+                if (title === 'Saldo Contábil') return;
                 
-                var select = $('<select class="form-select form-select-sm"><option value="">Todos</option></select>')
+                var select = $('<select class="form-select form-select-sm filter-column"><option value="">Todos</option></select>')
                     .appendTo($(column.header()))
                     .on('change', function() {
                         var val = $.fn.dataTable.util.escapeRegex($(this).val());
@@ -463,40 +672,36 @@ function construirTabela(dados) {
                         e.stopPropagation();
                     });
                 
-                // Para a coluna de mês, ordenar corretamente
-                if (index === 0) {
-                    // Obter valores únicos e ordenar numericamente
-                    var meses = [];
-                    column.data().unique().each(function(d, j) {
-                        // Extrair o número do mês do data-order
-                        var mesNum = parseInt($(column.nodes()[0]).parent().find('td:eq(' + index + ')').attr('data-order'));
-                        if (!isNaN(mesNum) && meses.indexOf(mesNum) === -1) {
-                            meses.push(mesNum);
+                // Adicionar opcoes unicas ao select
+                column.data().unique().sort().each(function(d, j) {
+                    if (d !== null && d !== undefined && d !== '') {
+                        var displayValue = d;
+                        if (index === 0) { // Coluna de mes
+                            displayValue = ordemMeses[d] || d;
                         }
-                    });
-                    
-                    // Ordenar numericamente
-                    meses.sort(function(a, b) { return a - b; });
-                    
-                    // Adicionar ao select
-                    meses.forEach(function(mesNum) {
-                        var mesNome = ordemMeses[mesNum];
-                        select.append('<option value="' + mesNome + '">' + mesNome + '</option>');
-                    });
-                } else {
-                    // Para outras colunas, ordenar alfabeticamente
-                    column.data().unique().sort().each(function(d, j) {
-                        if (d && d !== '-') {
-                            select.append('<option value="' + d + '">' + d + '</option>');
-                        }
-                    });
-                }
+                        select.append('<option value="' + displayValue + '">' + displayValue + '</option>');
+                    }
+                });
             });
+            
+            // Adicionar listener para busca global
+            api.on('search.dt', function() {
+                recalcularTotaisComFiltros();
+            });
+            
+            // Forcar ajuste final das colunas
+            api.columns.adjust();
+            
+            // Garantir que os totais sejam calculados apos a inicializacao completa
+            setTimeout(function() {
+                api.columns.adjust();
+                recalcularTotaisComFiltros();
+            }, 100);
         }
     });
 }
 
-// Formatar número
+// Formatar numero
 function formatarNumero(valor) {
     if (valor === null || valor === undefined) return '0,00';
     
@@ -520,41 +725,41 @@ function formatarMoeda(valor) {
 
 // Mostrar erro
 function mostrarErro(elemento, mensagem) {
-    $(elemento).html(`
-        <div class="alert alert-danger" role="alert">
-            <i class="bi bi-exclamation-triangle"></i> ${mensagem}
-        </div>
-    `);
+    $(elemento).html(
+        '<div class="alert alert-danger" role="alert">' +
+        '<i class="bi bi-exclamation-triangle"></i> ' + mensagem +
+        '</div>'
+    );
 }
 
 // Exportar para Excel
 function exportarExcel() {
-    if (!dadosAtuais || dadosAtuais.length === 0) {
-        alert('Não há dados para exportar!');
+    if (!dadosFiltrados || dadosFiltrados.length === 0) {
+        alert('Nao ha dados para exportar!');
         return;
     }
     
     let csv = [];
     
-    let colunas = ['inmes', 'cocontacorrente', 'intipoadm', 'saldo_contabil_despesa'];
-    if (dadosAtuais[0].cocontacorrente !== 'CONSOLIDADO') {
-        colunas = colunas.concat([
+    // Determinar colunas baseado nos dados
+    let headers = ['inmes', 'cocontacorrente', 'intipoadm', 'saldo_contabil_despesa'];
+    if (dadosFiltrados[0].cocontacorrente !== 'CONSOLIDADO') {
+        headers = headers.concat([
             'conatureza', 'cofonte', 'inesfera', 'couo',
             'cofuncao', 'cosubfuncao', 'coprograma', 
             'coprojeto', 'cosubtitulo'
         ]);
     }
     
-    // Cabeçalho
-    csv.push(colunas.map(c => nomesColunas[c] || c).join(';'));
+    csv.push(headers.map(h => nomesColunas[h] || h).join(';'));
     
-    // Dados
-    dadosAtuais.forEach(function(row) {
-        let linha = colunas.map(function(col) {
-            let valor = row[col];
-            if (col === 'inmes') {
+    // Dados filtrados
+    dadosFiltrados.forEach(function(row) {
+        let linha = headers.map(function(h) {
+            let valor = row[h];
+            if (h === 'inmes') {
                 return ordemMeses[valor] || valor;
-            } else if (col === 'saldo_contabil_despesa' && valor !== null) {
+            } else if (h === 'saldo_contabil_despesa' && valor !== null) {
                 return valor.toString().replace('.', ',');
             }
             return valor || '';
@@ -563,10 +768,10 @@ function exportarExcel() {
     });
     
     // Adicionar linha de total
-    csv.push(''); // Linha vazia
+    csv.push('');
     let linhaTotal = ['TOTAL GERAL'];
-    for (let i = 1; i < colunas.length; i++) {
-        if (colunas[i] === 'saldo_contabil_despesa') {
+    for (let i = 1; i < headers.length; i++) {
+        if (headers[i] === 'saldo_contabil_despesa') {
             linhaTotal.push(totaisGlobais.totalGeral.toFixed(2).replace('.', ','));
         } else {
             linhaTotal.push('');
@@ -574,10 +779,10 @@ function exportarExcel() {
     }
     csv.push(linhaTotal.join(';'));
     
-    // Adicionar resumo por mês
-    csv.push(''); // Linha vazia
-    csv.push(['RESUMO POR MÊS'].join(';'));
-    csv.push(['Mês', 'Total'].join(';'));
+    // Adicionar resumo por mes
+    csv.push('');
+    csv.push(['RESUMO POR MES'].join(';'));
+    csv.push(['Mes', 'Total'].join(';'));
     Object.entries(totaisGlobais.totalPorMes)
         .sort(([a], [b]) => parseInt(a) - parseInt(b))
         .forEach(([mes, total]) => {
@@ -586,7 +791,7 @@ function exportarExcel() {
     
     // Adicionar top naturezas se houver
     if (Object.keys(totaisGlobais.totalPorNatureza).length > 0) {
-        csv.push(''); // Linha vazia
+        csv.push('');
         csv.push(['TOP 5 NATUREZAS DE DESPESA'].join(';'));
         csv.push(['Natureza', 'Quantidade', 'Valor Total'].join(';'));
         
@@ -603,13 +808,44 @@ function exportarExcel() {
             });
     }
     
+    // Adicionar indicacao de filtros aplicados
+    var filtrosAtivos = [];
+    if (tabelaDados) {
+        tabelaDados.columns().every(function() {
+            var column = this;
+            var select = $(column.header()).find('select');
+            if (select.length > 0 && select.val() !== '') {
+                var columnName = $(column.header()).clone().children().remove().end().text();
+                filtrosAtivos.push(columnName + ': ' + select.val());
+            }
+        });
+        
+        if (tabelaDados.search() !== '') {
+            filtrosAtivos.push('Busca: ' + tabelaDados.search());
+        }
+    }
+    
+    if (filtrosAtivos.length > 0) {
+        csv.push('');
+        csv.push(['FILTROS APLICADOS'].join(';'));
+        filtrosAtivos.forEach(function(filtro) {
+            csv.push([filtro].join(';'));
+        });
+    }
+    
     let csvContent = '\ufeff' + csv.join('\n');
     let blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     let link = document.createElement('a');
     let url = URL.createObjectURL(blob);
     
+    let filename = 'saldo_despesa_' + $('#selectAno').val() + '_' + $('#selectUG').val();
+    if (filtrosAtivos.length > 0) {
+        filename += '_filtrado';
+    }
+    filename += '.csv';
+    
     link.setAttribute('href', url);
-    link.setAttribute('download', `saldo_despesa_${$('#selectAno').val()}_${$('#selectUG').val()}.csv`);
+    link.setAttribute('download', filename);
     link.style.visibility = 'hidden';
     
     document.body.appendChild(link);

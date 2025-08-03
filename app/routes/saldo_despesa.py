@@ -16,98 +16,93 @@ def consulta():
 
 @saldo_despesa.route('/api/filtros')
 def get_filtros():
-    """Retorna os valores únicos para os filtros usando cache"""
+    """Retorna apenas os anos únicos - filtros iniciais"""
     try:
-        # Verificar se existe cache
-        cache_exists_query = """
-        SELECT EXISTS (
-            SELECT FROM information_schema.tables 
-            WHERE table_schema = 'public' 
-            AND table_name = 'cache_filtros_despesa'
-        );
+        # Buscar apenas anos únicos inicialmente
+        anos_query = """
+        SELECT DISTINCT coexercicio 
+        FROM despesas.fato_despesa_saldo 
+        ORDER BY coexercicio DESC
         """
-        result = db.execute_query(cache_exists_query)
-        cache_exists = result[0][0] if result else False
-        
-        # Verificar se cache tem dados
-        cache_has_data = False
-        if cache_exists:
-            count_result = db.execute_query("SELECT COUNT(*) FROM public.cache_filtros_despesa")
-            cache_has_data = count_result[0][0] > 0 if count_result else False
-        
-        if cache_has_data:
-            # Usar cache (MUITO mais rápido)
-            anos_query = """
-            SELECT valor FROM public.cache_filtros_despesa 
-            WHERE tipo_filtro = 'ano' 
-            ORDER BY ordem DESC
-            """
-            anos = [row[0] for row in db.execute_query(anos_query)]
-            
-            contas_query = """
-            SELECT valor FROM public.cache_filtros_despesa 
-            WHERE tipo_filtro = 'conta' 
-            ORDER BY ordem
-            """
-            contas = [row[0] for row in db.execute_query(contas_query)]
-            
-            ugs_query = """
-            SELECT valor, descricao FROM public.cache_filtros_despesa 
-            WHERE tipo_filtro = 'ug' 
-            ORDER BY ordem
-            """
-            ugs_raw = db.execute_query(ugs_query)
-            # Formatar UG com descrição se disponível
-            ugs = []
-            for ug, desc in ugs_raw:
-                if desc:
-                    ugs.append({'valor': ug, 'texto': f"{ug} - {desc[:30]}"})
-                else:
-                    ugs.append({'valor': ug, 'texto': ug})
-        else:
-            # Fallback para queries diretas (mais lento)
-            # Limitar resultados para não travar
-            anos_query = """
-            SELECT DISTINCT coexercicio 
-            FROM despesas.fato_despesa_saldo 
-            ORDER BY coexercicio DESC
-            LIMIT 10
-            """
-            anos = [str(row[0]) for row in db.execute_query(anos_query)]
-            
-            contas_query = """
-            SELECT DISTINCT cocontacontabil 
-            FROM despesas.fato_despesa_saldo 
-            ORDER BY cocontacontabil
-            LIMIT 100
-            """
-            contas = [str(row[0]) for row in db.execute_query(contas_query)]
-            
-            ugs_query = """
-            SELECT DISTINCT coug, MAX(noug) as nome
-            FROM despesas.fato_despesa_saldo 
-            GROUP BY coug
-            ORDER BY coug
-            LIMIT 100
-            """
-            ugs_raw = db.execute_query(ugs_query)
-            ugs = []
-            for ug, desc in ugs_raw:
-                if desc:
-                    ugs.append({'valor': str(ug), 'texto': f"{ug} - {desc[:30]}"})
-                else:
-                    ugs.append({'valor': str(ug), 'texto': str(ug)})
+        result = db.execute_query(anos_query)
+        anos = [str(row[0]) for row in result]
         
         return jsonify({
-            'anos': anos,
-            'contas': contas,
-            'ugs': ugs,
-            'cache': cache_has_data
+            'anos': anos
         })
         
     except Exception as e:
-        import traceback
-        print(traceback.format_exc())
+        print(f"Erro em get_filtros: {str(e)}")
+        return jsonify({'erro': str(e)}), 500
+
+@saldo_despesa.route('/api/contas-por-ano')
+def get_contas_por_ano():
+    """Retorna as contas contábeis disponíveis para um ano específico"""
+    try:
+        ano = request.args.get('ano')
+        
+        if not ano:
+            return jsonify({'erro': 'Ano é obrigatório'}), 400
+            
+        # Validar que ano é numérico para evitar SQL injection
+        try:
+            int(ano)
+        except ValueError:
+            return jsonify({'erro': 'Ano deve ser numérico'}), 400
+            
+        # Buscar contas contábeis que possuem dados no ano selecionado
+        contas_query = f"""
+        SELECT DISTINCT cocontacontabil 
+        FROM despesas.fato_despesa_saldo 
+        WHERE coexercicio = {ano}
+        ORDER BY cocontacontabil
+        """
+        
+        result = db.execute_query(contas_query)
+        contas = [str(row[0]) for row in result]
+        
+        return jsonify({
+            'contas': contas
+        })
+        
+    except Exception as e:
+        print(f"Erro em get_contas_por_ano: {str(e)}")
+        return jsonify({'erro': str(e)}), 500
+
+@saldo_despesa.route('/api/ugs-por-ano-conta')
+def get_ugs_por_ano_conta():
+    """Retorna as UGs disponíveis para um ano e conta específicos"""
+    try:
+        ano = request.args.get('ano')
+        conta = request.args.get('conta')
+        
+        if not all([ano, conta]):
+            return jsonify({'erro': 'Ano e conta são obrigatórios'}), 400
+            
+        # Validar que ano e conta são numéricos para evitar SQL injection
+        try:
+            int(ano)
+            int(conta)
+        except ValueError:
+            return jsonify({'erro': 'Ano e conta devem ser numéricos'}), 400
+            
+        # Buscar UGs que possuem dados no ano e conta selecionados
+        ugs_query = f"""
+        SELECT DISTINCT coug 
+        FROM despesas.fato_despesa_saldo 
+        WHERE coexercicio = {ano} AND cocontacontabil = {conta}
+        ORDER BY coug
+        """
+        
+        result = db.execute_query(ugs_query)
+        ugs = [str(row[0]) for row in result]
+        
+        return jsonify({
+            'ugs': ugs
+        })
+        
+    except Exception as e:
+        print(f"Erro em get_ugs_por_ano_conta: {str(e)}")
         return jsonify({'erro': str(e)}), 500
 
 @saldo_despesa.route('/api/dados')
