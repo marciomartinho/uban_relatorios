@@ -1,4 +1,9 @@
-// JavaScript para Consulta Saldo Receita - Versão com Cards Dinâmicos
+// JavaScript para Consulta Saldo Receita - Versao com Cards Dinamicos
+
+// Verificar se jQuery esta carregado
+if (typeof jQuery === 'undefined') {
+    console.error('jQuery nao esta carregado!');
+}
 
 let tabelaDados = null;
 let dadosOriginais = [];
@@ -52,35 +57,41 @@ const ordemMeses = {
     12: 'Dezembro'
 };
 
-// Mapeamento reverso de meses (nome para número)
+// Mapeamento reverso de meses (nome para numero)
 const mesesParaNumero = {};
 Object.entries(ordemMeses).forEach(([num, nome]) => {
     mesesParaNumero[nome] = parseInt(num);
 });
 
-// Inicialização
+// Inicializacao
 $(document).ready(function() {
+    console.log('Document ready - iniciando carregamento dos filtros');
     carregarFiltros();
     configurarEventos();
 });
 
-// Carregar opções dos filtros
+// Carregar opcoes dos filtros
 function carregarFiltros() {
+    console.log('Carregando filtros...');
     $.ajax({
         url: '/saldo-receita/api/filtros',
         method: 'GET',
         success: function(data) {
+            console.log('Filtros carregados:', data);
             // Anos
             $('#selectAno').empty().append('<option value="">Selecione o ano...</option>');
-            data.anos.forEach(function(ano) {
-                $('#selectAno').append(`<option value="${ano}">${ano}</option>`);
-            });
+            if (data.anos && data.anos.length > 0) {
+                data.anos.forEach(function(ano) {
+                    $('#selectAno').append('<option value="' + ano + '">' + ano + '</option>');
+                });
+            }
             
             // Desabilitar selects dependentes inicialmente
             $('#selectConta').prop('disabled', true);
             $('#selectUG').prop('disabled', true);
         },
         error: function(xhr) {
+            console.error('Erro ao carregar filtros:', xhr);
             let erro = xhr.responseJSON ? xhr.responseJSON.erro : 'Erro desconhecido';
             mostrarErro('#mensagemInicial', 'Erro ao carregar filtros: ' + erro);
         }
@@ -122,7 +133,7 @@ function configurarEventos() {
         }
     });
     
-    // Evento para mudança de ano - carregar contas disponíveis
+    // Evento para mudanca de ano - carregar contas disponiveis
     $('#selectAno').on('change', function() {
         const ano = $(this).val();
         
@@ -135,7 +146,7 @@ function configurarEventos() {
             .prop('disabled', true);
             
         if (ano) {
-            // Buscar contas disponíveis para o ano selecionado
+            // Buscar contas disponiveis para o ano selecionado
             $.ajax({
                 url: '/saldo-receita/api/contas-por-ano',
                 method: 'GET',
@@ -143,7 +154,7 @@ function configurarEventos() {
                 success: function(data) {
                     $('#selectConta').prop('disabled', false);
                     data.contas.forEach(function(conta) {
-                        $('#selectConta').append(`<option value="${conta}">${conta}</option>`);
+                        $('#selectConta').append('<option value="' + conta + '">' + conta + '</option>');
                     });
                 },
                 error: function(xhr) {
@@ -154,7 +165,7 @@ function configurarEventos() {
         }
     });
     
-    // Evento para mudança de conta - carregar UGs disponíveis
+    // Evento para mudanca de conta - carregar UGs disponiveis
     $('#selectConta').on('change', function() {
         const ano = $('#selectAno').val();
         const conta = $(this).val();
@@ -165,7 +176,7 @@ function configurarEventos() {
             .prop('disabled', true);
             
         if (ano && conta) {
-            // Buscar UGs disponíveis para o ano e conta selecionados
+            // Buscar UGs disponiveis para o ano e conta selecionados
             $.ajax({
                 url: '/saldo-receita/api/ugs-por-ano-conta',
                 method: 'GET',
@@ -176,12 +187,12 @@ function configurarEventos() {
                 success: function(data) {
                     $('#selectUG').prop('disabled', false);
                     
-                    // Adicionar opção CONSOLIDADO sempre
+                    // Adicionar opcao CONSOLIDADO sempre
                     $('#selectUG').append('<option value="CONSOLIDADO">CONSOLIDADO</option>');
                     
-                    // Adicionar UGs disponíveis
+                    // Adicionar UGs disponiveis
                     data.ugs.forEach(function(ug) {
-                        $('#selectUG').append(`<option value="${ug}">${ug}</option>`);
+                        $('#selectUG').append('<option value="' + ug + '">' + ug + '</option>');
                     });
                 },
                 error: function(xhr) {
@@ -215,10 +226,10 @@ function limparFiltros() {
     $('#mediaMensal').text('R$ 0,00');
     $('#mesesComDados').text('0');
     
-    // Esconder card de classificações
+    // Esconder card de classificacoes
     $('#cardTopClassificacoes').hide();
     
-    // Limpar variáveis globais
+    // Limpar variaveis globais
     dadosOriginais = [];
     dadosFiltrados = [];
     totaisGlobais = {
@@ -251,7 +262,7 @@ function consultarDados() {
             ug: ug
         },
         success: function(response) {
-            // Ordenar dados por mês e armazenar
+            // Ordenar dados por mes e armazenar
             dadosOriginais = response.dados.sort(function(a, b) {
                 return a.inmes - b.inmes;
             });
@@ -262,21 +273,23 @@ function consultarDados() {
             calcularTotais(dadosOriginais);
             atualizarCards();
             
-            // Construir a tabela
-            construirTabela(dadosOriginais);
-            
-            // Mostrar classificações
-            mostrarTopClassificacoes();
-            
-            // Forçar redimensionamento da tabela após mostrar
+            // Mostrar a area ANTES de construir a tabela
             $('#areaResultados').show();
             
-            // Ajustar colunas após a área estar visível
-            if (tabelaDados) {
-                setTimeout(function() {
-                    tabelaDados.columns.adjust().draw();
-                }, 100);
-            }
+            // Pequeno delay para garantir que o DOM esta atualizado
+            setTimeout(function() {
+                // Construir a tabela apos a area estar visivel
+                construirTabela(dadosOriginais);
+                
+                // Mostrar classificacoes
+                mostrarTopClassificacoes();
+                
+                // Forcar recalculo da largura das colunas
+                if (tabelaDados) {
+                    tabelaDados.columns.adjust();
+                    $(window).trigger('resize');
+                }
+            }, 50);
             
             $('#modalLoading').modal('hide');
         },
@@ -289,11 +302,11 @@ function consultarDados() {
     });
 }
 
-// Função para recalcular totais com base nos filtros aplicados
+// Funcao para recalcular totais com base nos filtros aplicados
 function recalcularTotaisComFiltros() {
     if (!tabelaDados || !dadosOriginais || dadosOriginais.length === 0) return;
     
-    // Verificar se a tabela está pronta
+    // Verificar se a tabela esta pronta
     try {
         if (!tabelaDados.data() || !tabelaDados.data().any()) {
             return;
@@ -308,14 +321,14 @@ function recalcularTotaisComFiltros() {
     // Usar a API do DataTables para obter os dados filtrados
     var dadosVisiveis = tabelaDados.rows({ search: 'applied', page: 'all' }).data();
     
-    // Para cada linha visível, recuperar o objeto original
+    // Para cada linha visivel, recuperar o objeto original
     for (var i = 0; i < dadosVisiveis.length; i++) {
         var rowData = dadosVisiveis[i];
         
         // Encontrar o dado original correspondente
-        // O DataTables mantém os dados originais, então podemos acessá-los diretamente
+        // O DataTables mantem os dados originais, entao podemos acessa-los diretamente
         var dadoOriginal = dadosOriginais.find(function(d) {
-            // Comparar usando múltiplos campos para garantir match correto
+            // Comparar usando multiplos campos para garantir match correto
             return d.inmes == rowData.inmes && 
                    d.cocontacorrente === rowData.cocontacorrente &&
                    d.saldo_contabil_receita === rowData.saldo_contabil_receita;
@@ -367,13 +380,13 @@ function calcularTotais(dados) {
         // Total geral
         totaisGlobais.totalGeral += saldo;
         
-        // Total por mês
+        // Total por mes
         if (!totaisGlobais.totalPorMes[row.inmes]) {
             totaisGlobais.totalPorMes[row.inmes] = 0;
         }
         totaisGlobais.totalPorMes[row.inmes] += saldo;
         
-        // Total por classificação orçamentária
+        // Total por classificacao orcamentaria
         if (row.coclasseorc) {
             if (!totaisGlobais.totalPorClassificacao[row.coclasseorc]) {
                 totaisGlobais.totalPorClassificacao[row.coclasseorc] = {
@@ -402,22 +415,22 @@ function atualizarCards() {
     // Total de registros
     $('#totalRegistros').text(dadosFiltrados.length.toLocaleString('pt-BR'));
     
-    // Número de meses com dados
+    // Numero de meses com dados
     const mesesComDados = Object.keys(totaisGlobais.totalPorMes).length;
     $('#mesesComDados').text(mesesComDados);
     
-    // Média mensal
+    // Media mensal
     const mediaMensal = mesesComDados > 0 ? totaisGlobais.totalGeral / mesesComDados : 0;
     $('#mediaMensal').text(formatarMoeda(mediaMensal));
     
-    // Animação nos cards quando atualizados
+    // Animacao nos cards quando atualizados
     $('.card-value-animate').addClass('updating');
     setTimeout(function() {
         $('.card-value-animate').removeClass('updating');
     }, 300);
 }
 
-// Mostrar top classificações orçamentárias
+// Mostrar top classificacoes orcamentarias
 function mostrarTopClassificacoes() {
     const classificacoes = Object.entries(totaisGlobais.totalPorClassificacao)
         .map(([classificacao, dados]) => ({
@@ -440,25 +453,23 @@ function mostrarTopClassificacoes() {
         const percentual = (Math.abs(clas.total) / valorMaximo) * 100;
         const corBarra = clas.total >= 0 ? 'bg-success' : 'bg-danger';
         
-        html += `
-            <div class="classificacao-item">
-                <div style="flex: 1;">
-                    <strong>${clas.classificacao}</strong>
-                    <small class="text-muted">(${clas.quantidade} registros)</small>
-                </div>
-                <div style="width: 150px; text-align: right;">
-                    ${formatarMoeda(clas.total)}
-                </div>
-            </div>
-            <div class="progress mb-2" style="height: 10px;">
-                <div class="progress-bar ${corBarra}" role="progressbar" 
-                     style="width: ${percentual}%" 
-                     aria-valuenow="${percentual}" 
-                     aria-valuemin="0" 
-                     aria-valuemax="100">
-                </div>
-            </div>
-        `;
+        html += '<div class="classificacao-item">';
+        html += '<div style="flex: 1;">';
+        html += '<strong>' + clas.classificacao + '</strong>';
+        html += '<small class="text-muted">(' + clas.quantidade + ' registros)</small>';
+        html += '</div>';
+        html += '<div style="width: 150px; text-align: right;">';
+        html += formatarMoeda(clas.total);
+        html += '</div>';
+        html += '</div>';
+        html += '<div class="progress mb-2" style="height: 10px;">';
+        html += '<div class="progress-bar ' + corBarra + '" role="progressbar" ';
+        html += 'style="width: ' + percentual + '%" ';
+        html += 'aria-valuenow="' + percentual + '" ';
+        html += 'aria-valuemin="0" ';
+        html += 'aria-valuemax="100">';
+        html += '</div>';
+        html += '</div>';
     });
     
     $('#divTopClassificacoes').html(html);
@@ -511,7 +522,7 @@ function construirTabela(dados) {
     html += '<thead><tr>';
     
     colunas.forEach(function(col) {
-        html += `<th>${nomesColunas[col] || col}</th>`;
+        html += '<th>' + (nomesColunas[col] || col) + '</th>';
     });
     
     html += '</tr></thead><tbody>';
@@ -525,21 +536,21 @@ function construirTabela(dados) {
             
             if (col === 'inmes') {
                 valor = ordemMeses[valor] || valor;
-                html += `<td data-order="${row[col]}">${valor}</td>`;
+                html += '<td data-order="' + row[col] + '">' + valor + '</td>';
             } else if (col === 'saldo_contabil_receita') {
                 valor = formatarNumero(valor);
                 const classe = row[col] < 0 ? 'text-negative' : 'text-positive';
-                html += `<td class="text-end ${classe}">${valor}</td>`;
+                html += '<td class="text-end ' + classe + '">' + valor + '</td>';
             } else if (col === 'inesfera') {
                 if (valor !== null && valor !== undefined && valor !== '') {
-                    html += `<td>${valor}</td>`;
+                    html += '<td>' + valor + '</td>';
                 } else {
-                    html += `<td class="text-center text-null">-</td>`;
+                    html += '<td class="text-center text-null">-</td>';
                 }
             } else if (valor === null || valor === undefined || valor === '') {
-                html += `<td class="text-center text-null">-</td>`;
+                html += '<td class="text-center text-null">-</td>';
             } else {
-                html += `<td>${valor}</td>`;
+                html += '<td>' + valor + '</td>';
             }
         });
         
@@ -555,7 +566,7 @@ function construirTabela(dados) {
             html += '<th>TOTAL GERAL</th>';
         } else if (col === 'saldo_contabil_receita') {
             const classe = totaisGlobais.totalGeral < 0 ? 'text-negative' : 'text-positive';
-            html += `<th class="text-end ${classe}">${formatarNumero(totaisGlobais.totalGeral)}</th>`;
+            html += '<th class="text-end ' + classe + '">' + formatarNumero(totaisGlobais.totalGeral) + '</th>';
         } else {
             html += '<th></th>';
         }
@@ -571,7 +582,7 @@ function construirTabela(dados) {
         var rowData = {};
         colunas.forEach(function(col) {
             if (col === 'inmes') {
-                rowData[col] = row[col]; // Manter número original
+                rowData[col] = row[col]; // Manter numero original
             } else {
                 rowData[col] = row[col];
             }
@@ -590,13 +601,13 @@ function construirTabela(dados) {
                         if (type === 'display') {
                             return ordemMeses[data] || data;
                         }
-                        return data; // Para ordenação, usar número
+                        return data; // Para ordenacao, usar numero
                     } else if (col === 'saldo_contabil_receita') {
                         if (type === 'display') {
                             const classe = data < 0 ? 'text-negative' : 'text-positive';
-                            return `<span class="${classe}">${formatarNumero(data)}</span>`;
+                            return '<span class="' + classe + '">' + formatarNumero(data) + '</span>';
                         }
-                        return data; // Para ordenação, usar valor numérico
+                        return data; // Para ordenacao, usar valor numerico
                     } else if (data === null || data === undefined || data === '') {
                         if (type === 'display') {
                             return '<span class="text-center text-null">-</span>';
@@ -611,26 +622,28 @@ function construirTabela(dados) {
         lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "Todos"]],
         dom: '<"row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>>rtip',
         order: [[0, 'asc']],
+        autoWidth: false, // Desabilitar calculo automatico de largura
+        scrollX: true, // Permitir scroll horizontal se necessario
         language: {
             search: "Buscar:",
-            lengthMenu: "Mostrar _MENU_ registros por página",
-            info: "Mostrando _START_ até _END_ de _TOTAL_ registros",
-            infoEmpty: "Mostrando 0 até 0 de 0 registros",
+            lengthMenu: "Mostrar _MENU_ registros por pagina",
+            info: "Mostrando _START_ ate _END_ de _TOTAL_ registros",
+            infoEmpty: "Mostrando 0 ate 0 de 0 registros",
             infoFiltered: "(filtrado de _MAX_ registros no total)",
             loadingRecords: "Carregando...",
             zeroRecords: "Nenhum registro encontrado",
-            emptyTable: "Nenhum dado disponível na tabela",
+            emptyTable: "Nenhum dado disponivel na tabela",
             paginate: {
                 first: "Primeiro",
                 previous: "Anterior",
-                next: "Próximo",
-                last: "Último"
+                next: "Proximo",
+                last: "Ultimo"
             }
         },
         footerCallback: function(row, data, start, end, display) {
             var api = this.api();
             
-            // Total da página atual
+            // Total da pagina atual
             var pageTotal = api
                 .column(3, { page: 'current' })
                 .data()
@@ -640,7 +653,7 @@ function construirTabela(dados) {
             
             // Atualizar footer
             if (display.length < data.length) {
-                $(api.column(0).footer()).html('TOTAL DA PÁGINA');
+                $(api.column(0).footer()).html('TOTAL DA PAGINA');
                 $(api.column(3).footer()).html(
                     '<span class="' + (pageTotal < 0 ? 'text-negative' : 'text-positive') + '">' + 
                     formatarNumero(pageTotal) + '</span>'
@@ -668,7 +681,7 @@ function construirTabela(dados) {
                 var column = this;
                 var title = $(column.header()).text();
                 
-                // Pular coluna de saldo contábil
+                // Pular coluna de saldo contabil
                 if (title === 'Saldo Contábil') return;
                 
                 var select = $('<select class="form-select form-select-sm filter-column"><option value="">Todos</option></select>')
@@ -681,11 +694,11 @@ function construirTabela(dados) {
                         e.stopPropagation();
                     });
                 
-                // Adicionar opções únicas ao select
+                // Adicionar opcoes unicas ao select
                 column.data().unique().sort().each(function(d, j) {
                     if (d !== null && d !== undefined && d !== '') {
                         var displayValue = d;
-                        if (index === 0) { // Coluna de mês
+                        if (index === 0) { // Coluna de mes
                             displayValue = ordemMeses[d] || d;
                         }
                         select.append('<option value="' + displayValue + '">' + displayValue + '</option>');
@@ -698,15 +711,19 @@ function construirTabela(dados) {
                 recalcularTotaisComFiltros();
             });
             
-            // Garantir que os totais sejam calculados após a inicialização completa
+            // Forcar ajuste final das colunas
+            api.columns.adjust();
+            
+            // Garantir que os totais sejam calculados apos a inicializacao completa
             setTimeout(function() {
+                api.columns.adjust();
                 recalcularTotaisComFiltros();
             }, 100);
         }
     });
 }
 
-// Formatar número
+// Formatar numero
 function formatarNumero(valor) {
     if (valor === null || valor === undefined) return '0,00';
     
@@ -730,17 +747,17 @@ function formatarMoeda(valor) {
 
 // Mostrar erro
 function mostrarErro(elemento, mensagem) {
-    $(elemento).html(`
-        <div class="alert alert-danger" role="alert">
-            <i class="bi bi-exclamation-triangle"></i> ${mensagem}
-        </div>
-    `);
+    $(elemento).html(
+        '<div class="alert alert-danger" role="alert">' +
+        '<i class="bi bi-exclamation-triangle"></i> ' + mensagem +
+        '</div>'
+    );
 }
 
 // Exportar para Excel
 function exportarExcel() {
     if (!dadosFiltrados || dadosFiltrados.length === 0) {
-        alert('Não há dados para exportar!');
+        alert('Nao ha dados para exportar!');
         return;
     }
     
@@ -776,21 +793,21 @@ function exportarExcel() {
     }
     csv.push(linhaTotal.join(';'));
     
-    // Adicionar resumo por mês
+    // Adicionar resumo por mes
     csv.push('');
-    csv.push(['RESUMO POR MÊS'].join(';'));
-    csv.push(['Mês', 'Total'].join(';'));
+    csv.push(['RESUMO POR MES'].join(';'));
+    csv.push(['Mes', 'Total'].join(';'));
     Object.entries(totaisGlobais.totalPorMes)
         .sort(([a], [b]) => parseInt(a) - parseInt(b))
         .forEach(([mes, total]) => {
             csv.push([ordemMeses[mes], total.toFixed(2).replace('.', ',')].join(';'));
         });
     
-    // Adicionar top classificações se houver
+    // Adicionar top classificacoes se houver
     if (Object.keys(totaisGlobais.totalPorClassificacao).length > 0) {
         csv.push('');
-        csv.push(['TOP 5 CLASSIFICAÇÕES ORÇAMENTÁRIAS'].join(';'));
-        csv.push(['Classificação', 'Quantidade', 'Valor Total'].join(';'));
+        csv.push(['TOP 5 CLASSIFICACOES ORCAMENTARIAS'].join(';'));
+        csv.push(['Classificacao', 'Quantidade', 'Valor Total'].join(';'));
         
         Object.entries(totaisGlobais.totalPorClassificacao)
             .map(([classificacao, dados]) => ({
@@ -805,7 +822,7 @@ function exportarExcel() {
             });
     }
     
-    // Adicionar indicação de filtros aplicados
+    // Adicionar indicacao de filtros aplicados
     var filtrosAtivos = [];
     if (tabelaDados) {
         tabelaDados.columns().every(function() {
@@ -835,7 +852,7 @@ function exportarExcel() {
     let link = document.createElement('a');
     let url = URL.createObjectURL(blob);
     
-    let filename = `saldo_receita_${$('#selectAno').val()}_${$('#selectUG').val()}`;
+    let filename = 'saldo_receita_' + $('#selectAno').val() + '_' + $('#selectUG').val();
     if (filtrosAtivos.length > 0) {
         filename += '_filtrado';
     }
