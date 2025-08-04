@@ -569,3 +569,5 @@ Entre PostgreSQL e DuckDB:
 PostgreSQL: Usado para Saldos (menor volume)
 DuckDB: Usado para Lançamentos (1.5M+ registros)
 Performance: DuckDB é 10-100x mais rápido para análises
+
+Só para enviar ao git
