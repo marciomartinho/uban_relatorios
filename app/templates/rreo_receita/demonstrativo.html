@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/rreo_receita.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <h2 class="text-center mb-4">
+                <i class="bi bi-file-earmark-text"></i> RREO - Demonstrativo de Receitas
+            </h2>
+            
+            <!-- Filtros -->
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-funnel"></i> Filtros do Relatório</h5>
+                </div>
+                <div class="card-body">
+                    <form id="formFiltros">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="selectAno" class="form-label">Ano</label>
+                                    <select class="form-select" id="selectAno" required>
+                                        <option value="">Selecione o ano...</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="selectUG" class="form-label">Unidade Gestora</label>
+                                    <select class="form-select" id="selectUG" required>
+                                        <option value="">Selecione a UG...</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="selectBimestre" class="form-label">Bimestre</label>
+                                    <select class="form-select" id="selectBimestre" required>
+                                        <option value="">Selecione o bimestre...</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-12 text-center">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="bi bi-search"></i> Gerar Relatório
+                                </button>
+                                <button type="button" class="btn btn-secondary" id="btnLimpar">
+                                    <i class="bi bi-x-circle"></i> Limpar
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Área do Relatório -->
+            <div id="areaRelatorio" style="display: none;">
+                <!-- Cabeçalho do Relatório -->
+                <div class="relatorio-cabecalho text-center mb-4">
+                    <h4>DISTRITO FEDERAL</h4>
+                    <h5>RELATÓRIO RESUMIDO DA EXECUÇÃO ORÇAMENTÁRIA</h5>
+                    <h5>BALANÇO ORÇAMENTÁRIO</h5>
+                    <h6>ORÇAMENTO FISCAL E DA SEGURIDADE SOCIAL</h6>
+                    <h6 id="tituloPeriodo">ATÉ O 1º BIMESTRE DE 2025</h6>
+                </div>
+                
+                <!-- Tabela do Relatório -->
+                <div class="table-responsive">
+                    <table class="table table-bordered table-sm relatorio-tabela" id="tabelaRREO">
+                        <thead>
+                            <tr>
+                                <th rowspan="3" class="align-middle text-center" style="width: 30%;">RECEITAS</th>
+                                <th rowspan="2" colspan="2" class="text-center">PREVISÃO INICIAL</th>
+                                <th rowspan="2" colspan="2" class="text-center">PREVISÃO ATUALIZADA<br/>(a)</th>
+                                <th colspan="4" class="text-center">RECEITAS REALIZADAS</th>
+                                <th rowspan="3" class="align-middle text-center">SALDO<br/>(a-c)</th>
+                            </tr>
+                            <tr>
+                                <th colspan="2" class="text-center">NO BIMESTRE<br/>(b)</th>
+                                <th colspan="2" class="text-center">ATÉ O BIMESTRE<br/>(c)</th>
+                            </tr>
+                            <tr>
+                                <th class="text-center" style="width: 8%;">R$</th>
+                                <th class="text-center" style="width: 4%;">%</th>
+                                <th class="text-center" style="width: 8%;">R$</th>
+                                <th class="text-center" style="width: 4%;">%</th>
+                                <th class="text-center" style="width: 8%;">R$</th>
+                                <th class="text-center" style="width: 4%;">%</th>
+                                <th class="text-center" style="width: 8%;">R$</th>
+                                <th class="text-center" style="width: 4%;">%</th>
+                            </tr>
+                        </thead>
+                        <tbody id="corpoRelatorio">
+                            <!-- Conteúdo será inserido dinamicamente -->
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Rodapé do Relatório -->
+                <div class="relatorio-rodape mt-4">
+                    <div class="row">
+                        <div class="col-6">
+                            <small class="text-muted">
+                                Fonte: SIGGO - Sistema Integrado de Gestão Governamental<br/>
+                                Dados extraídos do DuckDB Local
+                            </small>
+                        </div>
+                        <div class="col-6 text-end">
+                            <small class="text-muted">
+                                Gerado em: <span id="dataGeracao"></span>
+                            </small>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Botões de Ação -->
+                <div class="text-center mt-4">
+                    <button type="button" class="btn btn-success" id="btnExportar">
+                        <i class="bi bi-file-earmark-excel"></i> Exportar Excel
+                    </button>
+                    <button type="button" class="btn btn-info" id="btnImprimir">
+                        <i class="bi bi-printer"></i> Imprimir
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Mensagem Inicial -->
+            <div id="mensagemInicial" class="alert alert-info text-center">
+                <i class="bi bi-info-circle"></i> Selecione os filtros acima para gerar o relatório RREO de Receitas
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Loading -->
+<div class="modal fade" id="modalLoading" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-body text-center">
+                <div class="spinner-border text-primary mb-3" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+                <p>Gerando relatório RREO...</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/rreo_receita.js') }}"></script>
+{% endblock %}

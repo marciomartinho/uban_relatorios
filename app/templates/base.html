@@ -83,6 +83,24 @@
                         </ul>
                     </li>
                     
+                    <!-- Menu RREO com submenu -->
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" 
+                           data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-file-earmark-text"></i> RREO
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li>
+                                <a class="dropdown-item {% if request.endpoint == 'rreo_receita.demonstrativo' %}active{% endif %}" 
+                                   href="{{ url_for('rreo_receita.demonstrativo') }}">
+                                    <i class="bi bi-graph-up"></i> Demonstrativo de Receitas
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+                    
+                    <li class="nav-item">
+                    
                     <li class="nav-item">
                         <a class="nav-link {% if request.endpoint == 'main.sobre' %}active{% endif %}" 
                            href="{{ url_for('main.sobre') }}">

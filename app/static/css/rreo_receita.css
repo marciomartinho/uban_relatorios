@@ -1,0 +1,205 @@
+/* Estilos para o Relatório RREO de Receitas */
+
+/* Cabeçalho do Relatório */
+.relatorio-cabecalho {
+    border: 2px solid #000;
+    padding: 20px;
+    background-color: #f8f9fa;
+    margin-bottom: 20px;
+}
+
+.relatorio-cabecalho h4,
+.relatorio-cabecalho h5,
+.relatorio-cabecalho h6 {
+    margin: 5px 0;
+    font-weight: bold;
+}
+
+/* Tabela do Relatório */
+.relatorio-tabela {
+    font-size: 0.85rem;
+    border: 2px solid #000 !important;
+}
+
+.relatorio-tabela thead th {
+    background-color: #e9ecef;
+    font-weight: bold;
+    border: 1px solid #000 !important;
+    padding: 8px 4px;
+    font-size: 0.8rem;
+}
+
+.relatorio-tabela tbody td {
+    border: 1px solid #000 !important;
+    padding: 4px;
+}
+
+/* Linhas de título principal */
+.linha-titulo-principal {
+    font-weight: bold;
+    background-color: #f8f9fa;
+}
+
+/* Linhas de categoria (RECEITAS CORRENTES, etc) */
+.linha-categoria {
+    font-weight: bold;
+    background-color: #e9ecef;
+}
+
+/* Linhas de fonte */
+.linha-fonte {
+    padding-left: 20px !important;
+    font-weight: 600;
+}
+
+/* Linhas de subfonte */
+.linha-subfonte {
+    padding-left: 40px !important;
+    font-style: italic;
+}
+
+/* Linhas de total */
+.linha-total {
+    font-weight: bold;
+    background-color: #d1ecf1;
+}
+
+/* Linhas de total geral */
+.linha-total-geral {
+    font-weight: bold;
+    background-color: #b8daff;
+    font-size: 0.9rem;
+}
+
+/* Valores numéricos */
+.valor-numerico {
+    text-align: right;
+    white-space: nowrap;
+}
+
+.valor-percentual {
+    text-align: center;
+    font-size: 0.75rem;
+}
+
+/* Valores negativos */
+.valor-negativo {
+    color: #dc3545;
+}
+
+/* Valores zerados */
+.valor-zero {
+    color: #6c757d;
+    font-style: italic;
+}
+
+/* Rodapé do Relatório */
+.relatorio-rodape {
+    border: 1px solid #dee2e6;
+    padding: 10px;
+    background-color: #f8f9fa;
+    margin-top: 20px;
+}
+
+/* Botões de ação */
+.btn {
+    margin: 0 5px;
+}
+
+/* Impressão */
+@media print {
+    /* Ocultar elementos não necessários */
+    .card,
+    #mensagemInicial,
+    .btn,
+    .navbar,
+    .footer {
+        display: none !important;
+    }
+    
+    /* Mostrar apenas o relatório */
+    #areaRelatorio {
+        display: block !important;
+    }
+    
+    /* Ajustar tamanho da fonte */
+    .relatorio-tabela {
+        font-size: 10pt !important;
+    }
+    
+    /* Forçar quebras de página apropriadas */
+    .relatorio-cabecalho {
+        page-break-after: avoid;
+    }
+    
+    .relatorio-tabela {
+        page-break-inside: avoid;
+    }
+    
+    /* Remover cores de fundo para economizar tinta */
+    .linha-categoria,
+    .linha-total,
+    .linha-total-geral {
+        background-color: white !important;
+        border-top: 2px solid #000;
+        border-bottom: 2px solid #000;
+    }
+    
+    /* Garantir bordas visíveis */
+    .relatorio-tabela,
+    .relatorio-tabela th,
+    .relatorio-tabela td {
+        border: 1px solid #000 !important;
+    }
+}
+
+/* Loading */
+.spinner-border {
+    width: 3rem;
+    height: 3rem;
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+    .relatorio-tabela {
+        font-size: 0.7rem;
+    }
+    
+    .relatorio-tabela th,
+    .relatorio-tabela td {
+        padding: 2px;
+    }
+    
+    .table-responsive {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+}
+
+/* Animações */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+#areaRelatorio {
+    animation: fadeIn 0.3s ease;
+}
+
+/* Tooltips personalizados */
+.tooltip-custom {
+    font-size: 0.75rem;
+}
+
+/* Badge para indicar origem dos dados */
+.badge-fonte {
+    font-size: 0.7rem;
+    vertical-align: middle;
+    margin-left: 10px;
+}
