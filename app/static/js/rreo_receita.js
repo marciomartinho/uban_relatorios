@@ -78,9 +78,16 @@ function gerarRelatorio() {
     
     console.log('🦆 Gerando relatório RREO:', {ano, bimestre});
     
-    // Mostrar loading
-    $('#modalLoading').modal('show');
+    // Esconder área do relatório anterior se existir
+    $('#areaRelatorio').hide();
     $('#mensagemInicial').hide();
+    
+    // Mostrar mensagem de carregamento simples
+    $('#mensagemInicial').removeClass('alert-danger').addClass('alert-info');
+    $('#mensagemInicial').html(
+        '<i class="bi bi-hourglass-split"></i> Gerando relatório...'
+    );
+    $('#mensagemInicial').show();
     
     $.ajax({
         url: '/rreo-receita/api/gerar-relatorio',
@@ -105,38 +112,34 @@ function gerarRelatorio() {
                 // Construir tabela
                 construirTabela(response.dados);
                 
-                // Mostrar área do relatório
-                $('#areaRelatorio').show();
-                
-                // Esconder mensagem inicial
+                // Esconder mensagem de carregamento
                 $('#mensagemInicial').hide();
+                
+                // Mostrar área do relatório
+                $('#areaRelatorio').fadeIn(300);
+                
+                // Scroll suave para o relatório
+                setTimeout(function() {
+                    $('html, body').animate({
+                        scrollTop: $('#areaRelatorio').offset().top - 100
+                    }, 500);
+                }, 100);
                 
             } catch (error) {
                 console.error('Erro ao processar resposta:', error);
                 mostrarErro('Erro ao processar dados do relatório');
-            } finally {
-                // Sempre fechar modal
-                $('#modalLoading').modal('hide');
-                // Forçar fechamento se necessário
-                setTimeout(function() {
-                    $('#modalLoading').modal('hide');
-                    $('.modal-backdrop').remove();
-                    $('body').removeClass('modal-open');
-                }, 100);
             }
         },
         error: function(xhr) {
-            // Sempre fechar modal primeiro
-            $('#modalLoading').modal('hide');
-            $('.modal-backdrop').remove();
-            $('body').removeClass('modal-open');
-            
             console.error('❌ Erro ao gerar relatório:', xhr);
+            
             let erro = xhr.responseJSON ? xhr.responseJSON.erro : 'Erro desconhecido';
             mostrarErro('Erro ao gerar relatório: ' + erro);
         }
     });
 }
+
+
 
 // Construir tabela do relatório
 function construirTabela(dados) {
@@ -293,29 +296,33 @@ function criarLinha(titulo, valores, classe) {
     const percAteBimestre = valores.previsao_atualizada > 0 ? 
         (valores.realizado_ate_bimestre / valores.previsao_atualizada * 100) : 0;
     
-    let html = '<tr class="' + classe + '">';
-    html += '<td>' + titulo + '</td>';
+    const tr = $('<tr>').addClass(classe);
     
-    // Previsão Inicial (sem %)
-    html += '<td class="valor-numerico">' + formatarValor(valores.previsao_inicial) + '</td>';
+    // Coluna de receitas
+    tr.append($('<td>').text(titulo));
     
-    // Previsão Atualizada (sem %)
-    html += '<td class="valor-numerico">' + formatarValor(valores.previsao_atualizada) + '</td>';
+    // Previsão Inicial
+    tr.append($('<td>').addClass('valor-numerico').html(formatarValor(valores.previsao_inicial)));
     
-    // Realizado no Bimestre
-    html += '<td class="valor-numerico">' + formatarValor(valores.realizado_bimestre) + '</td>';
-    html += '<td class="valor-percentual">' + formatarPercentual(percBimestre) + '</td>';
+    // Previsão Atualizada
+    tr.append($('<td>').addClass('valor-numerico').html(formatarValor(valores.previsao_atualizada)));
     
-    // Realizado até o Bimestre
-    html += '<td class="valor-numerico">' + formatarValor(valores.realizado_ate_bimestre) + '</td>';
-    html += '<td class="valor-percentual">' + formatarPercentual(percAteBimestre) + '</td>';
+    // Realizado no Bimestre - Valor
+    tr.append($('<td>').addClass('valor-numerico').html(formatarValor(valores.realizado_bimestre)));
+    
+    // Realizado no Bimestre - Percentual
+    tr.append($('<td>').addClass('valor-percentual').html(formatarPercentual(percBimestre)));
+    
+    // Realizado até o Bimestre - Valor
+    tr.append($('<td>').addClass('valor-numerico').html(formatarValor(valores.realizado_ate_bimestre)));
+    
+    // Realizado até o Bimestre - Percentual
+    tr.append($('<td>').addClass('valor-percentual').html(formatarPercentual(percAteBimestre)));
     
     // Saldo
-    html += '<td class="valor-numerico">' + formatarValor(saldo) + '</td>';
+    tr.append($('<td>').addClass('valor-numerico').html(formatarValor(saldo)));
     
-    html += '</tr>';
-    
-    return html;
+    return tr;
 }
 
 // Formatar valor monetário
@@ -354,6 +361,10 @@ function limparFiltros() {
     $('#selectBimestre').val('');
     
     $('#areaRelatorio').hide();
+    $('#mensagemInicial').removeClass('alert-danger').addClass('alert-info');
+    $('#mensagemInicial').html(
+        '<i class="bi bi-info-circle"></i> Selecione os filtros acima para gerar o relatório RREO de Receitas'
+    );
     $('#mensagemInicial').show();
     
     dadosRelatorio = null;
@@ -366,6 +377,11 @@ function mostrarErro(mensagem) {
         '<i class="bi bi-exclamation-triangle"></i> ' + mensagem
     );
     $('#mensagemInicial').show();
+    
+    // Scroll para mensagem de erro
+    $('html, body').animate({
+        scrollTop: $('#mensagemInicial').offset().top - 100
+    }, 300);
 }
 
 // Exportar para Excel
@@ -401,15 +417,18 @@ function exportarExcel() {
     ]);
     
     // Função para adicionar linha ao CSV
-    function adicionarLinhaCSV(titulo, valores) {
+    function adicionarLinhaCSV(titulo, valores, nivel = 0) {
         const saldo = valores.previsao_atualizada - valores.realizado_ate_bimestre;
         const percBimestre = valores.previsao_atualizada > 0 ? 
             (valores.realizado_bimestre / valores.previsao_atualizada * 100) : 0;
         const percAteBimestre = valores.previsao_atualizada > 0 ? 
             (valores.realizado_ate_bimestre / valores.previsao_atualizada * 100) : 0;
         
+        // Adicionar indentação baseada no nível
+        const tituloIndentado = '  '.repeat(nivel) + titulo;
+        
         csv.push([
-            titulo,
+            tituloIndentado,
             valores.previsao_inicial.toFixed(2).replace('.', ','),
             valores.previsao_atualizada.toFixed(2).replace('.', ','),
             valores.realizado_bimestre.toFixed(2).replace('.', ','),
@@ -427,68 +446,87 @@ function exportarExcel() {
     adicionarLinhaCSV('RECEITAS (EXCETO INTRA-ORÇAMENTÁRIAS) (I)', dados.receitas_exceto_intra.total);
     
     // Receitas Correntes
-    if (dados.receitas_exceto_intra.receitas_correntes.total.previsao_inicial > 0) {
-        adicionarLinhaCSV('  RECEITAS CORRENTES', dados.receitas_exceto_intra.receitas_correntes.total);
+    if (dados.receitas_exceto_intra.receitas_correntes.total.previsao_inicial > 0 ||
+        dados.receitas_exceto_intra.receitas_correntes.total.realizado_ate_bimestre > 0) {
+        
+        adicionarLinhaCSV('RECEITAS CORRENTES', dados.receitas_exceto_intra.receitas_correntes.total, 1);
         
         Object.values(dados.receitas_exceto_intra.receitas_correntes.detalhes).forEach(function(fonte) {
-            adicionarLinhaCSV('    ' + fonte.nome, fonte.total);
+            adicionarLinhaCSV(fonte.nome, fonte.total, 2);
             
             Object.values(fonte.subfontes).forEach(function(subfonte) {
-                adicionarLinhaCSV('      ' + subfonte.nome, subfonte);
+                adicionarLinhaCSV(subfonte.nome, subfonte, 3);
             });
         });
     }
     
     // Receitas de Capital
-    if (dados.receitas_exceto_intra.receitas_capital.total.previsao_inicial > 0) {
-        adicionarLinhaCSV('  RECEITAS DE CAPITAL', dados.receitas_exceto_intra.receitas_capital.total);
+    if (dados.receitas_exceto_intra.receitas_capital.total.previsao_inicial > 0 ||
+        dados.receitas_exceto_intra.receitas_capital.total.realizado_ate_bimestre > 0) {
+        
+        adicionarLinhaCSV('RECEITAS DE CAPITAL', dados.receitas_exceto_intra.receitas_capital.total, 1);
         
         Object.values(dados.receitas_exceto_intra.receitas_capital.detalhes).forEach(function(fonte) {
-            adicionarLinhaCSV('    ' + fonte.nome, fonte.total);
+            adicionarLinhaCSV(fonte.nome, fonte.total, 2);
             
             Object.values(fonte.subfontes).forEach(function(subfonte) {
-                adicionarLinhaCSV('      ' + subfonte.nome, subfonte);
+                adicionarLinhaCSV(subfonte.nome, subfonte, 3);
             });
         });
     }
     
     // Receitas Intra
-    if (dados.receitas_intra.total.previsao_inicial > 0) {
+    if (dados.receitas_intra.total.previsao_inicial > 0 ||
+        dados.receitas_intra.total.realizado_ate_bimestre > 0) {
+        
         adicionarLinhaCSV('RECEITAS (INTRA-ORÇAMENTÁRIAS) (II)', dados.receitas_intra.total);
         
         // Receitas Correntes - Intra
-        if (dados.receitas_intra.receitas_correntes.total.previsao_inicial > 0) {
-            adicionarLinhaCSV('  RECEITAS CORRENTES - INTRA-ORÇAMENTÁRIAS', 
-                dados.receitas_intra.receitas_correntes.total);
+        if (dados.receitas_intra.receitas_correntes.total.previsao_inicial > 0 ||
+            dados.receitas_intra.receitas_correntes.total.realizado_ate_bimestre > 0) {
+            
+            adicionarLinhaCSV('RECEITAS CORRENTES - INTRA-ORÇAMENTÁRIAS', 
+                dados.receitas_intra.receitas_correntes.total, 1);
             
             Object.values(dados.receitas_intra.receitas_correntes.detalhes).forEach(function(fonte) {
-                adicionarLinhaCSV('    ' + fonte.nome, fonte.total);
+                adicionarLinhaCSV(fonte.nome, fonte.total, 2);
                 
                 Object.values(fonte.subfontes).forEach(function(subfonte) {
-                    adicionarLinhaCSV('      ' + subfonte.nome, subfonte);
+                    adicionarLinhaCSV(subfonte.nome, subfonte, 3);
                 });
             });
         }
         
         // Receitas de Capital - Intra
-        if (dados.receitas_intra.receitas_capital.total.previsao_inicial > 0) {
-            adicionarLinhaCSV('  RECEITAS DE CAPITAL - INTRA-ORÇAMENTÁRIAS', 
-                dados.receitas_intra.receitas_capital.total);
+        if (dados.receitas_intra.receitas_capital.total.previsao_inicial > 0 ||
+            dados.receitas_intra.receitas_capital.total.realizado_ate_bimestre > 0) {
+            
+            adicionarLinhaCSV('RECEITAS DE CAPITAL - INTRA-ORÇAMENTÁRIAS', 
+                dados.receitas_intra.receitas_capital.total, 1);
             
             Object.values(dados.receitas_intra.receitas_capital.detalhes).forEach(function(fonte) {
-                adicionarLinhaCSV('    ' + fonte.nome, fonte.total);
+                adicionarLinhaCSV(fonte.nome, fonte.total, 2);
                 
                 Object.values(fonte.subfontes).forEach(function(subfonte) {
-                    adicionarLinhaCSV('      ' + subfonte.nome, subfonte);
+                    adicionarLinhaCSV(subfonte.nome, subfonte, 3);
                 });
             });
         }
     }
     
+    // Linha em branco antes dos totais
+    csv.push(['']);
+    
     // Totais
     adicionarLinhaCSV('TOTAL DAS RECEITAS (III) = (I + II)', dados.total_receitas);
     adicionarLinhaCSV('DÉFICIT (IV)', dados.deficit);
     adicionarLinhaCSV('TOTAL (V) = (III + IV)', dados.total_final);
+    
+    // Rodapé
+    csv.push(['']);
+    csv.push(['Fonte: SIGGO - Sistema Integrado de Gestão Governamental']);
+    csv.push(['Dados extraídos do DuckDB Local']);
+    csv.push([`Gerado em: ${dadosRelatorio.data_geracao}`]);
     
     // Converter para string CSV
     let csvContent = '\ufeff' + csv.map(row => row.join(';')).join('\n');

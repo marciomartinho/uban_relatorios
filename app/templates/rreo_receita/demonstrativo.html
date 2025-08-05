@@ -67,29 +67,27 @@
                     <h6 id="tituloPeriodo">ATÉ O 1º BIMESTRE DE 2025</h6>
                 </div>
                 
-                <!-- Tabela do Relatório -->
-                <div class="table-responsive">
+                <!-- Container com scroll para a tabela -->
+                <div class="table-container">
                     <table class="table table-bordered table-sm relatorio-tabela" id="tabelaRREO">
                         <thead>
                             <tr>
-                                <th rowspan="3" class="align-middle text-center" style="width: 35%;">RECEITAS</th>
-                                <th rowspan="2" class="text-center">PREVISÃO INICIAL</th>
-                                <th rowspan="2" class="text-center">PREVISÃO ATUALIZADA<br/>(a)</th>
-                                <th colspan="4" class="text-center">RECEITAS REALIZADAS</th>
-                                <th rowspan="3" class="align-middle text-center">SALDO<br/>(a-c)</th>
-                            </tr>
-                            <tr>
+                                <th rowspan="3" class="align-middle text-center coluna-receitas">RECEITAS</th>
+                                <th rowspan="3" class="align-middle text-center coluna-valor">PREVISÃO INICIAL</th>
+                                <th rowspan="3" class="align-middle text-center coluna-valor">PREVISÃO ATUALIZADA<br/>(a)</th>
                                 <th colspan="2" class="text-center">NO BIMESTRE<br/>(b)</th>
                                 <th colspan="2" class="text-center">ATÉ O BIMESTRE<br/>(c)</th>
+                                <th rowspan="3" class="align-middle text-center coluna-valor">SALDO<br/>(a-c)</th>
                             </tr>
                             <tr>
-                                <th class="text-center" style="width: 10%;">R$</th>
-                                <th class="text-center" style="width: 10%;">R$</th>
-                                <th class="text-center" style="width: 10%;">R$</th>
-                                <th class="text-center" style="width: 5%;">%</th>
-                                <th class="text-center" style="width: 10%;">R$</th>
-                                <th class="text-center" style="width: 5%;">%</th>
-                                <th class="text-center" style="width: 10%;">R$</th>
+                                <th colspan="2" class="text-center">RECEITAS REALIZADAS</th>
+                                <th colspan="2" class="text-center">RECEITAS REALIZADAS</th>
+                            </tr>
+                            <tr>
+                                <th class="text-center coluna-valor">R$</th>
+                                <th class="text-center coluna-percentual">%</th>
+                                <th class="text-center coluna-valor">R$</th>
+                                <th class="text-center coluna-percentual">%</th>
                             </tr>
                         </thead>
                         <tbody id="corpoRelatorio">
@@ -116,7 +114,7 @@
                 </div>
                 
                 <!-- Botões de Ação -->
-                <div class="text-center mt-4">
+                <div class="text-center mt-4 mb-5">
                     <button type="button" class="btn btn-success" id="btnExportar">
                         <i class="bi bi-file-earmark-excel"></i> Exportar Excel
                     </button>
@@ -134,19 +132,7 @@
     </div>
 </div>
 
-<!-- Modal de Loading -->
-<div class="modal fade" id="modalLoading" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-body text-center">
-                <div class="spinner-border text-primary mb-3" role="status">
-                    <span class="visually-hidden">Carregando...</span>
-                </div>
-                <p>Gerando relatório RREO...</p>
-            </div>
-        </div>
-    </div>
-</div>
+
 {% endblock %}
 
 {% block scripts %}
