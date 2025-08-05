@@ -29,6 +29,23 @@
     gap: 0.5rem;
 }
 
+/* Botão de download de imagem */
+#btnDownloadImagem {
+    background-color: #ff9800;
+    border-color: #ff9800;
+    color: white;
+}
+
+#btnDownloadImagem:hover {
+    background-color: #e68900;
+    border-color: #e68900;
+}
+
+#btnDownloadImagem:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
 .filtro-receita {
     font-size: 0.875rem;
     padding: 0.5rem 1rem;

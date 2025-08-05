@@ -86,6 +86,7 @@ function configurarEventos() {
     
     // Botões de ação do relatório
     $(document).on('click', '#btnExportar', exportarExcel);
+    $(document).on('click', '#btnDownloadImagem', downloadImagem);
     $(document).on('click', '#btnImprimir', function() {
         window.print();
     });
@@ -211,6 +212,9 @@ function renderizarRelatorio(dados) {
                     <div class="col-md-4 text-end">
                         <button id="btnExportar" class="btn btn-success btn-sm">
                             <i class="bi bi-file-earmark-excel"></i> Excel
+                        </button>
+                        <button id="btnDownloadImagem" class="btn btn-warning btn-sm">
+                            <i class="bi bi-image"></i> Imagem HD
                         </button>
                         <button id="btnImprimir" class="btn btn-primary btn-sm">
                             <i class="bi bi-printer"></i> Imprimir
@@ -365,6 +369,238 @@ function exportarExcel() {
     
     console.log('📊 Exportando para Excel...');
     mostrarAlerta('Exportação para Excel será implementada em breve!', 'info');
+}
+
+// Download como imagem em alta resolução
+function downloadImagem() {
+    if (!dadosRelatorio) {
+        mostrarAlerta('Nenhum relatório para exportar!', 'warning');
+        return;
+    }
+    
+    // Mostrar loading
+    mostrarAlerta('Gerando imagem em alta resolução...', 'info');
+    
+    // Desabilitar botão temporariamente
+    $('#btnDownloadImagem').prop('disabled', true).html('<i class="bi bi-hourglass-split"></i> Gerando...');
+    
+    // Criar container temporário com fundo branco
+    const containerTemp = document.createElement('div');
+    containerTemp.style.position = 'absolute';
+    containerTemp.style.left = '-9999px';
+    containerTemp.style.background = 'white';
+    containerTemp.style.padding = '30px';
+    containerTemp.style.width = '190mm'; // Largura A4 retrato com margem
+    containerTemp.style.fontFamily = 'Arial, sans-serif';
+    
+    // Adicionar título e informações do cabeçalho
+    const cabecalho = document.createElement('div');
+    cabecalho.style.textAlign = 'center';
+    cabecalho.style.marginBottom = '20px';
+    cabecalho.innerHTML = `
+        <h2 style="color: #1e3c72; margin-bottom: 10px; font-size: 24px;">BALANÇO ORÇAMENTÁRIO DA RECEITA</h2>
+        <h3 style="color: #333; margin-bottom: 8px; font-size: 18px;">${dadosRelatorio.periodo.nome_mes}/${dadosRelatorio.periodo.ano}</h3>
+        <p style="color: #666; margin: 5px 0; font-size: 14px;">UG: ${dadosRelatorio.filtros.nome_coug}</p>
+        <p style="color: #666; margin: 5px 0; font-size: 14px;">Filtro: ${dadosRelatorio.filtros.filtro_descricao}</p>
+    `;
+    
+    // Criar tabela reformatada para caber em retrato
+    const tabelaContainer = document.createElement('div');
+    
+    // Criar a tabela reorganizada
+    let tabelaHTML = `
+        <table style="width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 20px;">
+            <thead>
+                <tr style="background-color: #1e3c72; color: white;">
+                    <th rowspan="2" style="border: 1px solid #ddd; padding: 8px; text-align: left; width: 40%;">RECEITAS</th>
+                    <th colspan="3" style="border: 1px solid #ddd; padding: 8px; text-align: center;">VALORES (R$)</th>
+                </tr>
+                <tr style="background-color: #1e3c72; color: white;">
+                    <th style="border: 1px solid #ddd; padding: 8px; text-align: right; width: 20%;">PREVISÃO INICIAL<br>${dadosRelatorio.periodo.ano}</th>
+                    <th style="border: 1px solid #ddd; padding: 8px; text-align: right; width: 20%;">PREVISÃO ATUALIZADA<br>${dadosRelatorio.periodo.ano}</th>
+                    <th style="border: 1px solid #ddd; padding: 8px; text-align: right; width: 20%;">REALIZADA<br>${dadosRelatorio.periodo.mes}/${dadosRelatorio.periodo.ano}</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+    
+    // Adicionar linhas de dados com apenas as colunas essenciais
+    dadosRelatorio.dados.forEach(function(item) {
+        const paddingLeft = 10 + (item.nivel * 20);
+        const fontWeight = item.nivel === 0 ? 'bold' : 'normal';
+        const backgroundColor = item.nivel === 0 ? '#f5f5f5' : 'white';
+        
+        let descricao = item.descricao;
+        if (item.tem_filhos) {
+            descricao = `+ ${descricao}`;
+        }
+        
+        tabelaHTML += `
+            <tr style="background-color: ${backgroundColor};">
+                <td style="border: 1px solid #ddd; padding: 6px 8px; padding-left: ${paddingLeft}px; font-weight: ${fontWeight};">
+                    ${descricao}
+                </td>
+                <td style="border: 1px solid #ddd; padding: 6px 8px; text-align: right; font-weight: ${fontWeight};">
+                    ${formatarValor(item.previsao_inicial)}
+                </td>
+                <td style="border: 1px solid #ddd; padding: 6px 8px; text-align: right; font-weight: ${fontWeight};">
+                    ${formatarValor(item.previsao_atualizada)}
+                </td>
+                <td style="border: 1px solid #ddd; padding: 6px 8px; text-align: right; font-weight: ${fontWeight};">
+                    ${formatarValor(item.receita_atual)}
+                </td>
+            </tr>
+        `;
+    });
+    
+    // Adicionar linha de total
+    tabelaHTML += `
+            <tr style="background-color: #2c3e50; color: white; font-weight: bold;">
+                <td style="border: 1px solid #ddd; padding: 8px;">TOTAL GERAL</td>
+                <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">
+                    ${formatarValor(dadosRelatorio.totais.previsao_inicial)}
+                </td>
+                <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">
+                    ${formatarValor(dadosRelatorio.totais.previsao_atualizada)}
+                </td>
+                <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">
+                    ${formatarValor(dadosRelatorio.totais.receita_atual)}
+                </td>
+            </tr>
+            </tbody>
+        </table>
+    `;
+    
+    tabelaContainer.innerHTML = tabelaHTML;
+    
+    // Adicionar tabela de variações separada (opcional - se couber)
+    const variacoesHTML = `
+        <div style="margin-top: 20px; page-break-inside: avoid;">
+            <h4 style="color: #1e3c72; margin-bottom: 10px; font-size: 14px;">ANÁLISE DE VARIAÇÕES</h4>
+            <table style="width: 100%; border-collapse: collapse; font-size: 10px;">
+                <thead>
+                    <tr style="background-color: #495057; color: white;">
+                        <th style="border: 1px solid #ddd; padding: 6px; text-align: left;">CATEGORIA</th>
+                        <th style="border: 1px solid #ddd; padding: 6px; text-align: right;">REALIZADA ${dadosRelatorio.periodo.mes}/${dadosRelatorio.periodo.ano_anterior}</th>
+                        <th style="border: 1px solid #ddd; padding: 6px; text-align: right;">VARIAÇÃO ABSOLUTA</th>
+                        <th style="border: 1px solid #ddd; padding: 6px; text-align: center;">VARIAÇÃO %</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+    
+    let variacoesBody = '';
+    // Adicionar apenas categorias principais (nível 0) na tabela de variações
+    dadosRelatorio.dados.filter(item => item.nivel === 0).forEach(function(item) {
+        const corVariacao = item.variacao_absoluta >= 0 ? '#28a745' : '#dc3545';
+        variacoesBody += `
+            <tr>
+                <td style="border: 1px solid #ddd; padding: 4px 6px; font-weight: bold;">${item.descricao}</td>
+                <td style="border: 1px solid #ddd; padding: 4px 6px; text-align: right;">
+                    ${formatarValor(item.receita_anterior)}
+                </td>
+                <td style="border: 1px solid #ddd; padding: 4px 6px; text-align: right; color: ${corVariacao};">
+                    ${formatarValor(item.variacao_absoluta)}
+                </td>
+                <td style="border: 1px solid #ddd; padding: 4px 6px; text-align: center; color: ${corVariacao};">
+                    ${formatarPercentual(item.variacao_percentual)}
+                </td>
+            </tr>
+        `;
+    });
+    
+    // Total das variações
+    const corTotalVariacao = dadosRelatorio.totais.variacao_absoluta >= 0 ? '#28a745' : '#dc3545';
+    variacoesBody += `
+        <tr style="background-color: #f5f5f5; font-weight: bold;">
+            <td style="border: 1px solid #ddd; padding: 6px;">TOTAL</td>
+            <td style="border: 1px solid #ddd; padding: 6px; text-align: right;">
+                ${formatarValor(dadosRelatorio.totais.receita_anterior)}
+            </td>
+            <td style="border: 1px solid #ddd; padding: 6px; text-align: right; color: ${corTotalVariacao};">
+                ${formatarValor(dadosRelatorio.totais.variacao_absoluta)}
+            </td>
+            <td style="border: 1px solid #ddd; padding: 6px; text-align: center; color: ${corTotalVariacao};">
+                ${formatarPercentual(dadosRelatorio.totais.variacao_percentual)}
+            </td>
+        </tr>
+    `;
+    
+    const tabelaVariacoes = document.createElement('div');
+    tabelaVariacoes.innerHTML = variacoesHTML + variacoesBody + '</tbody></table></div>';
+    
+    // Adicionar rodapé
+    const rodape = document.createElement('div');
+    rodape.style.textAlign = 'center';
+    rodape.style.marginTop = '30px';
+    rodape.style.fontSize = '10px';
+    rodape.style.color = '#666';
+    rodape.style.borderTop = '1px solid #ddd';
+    rodape.style.paddingTop = '10px';
+    rodape.innerHTML = `
+        <p style="margin: 0;">Gerado em: ${dadosRelatorio.data_geracao}</p>
+    `;
+    
+    // Montar container
+    containerTemp.appendChild(cabecalho);
+    containerTemp.appendChild(tabelaContainer);
+    containerTemp.appendChild(tabelaVariacoes);
+    containerTemp.appendChild(rodape);
+    document.body.appendChild(containerTemp);
+    
+    // Configurações do html2canvas para alta resolução
+    html2canvas(containerTemp, {
+        scale: 3, // Aumentar escala para alta resolução
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff',
+        windowWidth: containerTemp.scrollWidth,
+        windowHeight: containerTemp.scrollHeight,
+        onclone: function(clonedDoc) {
+            // Garantir que todos os estilos sejam aplicados no clone
+            const clonedContainer = clonedDoc.querySelector('[style*="position: absolute"]');
+            if (clonedContainer) {
+                clonedContainer.style.position = 'relative';
+                clonedContainer.style.left = '0';
+            }
+        }
+    }).then(canvas => {
+        // Remover container temporário
+        document.body.removeChild(containerTemp);
+        
+        // Converter para blob e fazer download
+        canvas.toBlob(function(blob) {
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            
+            // Nome do arquivo
+            const nomeArquivo = `balanco_receita_${dadosRelatorio.periodo.ano}_${dadosRelatorio.periodo.mes}_${new Date().getTime()}.png`;
+            
+            link.download = nomeArquivo;
+            link.href = url;
+            link.click();
+            
+            // Limpar URL
+            URL.revokeObjectURL(url);
+            
+            // Restaurar botão
+            $('#btnDownloadImagem').prop('disabled', false).html('<i class="bi bi-image"></i> Imagem HD');
+            
+            mostrarAlerta('Imagem gerada com sucesso!', 'success');
+        }, 'image/png', 1.0); // Qualidade máxima
+    }).catch(error => {
+        console.error('Erro ao gerar imagem:', error);
+        
+        // Remover container se ainda existir
+        if (containerTemp.parentNode) {
+            document.body.removeChild(containerTemp);
+        }
+        
+        // Restaurar botão
+        $('#btnDownloadImagem').prop('disabled', false).html('<i class="bi bi-image"></i> Imagem HD');
+        
+        mostrarAlerta('Erro ao gerar imagem. Por favor, tente novamente.', 'danger');
+    });
 }
 
 // Funções auxiliares
