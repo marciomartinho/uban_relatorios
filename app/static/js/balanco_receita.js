@@ -29,6 +29,26 @@ function carregarFiltros() {
                 data.anos.forEach(function(ano) {
                     $('#selectAno').append(`<option value="${ano}">${ano}</option>`);
                 });
+                
+                // Selecionar o ano atual automaticamente
+                if (data.ano_atual) {
+                    $('#selectAno').val(data.ano_atual);
+                }
+            }
+            
+            // Carregar meses e selecionar o último mês com dados
+            if (data.ano_atual) {
+                carregarMeses(data.ano_atual);
+                
+                // Após carregar os meses, selecionar o último mês com dados
+                setTimeout(function() {
+                    if (data.ultimo_mes) {
+                        $('#selectMes').val(data.ultimo_mes);
+                    }
+                    
+                    // Gerar relatório automaticamente após carregar filtros
+                    gerarRelatorioAutomatico();
+                }, 100);
             }
             
             // UGs
@@ -36,19 +56,6 @@ function carregarFiltros() {
             if (data.ugs && data.ugs.length > 0) {
                 data.ugs.forEach(function(ug) {
                     $('#selectUG').append(`<option value="${ug.codigo}">🏛️ ${ug.descricao}</option>`);
-                });
-            }
-            
-            // Filtros de receita
-            $('#filtrosReceita').empty();
-            if (data.filtros_receita && data.filtros_receita.length > 0) {
-                data.filtros_receita.forEach(function(filtro) {
-                    $('#filtrosReceita').append(`
-                        <button type="button" class="btn btn-outline-primary filtro-receita ${filtro.valor === 'todas' ? 'active' : ''}" 
-                                data-filtro="${filtro.valor}">
-                            ${filtro.nome}
-                        </button>
-                    `);
                 });
             }
             
@@ -61,18 +68,23 @@ function carregarFiltros() {
     });
 }
 
+// Gerar relatório automaticamente ao carregar a página
+function gerarRelatorioAutomatico() {
+    const ano = $('#selectAno').val();
+    const mes = $('#selectMes').val();
+    
+    if (ano && mes) {
+        console.log('🚀 Gerando relatório automático...');
+        gerarRelatorio();
+    }
+}
+
 // Configurar eventos
 function configurarEventos() {
     // Mudança de ano - carregar meses disponíveis
     $('#selectAno').on('change', function() {
         const ano = $(this).val();
         carregarMeses(ano);
-    });
-    
-    // Clique nos filtros de receita
-    $(document).on('click', '.filtro-receita', function() {
-        $('.filtro-receita').removeClass('active');
-        $(this).addClass('active');
     });
     
     // Submit do formulário
@@ -98,14 +110,51 @@ function configurarEventos() {
         const id = $btn.data('id');
         const isExpanded = $btn.hasClass('expanded');
         
-        if (isExpanded) {
-            // Colapsar
-            $btn.removeClass('expanded').text('+');
-            $(`.filho-de-${id}`).hide();
-        } else {
-            // Expandir
-            $btn.addClass('expanded').text('−');
-            $(`.filho-de-${id}`).show();
+        if (nivel === 1) {
+            // Expandir/colapsar subfontes de uma fonte
+            const partes = id.split('-');
+            const catId = partes[1];
+            const fonteId = partes[2];
+            
+            if (isExpanded) {
+                // Colapsar
+                $btn.removeClass('expanded').text('+');
+                $(`.filho-de-fonte-${catId}-${fonteId}`).hide();
+                // Também colapsar as alíneas das subfontes
+                $(`.filho-de-fonte-${catId}-${fonteId}`).each(function() {
+                    const $subfonte = $(this);
+                    const subfonteId = $subfonte.data('id');
+                    if (subfonteId) {
+                        const subPartes = subfonteId.split('-');
+                        if (subPartes.length >= 4) {
+                            const subId = subPartes[3];
+                            $(`.filho-de-subfonte-${catId}-${fonteId}-${subId}`).hide();
+                            // Resetar botão da subfonte
+                            $subfonte.find('.toggle-btn').removeClass('expanded').text('+');
+                        }
+                    }
+                });
+            } else {
+                // Expandir
+                $btn.addClass('expanded').text('−');
+                $(`.filho-de-fonte-${catId}-${fonteId}`).show();
+            }
+        } else if (nivel === 2) {
+            // Expandir/colapsar alíneas de uma subfonte
+            const partes = id.split('-');
+            const catId = partes[1];
+            const fonteId = partes[2];
+            const subfonteId = partes[3];
+            
+            if (isExpanded) {
+                // Colapsar
+                $btn.removeClass('expanded').text('+');
+                $(`.filho-de-subfonte-${catId}-${fonteId}-${subfonteId}`).hide();
+            } else {
+                // Expandir
+                $btn.addClass('expanded').text('−');
+                $(`.filho-de-subfonte-${catId}-${fonteId}-${subfonteId}`).show();
+            }
         }
     });
 }
@@ -140,7 +189,6 @@ function gerarRelatorio() {
     const ano = $('#selectAno').val();
     const mes = $('#selectMes').val();
     const coug = $('#selectUG').val();
-    const filtro = $('.filtro-receita.active').data('filtro') || 'todas';
     
     // Validação
     if (!ano || !mes) {
@@ -148,7 +196,7 @@ function gerarRelatorio() {
         return;
     }
     
-    console.log('🦆 Gerando relatório:', {ano, mes, coug, filtro});
+    console.log('🦆 Gerando relatório:', {ano, mes, coug});
     
     // Esconder mensagem inicial e mostrar loading
     $('#mensagemInicial').hide();
@@ -167,8 +215,7 @@ function gerarRelatorio() {
         data: {
             ano: ano,
             mes: mes,
-            coug: coug,
-            filtro: filtro
+            coug: coug
         },
         success: function(response) {
             console.log('✅ Relatório gerado:', response);
@@ -207,7 +254,7 @@ function renderizarRelatorio(dados) {
                             <i class="bi bi-file-earmark-bar-graph"></i> 
                             Balanço Orçamentário - ${dados.periodo.nome_mes}/${dados.periodo.ano}
                         </h5>
-                        <small class="text-muted">UG: ${dados.filtros.nome_coug} | Filtro: ${dados.filtros.filtro_descricao}</small>
+                        <small class="text-muted">UG: ${dados.filtros.nome_coug}</small>
                     </div>
                     <div class="col-md-4 text-end">
                         <button id="btnExportar" class="btn btn-success btn-sm">
@@ -240,11 +287,11 @@ function renderizarRelatorio(dados) {
                 <table class="table table-bordered table-hover" id="tabelaBalanco">
                     <thead class="table-primary">
                         <tr>
-                            <th style="min-width: 350px;">RECEITAS</th>
-                            <th class="text-end">PREVISÃO INICIAL<br>${dados.periodo.ano}</th>
-                            <th class="text-end">PREVISÃO ATUALIZADA<br>${dados.periodo.ano}</th>
-                            <th class="text-end">REALIZADA<br>${dados.periodo.mes}/${dados.periodo.ano}</th>
-                            <th class="text-end">REALIZADA<br>${dados.periodo.mes}/${dados.periodo.ano_anterior}</th>
+                            <th class="text-center align-middle" style="min-width: 350px;">RECEITAS</th>
+                            <th class="text-center">PREVISÃO INICIAL<br>${dados.periodo.ano}</th>
+                            <th class="text-center">PREVISÃO ATUALIZADA<br>${dados.periodo.ano}</th>
+                            <th class="text-center">REALIZADA<br>${dados.periodo.mes}/${dados.periodo.ano}</th>
+                            <th class="text-center">REALIZADA<br>${dados.periodo.mes}/${dados.periodo.ano_anterior}</th>
                             <th class="text-center">VARIAÇÃO<br>ABSOLUTA</th>
                             <th class="text-center">VARIAÇÃO<br>%</th>
                         </tr>
@@ -258,14 +305,45 @@ function renderizarRelatorio(dados) {
             const classeLinha = item.nivel === 0 ? 'table-light fw-bold' : '';
             const paddingLeft = item.nivel * 30;
             
+            // Para linhas filhas, verificar se devem estar visíveis
+            let estiloLinha = '';
+            if (item.nivel === 1) {
+                // Fontes devem estar visíveis
+                estiloLinha = '';
+            } else if (item.nivel === 2) {
+                // Subfontes devem estar ocultas por padrão
+                estiloLinha = 'style="display: none;"';
+            } else if (item.nivel === 3) {
+                // Alíneas devem estar ocultas por padrão
+                estiloLinha = 'style="display: none;"';
+            }
+            
+            // Montar classes de identificação hierárquica
+            let classesHierarquia = `${classeNivel}`;
+            if (item.nivel === 1) {
+                classesHierarquia += ` filho-de-cat-${item.categoria_pai}`;
+            } else if (item.nivel === 2) {
+                classesHierarquia += ` filho-de-fonte-${item.categoria_pai}-${item.fonte_pai}`;
+            } else if (item.nivel === 3) {
+                classesHierarquia += ` filho-de-subfonte-${item.categoria_pai}-${item.fonte_pai}-${item.subfonte_pai}`;
+            }
+            
             html += `
-                <tr class="${classeLinha} ${classeNivel}" data-id="${item.id}" data-nivel="${item.nivel}">
+                <tr class="${classeLinha} ${classesHierarquia}" 
+                    data-id="${item.id}" 
+                    data-nivel="${item.nivel}"
+                    ${estiloLinha}>
                     <td style="padding-left: ${paddingLeft}px;">
             `;
             
-            // Adicionar botão de expansão se tiver filhos
-            if (item.tem_filhos) {
-                html += `<button class="btn btn-sm btn-link toggle-btn" data-nivel="${item.nivel}" data-id="${item.id}">+</button> `;
+            // Adicionar botão de expansão para itens que têm filhos (níveis 1 e 2)
+            if ((item.nivel === 1 || item.nivel === 2) && item.tem_filhos) {
+                const btnTexto = item.expandido ? '−' : '+';
+                const btnClasse = item.expandido ? 'expanded' : '';
+                html += `<button class="btn btn-sm btn-link toggle-btn ${btnClasse}" data-nivel="${item.nivel}" data-id="${item.id}">+</button> `;
+            } else if (item.nivel > 0) {
+                // Adicionar espaço para alinhar
+                html += `<span style="display: inline-block; width: 30px;"></span>`;
             }
             
             html += `
@@ -283,14 +361,6 @@ function renderizarRelatorio(dados) {
                     </td>
                 </tr>
             `;
-            
-            // Se for nível 1, adicionar classe para esconder inicialmente
-            if (item.nivel === 1) {
-                // Adicionar classe para identificar como filho
-                const paiId = item.id.split('-')[1]; // Extrair ID da categoria pai
-                html = html.replace(`<tr class="${classeLinha} ${classeNivel}"`, 
-                                  `<tr class="${classeLinha} ${classeNivel} filho-de-cat-${paiId}" style="display: none;"`);
-            }
         });
         
         // Adicionar linha de total
@@ -353,14 +423,12 @@ function formatarPercentual(valor) {
 function limparFiltros() {
     $('#formFiltros')[0].reset();
     $('#selectMes').empty().append('<option value="">Selecione o ano primeiro</option>');
-    $('.filtro-receita').removeClass('active');
-    $('.filtro-receita[data-filtro="todas"]').addClass('active');
     $('#relatorioContainer').hide();
     $('#mensagemInicial').show();
     dadosRelatorio = null;
 }
 
-// Exportar para Excel (placeholder)
+// Exportar para Excel
 function exportarExcel() {
     if (!dadosRelatorio) {
         mostrarAlerta('Nenhum relatório para exportar!', 'warning');
@@ -368,7 +436,76 @@ function exportarExcel() {
     }
     
     console.log('📊 Exportando para Excel...');
-    mostrarAlerta('Exportação para Excel será implementada em breve!', 'info');
+    
+    // Criar dados para o Excel
+    const workbook = XLSX.utils.book_new();
+    
+    // Dados para a planilha
+    const wsData = [
+        // Cabeçalho
+        ['BALANÇO ORÇAMENTÁRIO DA RECEITA'],
+        [`${dadosRelatorio.periodo.nome_mes}/${dadosRelatorio.periodo.ano}`],
+        [`UG: ${dadosRelatorio.filtros.nome_coug}`],
+        [],
+        // Cabeçalhos da tabela
+        [
+            'RECEITAS',
+            `PREVISÃO INICIAL ${dadosRelatorio.periodo.ano}`,
+            `PREVISÃO ATUALIZADA ${dadosRelatorio.periodo.ano}`,
+            `REALIZADA ${dadosRelatorio.periodo.mes}/${dadosRelatorio.periodo.ano}`,
+            `REALIZADA ${dadosRelatorio.periodo.mes}/${dadosRelatorio.periodo.ano_anterior}`,
+            'VARIAÇÃO ABSOLUTA',
+            'VARIAÇÃO %'
+        ]
+    ];
+    
+    // Dados do relatório
+    dadosRelatorio.dados.forEach(function(item) {
+        const prefixo = item.nivel > 0 ? '  '.repeat(item.nivel) : '';
+        wsData.push([
+            prefixo + item.descricao,
+            item.previsao_inicial,
+            item.previsao_atualizada,
+            item.receita_atual,
+            item.receita_anterior,
+            item.variacao_absoluta,
+            item.variacao_percentual / 100 // Para formato de percentual no Excel
+        ]);
+    });
+    
+    // Total
+    wsData.push([
+        'TOTAL GERAL',
+        dadosRelatorio.totais.previsao_inicial,
+        dadosRelatorio.totais.previsao_atualizada,
+        dadosRelatorio.totais.receita_atual,
+        dadosRelatorio.totais.receita_anterior,
+        dadosRelatorio.totais.variacao_absoluta,
+        dadosRelatorio.totais.variacao_percentual / 100
+    ]);
+    
+    // Criar worksheet
+    const worksheet = XLSX.utils.aoa_to_sheet(wsData);
+    
+    // Adicionar formatação de largura de coluna
+    worksheet['!cols'] = [
+        { wch: 50 }, // Receitas
+        { wch: 20 }, // Previsão Inicial
+        { wch: 20 }, // Previsão Atualizada
+        { wch: 20 }, // Realizada Atual
+        { wch: 20 }, // Realizada Anterior
+        { wch: 20 }, // Variação Absoluta
+        { wch: 15 }  // Variação %
+    ];
+    
+    // Adicionar worksheet ao workbook
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Balanço Receita');
+    
+    // Gerar arquivo e download
+    const filename = `balanco_receita_${dadosRelatorio.periodo.ano}_${dadosRelatorio.periodo.mes}.xlsx`;
+    XLSX.writeFile(workbook, filename);
+    
+    mostrarAlerta('Arquivo Excel gerado com sucesso!', 'success');
 }
 
 // Download como imagem em alta resolução
@@ -390,7 +527,7 @@ function downloadImagem() {
     containerTemp.style.left = '-9999px';
     containerTemp.style.background = 'white';
     containerTemp.style.padding = '30px';
-    containerTemp.style.width = '190mm'; // Largura A4 retrato com margem
+    containerTemp.style.width = '297mm'; // Largura A4 paisagem
     containerTemp.style.fontFamily = 'Arial, sans-serif';
     
     // Adicionar título e informações do cabeçalho
@@ -401,44 +538,38 @@ function downloadImagem() {
         <h2 style="color: #1e3c72; margin-bottom: 10px; font-size: 24px;">BALANÇO ORÇAMENTÁRIO DA RECEITA</h2>
         <h3 style="color: #333; margin-bottom: 8px; font-size: 18px;">${dadosRelatorio.periodo.nome_mes}/${dadosRelatorio.periodo.ano}</h3>
         <p style="color: #666; margin: 5px 0; font-size: 14px;">UG: ${dadosRelatorio.filtros.nome_coug}</p>
-        <p style="color: #666; margin: 5px 0; font-size: 14px;">Filtro: ${dadosRelatorio.filtros.filtro_descricao}</p>
     `;
     
-    // Criar tabela reformatada para caber em retrato
+    // Criar tabela
     const tabelaContainer = document.createElement('div');
     
-    // Criar a tabela reorganizada
     let tabelaHTML = `
-        <table style="width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 20px;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 20px;">
             <thead>
                 <tr style="background-color: #1e3c72; color: white;">
-                    <th rowspan="2" style="border: 1px solid #ddd; padding: 8px; text-align: left; width: 40%;">RECEITAS</th>
-                    <th colspan="3" style="border: 1px solid #ddd; padding: 8px; text-align: center;">VALORES (R$)</th>
-                </tr>
-                <tr style="background-color: #1e3c72; color: white;">
-                    <th style="border: 1px solid #ddd; padding: 8px; text-align: right; width: 20%;">PREVISÃO INICIAL<br>${dadosRelatorio.periodo.ano}</th>
-                    <th style="border: 1px solid #ddd; padding: 8px; text-align: right; width: 20%;">PREVISÃO ATUALIZADA<br>${dadosRelatorio.periodo.ano}</th>
-                    <th style="border: 1px solid #ddd; padding: 8px; text-align: right; width: 20%;">REALIZADA<br>${dadosRelatorio.periodo.mes}/${dadosRelatorio.periodo.ano}</th>
+                    <th style="border: 1px solid #ddd; padding: 8px; text-align: left; width: 30%;">RECEITAS</th>
+                    <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">PREVISÃO INICIAL<br>${dadosRelatorio.periodo.ano}</th>
+                    <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">PREVISÃO ATUALIZADA<br>${dadosRelatorio.periodo.ano}</th>
+                    <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">REALIZADA<br>${dadosRelatorio.periodo.mes}/${dadosRelatorio.periodo.ano}</th>
+                    <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">REALIZADA<br>${dadosRelatorio.periodo.mes}/${dadosRelatorio.periodo.ano_anterior}</th>
+                    <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">VARIAÇÃO<br>ABSOLUTA</th>
+                    <th style="border: 1px solid #ddd; padding: 8px; text-align: center;">VARIAÇÃO<br>%</th>
                 </tr>
             </thead>
             <tbody>
     `;
     
-    // Adicionar linhas de dados com apenas as colunas essenciais
+    // Adicionar linhas de dados
     dadosRelatorio.dados.forEach(function(item) {
         const paddingLeft = 10 + (item.nivel * 20);
         const fontWeight = item.nivel === 0 ? 'bold' : 'normal';
         const backgroundColor = item.nivel === 0 ? '#f5f5f5' : 'white';
-        
-        let descricao = item.descricao;
-        if (item.tem_filhos) {
-            descricao = `+ ${descricao}`;
-        }
+        const corVariacao = item.variacao_absoluta >= 0 ? '#28a745' : '#dc3545';
         
         tabelaHTML += `
             <tr style="background-color: ${backgroundColor};">
                 <td style="border: 1px solid #ddd; padding: 6px 8px; padding-left: ${paddingLeft}px; font-weight: ${fontWeight};">
-                    ${descricao}
+                    ${item.descricao}
                 </td>
                 <td style="border: 1px solid #ddd; padding: 6px 8px; text-align: right; font-weight: ${fontWeight};">
                     ${formatarValor(item.previsao_inicial)}
@@ -449,11 +580,21 @@ function downloadImagem() {
                 <td style="border: 1px solid #ddd; padding: 6px 8px; text-align: right; font-weight: ${fontWeight};">
                     ${formatarValor(item.receita_atual)}
                 </td>
+                <td style="border: 1px solid #ddd; padding: 6px 8px; text-align: right; font-weight: ${fontWeight};">
+                    ${formatarValor(item.receita_anterior)}
+                </td>
+                <td style="border: 1px solid #ddd; padding: 6px 8px; text-align: right; font-weight: ${fontWeight}; color: ${corVariacao};">
+                    ${formatarValor(item.variacao_absoluta)}
+                </td>
+                <td style="border: 1px solid #ddd; padding: 6px 8px; text-align: center; font-weight: ${fontWeight}; color: ${corVariacao};">
+                    ${formatarPercentual(item.variacao_percentual)}
+                </td>
             </tr>
         `;
     });
     
     // Adicionar linha de total
+    const corTotalVariacao = dadosRelatorio.totais.variacao_absoluta >= 0 ? '#28a745' : '#dc3545';
     tabelaHTML += `
             <tr style="background-color: #2c3e50; color: white; font-weight: bold;">
                 <td style="border: 1px solid #ddd; padding: 8px;">TOTAL GERAL</td>
@@ -466,68 +607,21 @@ function downloadImagem() {
                 <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">
                     ${formatarValor(dadosRelatorio.totais.receita_atual)}
                 </td>
+                <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">
+                    ${formatarValor(dadosRelatorio.totais.receita_anterior)}
+                </td>
+                <td style="border: 1px solid #ddd; padding: 8px; text-align: right; color: ${corTotalVariacao};">
+                    ${formatarValor(dadosRelatorio.totais.variacao_absoluta)}
+                </td>
+                <td style="border: 1px solid #ddd; padding: 8px; text-align: center; color: ${corTotalVariacao};">
+                    ${formatarPercentual(dadosRelatorio.totais.variacao_percentual)}
+                </td>
             </tr>
             </tbody>
         </table>
     `;
     
     tabelaContainer.innerHTML = tabelaHTML;
-    
-    // Adicionar tabela de variações separada (opcional - se couber)
-    const variacoesHTML = `
-        <div style="margin-top: 20px; page-break-inside: avoid;">
-            <h4 style="color: #1e3c72; margin-bottom: 10px; font-size: 14px;">ANÁLISE DE VARIAÇÕES</h4>
-            <table style="width: 100%; border-collapse: collapse; font-size: 10px;">
-                <thead>
-                    <tr style="background-color: #495057; color: white;">
-                        <th style="border: 1px solid #ddd; padding: 6px; text-align: left;">CATEGORIA</th>
-                        <th style="border: 1px solid #ddd; padding: 6px; text-align: right;">REALIZADA ${dadosRelatorio.periodo.mes}/${dadosRelatorio.periodo.ano_anterior}</th>
-                        <th style="border: 1px solid #ddd; padding: 6px; text-align: right;">VARIAÇÃO ABSOLUTA</th>
-                        <th style="border: 1px solid #ddd; padding: 6px; text-align: center;">VARIAÇÃO %</th>
-                    </tr>
-                </thead>
-                <tbody>
-    `;
-    
-    let variacoesBody = '';
-    // Adicionar apenas categorias principais (nível 0) na tabela de variações
-    dadosRelatorio.dados.filter(item => item.nivel === 0).forEach(function(item) {
-        const corVariacao = item.variacao_absoluta >= 0 ? '#28a745' : '#dc3545';
-        variacoesBody += `
-            <tr>
-                <td style="border: 1px solid #ddd; padding: 4px 6px; font-weight: bold;">${item.descricao}</td>
-                <td style="border: 1px solid #ddd; padding: 4px 6px; text-align: right;">
-                    ${formatarValor(item.receita_anterior)}
-                </td>
-                <td style="border: 1px solid #ddd; padding: 4px 6px; text-align: right; color: ${corVariacao};">
-                    ${formatarValor(item.variacao_absoluta)}
-                </td>
-                <td style="border: 1px solid #ddd; padding: 4px 6px; text-align: center; color: ${corVariacao};">
-                    ${formatarPercentual(item.variacao_percentual)}
-                </td>
-            </tr>
-        `;
-    });
-    
-    // Total das variações
-    const corTotalVariacao = dadosRelatorio.totais.variacao_absoluta >= 0 ? '#28a745' : '#dc3545';
-    variacoesBody += `
-        <tr style="background-color: #f5f5f5; font-weight: bold;">
-            <td style="border: 1px solid #ddd; padding: 6px;">TOTAL</td>
-            <td style="border: 1px solid #ddd; padding: 6px; text-align: right;">
-                ${formatarValor(dadosRelatorio.totais.receita_anterior)}
-            </td>
-            <td style="border: 1px solid #ddd; padding: 6px; text-align: right; color: ${corTotalVariacao};">
-                ${formatarValor(dadosRelatorio.totais.variacao_absoluta)}
-            </td>
-            <td style="border: 1px solid #ddd; padding: 6px; text-align: center; color: ${corTotalVariacao};">
-                ${formatarPercentual(dadosRelatorio.totais.variacao_percentual)}
-            </td>
-        </tr>
-    `;
-    
-    const tabelaVariacoes = document.createElement('div');
-    tabelaVariacoes.innerHTML = variacoesHTML + variacoesBody + '</tbody></table></div>';
     
     // Adicionar rodapé
     const rodape = document.createElement('div');
@@ -544,7 +638,6 @@ function downloadImagem() {
     // Montar container
     containerTemp.appendChild(cabecalho);
     containerTemp.appendChild(tabelaContainer);
-    containerTemp.appendChild(tabelaVariacoes);
     containerTemp.appendChild(rodape);
     document.body.appendChild(containerTemp);
     
@@ -555,15 +648,7 @@ function downloadImagem() {
         logging: false,
         backgroundColor: '#ffffff',
         windowWidth: containerTemp.scrollWidth,
-        windowHeight: containerTemp.scrollHeight,
-        onclone: function(clonedDoc) {
-            // Garantir que todos os estilos sejam aplicados no clone
-            const clonedContainer = clonedDoc.querySelector('[style*="position: absolute"]');
-            if (clonedContainer) {
-                clonedContainer.style.position = 'relative';
-                clonedContainer.style.left = '0';
-            }
-        }
+        windowHeight: containerTemp.scrollHeight
     }).then(canvas => {
         // Remover container temporário
         document.body.removeChild(containerTemp);

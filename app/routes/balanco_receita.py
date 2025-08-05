@@ -10,21 +10,23 @@ import traceback
 # Criar blueprint
 balanco_receita = Blueprint('balanco_receita', __name__)
 
-# Mapeamento dos filtros de receita para códigos de categoria/fonte
-FILTROS_RECEITA = {
-    'todas': {'descricao': 'Todas as Receitas', 'categorias': None, 'fontes': None},
-    'tributarias': {'descricao': 'Tributárias', 'categorias': ['1'], 'fontes': ['11']},
-    'contribuicoes': {'descricao': 'Contribuições', 'categorias': ['1'], 'fontes': ['12']},
-    'patrimonial': {'descricao': 'Patrimonial', 'categorias': ['1'], 'fontes': ['13']},
-    'agropecuaria': {'descricao': 'Agropecuária', 'categorias': ['1'], 'fontes': ['14']},
-    'industrial': {'descricao': 'Industrial', 'categorias': ['1'], 'fontes': ['15']},
-    'servicos': {'descricao': 'Serviços', 'categorias': ['1'], 'fontes': ['16']},
-    'transf_correntes': {'descricao': 'Transferências Correntes', 'categorias': ['1'], 'fontes': ['17']},
-    'outras_correntes': {'descricao': 'Outras Receitas Correntes', 'categorias': ['1'], 'fontes': ['19']},
-    'op_credito': {'descricao': 'Operações de Crédito', 'categorias': ['2'], 'fontes': ['21']},
-    'alienacao_bens': {'descricao': 'Alienação de Bens', 'categorias': ['2'], 'fontes': ['22']},
-    'amortizacao': {'descricao': 'Amortização de Empréstimos', 'categorias': ['2'], 'fontes': ['23']},
-    'transf_capital': {'descricao': 'Transferências de Capital', 'categorias': ['2'], 'fontes': ['24']}
+# Mapeamento das categorias e suas fontes
+CATEGORIA_FONTE_MAP = {
+    '1': {  # Receitas Correntes
+        'nome': 'Receitas Correntes',
+        'fontes_inicio': 11,
+        'fontes_fim': 19
+    },
+    '2': {  # Receitas de Capital
+        'nome': 'Receitas de Capital',
+        'fontes_inicio': 21,
+        'fontes_fim': 29
+    },
+    '7': {  # Receitas Correntes Intra-Orçamentárias
+        'nome': 'Receitas Correntes Intra-Orçamentárias',
+        'fontes_inicio': 71,
+        'fontes_fim': 79
+    }
 }
 
 @balanco_receita.route('/')
@@ -47,18 +49,20 @@ def get_filtros():
         """
         anos = [row[0] for row in conn.execute(anos_query).fetchall()]
         
-        # Buscar meses do ano mais recente
+        # Buscar último mês com dados do ano mais recente
+        ultimo_mes = None
         if anos:
             ano_atual = anos[0]
             meses_query = f"""
             SELECT DISTINCT inmes 
             FROM receita_saldo 
             WHERE coexercicio = {ano_atual}
+                AND ABS(saldo_contabil_receita) > 0.01
             ORDER BY inmes DESC
+            LIMIT 1
             """
-            meses = [row[0] for row in conn.execute(meses_query).fetchall()]
-        else:
-            meses = []
+            result = conn.execute(meses_query).fetchone()
+            ultimo_mes = result[0] if result else 12
         
         # Buscar UGs (Unidades Gestoras) com movimento
         ugs_query = """
@@ -79,17 +83,11 @@ def get_filtros():
         
         conn.close()
         
-        # Filtros de tipo de receita
-        filtros_receita = [
-            {'valor': key, 'nome': value['descricao']} 
-            for key, value in FILTROS_RECEITA.items()
-        ]
-        
         return jsonify({
             'anos': anos,
-            'meses': meses,
-            'ugs': ugs,
-            'filtros_receita': filtros_receita
+            'ano_atual': anos[0] if anos else None,
+            'ultimo_mes': ultimo_mes,
+            'ugs': ugs
         })
         
     except Exception as e:
@@ -105,7 +103,6 @@ def gerar_relatorio():
         ano = request.args.get('ano', type=int)
         mes = request.args.get('mes', type=int)
         coug = request.args.get('coug', '')
-        filtro_receita = request.args.get('filtro', 'todas')
         
         if not ano or not mes:
             return jsonify({'erro': 'Ano e mês são obrigatórios'}), 400
@@ -115,29 +112,14 @@ def gerar_relatorio():
         # Construir filtro de UG
         filtro_ug = f"AND rs.coug = '{coug}'" if coug else ""
         
-        # Construir filtro de tipo de receita
-        filtro_tipo = ""
-        if filtro_receita != 'todas' and filtro_receita in FILTROS_RECEITA:
-            config_filtro = FILTROS_RECEITA[filtro_receita]
-            if config_filtro['categorias']:
-                cats = ','.join([f"'{c}'" for c in config_filtro['categorias']])
-                filtro_tipo += f" AND rs.cocategoriareceita IN ({cats})"
-            if config_filtro['fontes']:
-                fontes = ','.join([f"'{f}'" for f in config_filtro['fontes']])
-                filtro_tipo += f" AND rs.cofontereceita IN ({fontes})"
-        
-        # Query principal para buscar dados agregados
+        # Query principal - buscar todas as categorias, fontes, subfontes e alíneas
         query = f"""
         WITH dados_agregados AS (
             SELECT
                 rs.cocategoriareceita,
-                COALESCE(cat.nocategoriareceita, 'Categoria ' || rs.cocategoriareceita) as nome_categoria,
                 rs.cofontereceita,
-                COALESCE(ori.nofontereceita, 'Fonte ' || rs.cofontereceita) as nome_fonte,
                 rs.cosubfontereceita,
-                COALESCE(esp.nosubfontereceita, 'Subfonte ' || rs.cosubfontereceita) as nome_subfonte,
                 rs.coalinea,
-                COALESCE(ali.noalinea, 'Alínea ' || rs.coalinea) as nome_alinea,
                 rs.coexercicio,
                 rs.inmes,
                 -- Previsão Inicial (contas 521100000 a 521199999)
@@ -159,23 +141,15 @@ def gerar_relatorio():
                     ELSE 0 
                 END) as receita_realizada
             FROM receita_saldo rs
-            LEFT JOIN dim_receita_categoria cat ON rs.cocategoriareceita = CAST(cat.cocategoriareceita AS VARCHAR)
-            LEFT JOIN dim_receita_origem ori ON rs.cofontereceita = CAST(ori.cofontereceita AS VARCHAR)
-            LEFT JOIN dim_receita_especie esp ON rs.cosubfontereceita = CAST(esp.cosubfontereceita AS VARCHAR)
-            LEFT JOIN dim_receita_alinea ali ON rs.coalinea = CAST(ali.coalinea AS VARCHAR)
-            WHERE 1=1 {filtro_ug} {filtro_tipo}
-            GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9, 10
+            WHERE rs.cocategoriareceita IN ('1', '2', '7') {filtro_ug}
+            GROUP BY 1, 2, 3, 4, 5, 6
         ),
         dados_sumarizados AS (
             SELECT
                 cocategoriareceita,
-                nome_categoria,
                 cofontereceita,
-                nome_fonte,
                 cosubfontereceita,
-                nome_subfonte,
                 coalinea,
-                nome_alinea,
                 -- Valores do ano atual
                 SUM(CASE WHEN coexercicio = {ano} THEN previsao_inicial ELSE 0 END) as previsao_inicial,
                 SUM(CASE WHEN coexercicio = {ano} THEN previsao_atualizada ELSE 0 END) as previsao_atualizada,
@@ -184,14 +158,30 @@ def gerar_relatorio():
                 SUM(CASE WHEN coexercicio = {ano-1} AND inmes <= {mes} THEN receita_realizada ELSE 0 END) as receita_anterior
             FROM dados_agregados
             WHERE coexercicio IN ({ano}, {ano-1})
-            GROUP BY 1, 2, 3, 4, 5, 6, 7, 8
+            GROUP BY 1, 2, 3, 4
         )
-        SELECT * FROM dados_sumarizados
-        WHERE ABS(previsao_inicial) + ABS(previsao_atualizada) + ABS(receita_atual) + ABS(receita_anterior) > 0.01
-        ORDER BY cocategoriareceita, cofontereceita, cosubfontereceita, coalinea
+        SELECT 
+            ds.cocategoriareceita,
+            ds.cofontereceita,
+            COALESCE(ori.nofontereceita, 'Fonte ' || ds.cofontereceita) as nome_fonte,
+            ds.cosubfontereceita,
+            COALESCE(esp.nosubfontereceita, 'Subfonte ' || ds.cosubfontereceita) as nome_subfonte,
+            ds.coalinea,
+            COALESCE(ali.noalinea, 'Alínea ' || ds.coalinea) as nome_alinea,
+            ds.previsao_inicial,
+            ds.previsao_atualizada,
+            ds.receita_atual,
+            ds.receita_anterior
+        FROM dados_sumarizados ds
+        LEFT JOIN dim_receita_origem ori ON ds.cofontereceita = CAST(ori.cofontereceita AS VARCHAR)
+        LEFT JOIN dim_receita_especie esp ON ds.cosubfontereceita = CAST(esp.cosubfontereceita AS VARCHAR)
+        LEFT JOIN dim_receita_alinea ali ON ds.coalinea = CAST(ali.coalinea AS VARCHAR)
+        WHERE ABS(ds.previsao_inicial) + ABS(ds.previsao_atualizada) + 
+              ABS(ds.receita_atual) + ABS(ds.receita_anterior) > 0.01
+        ORDER BY ds.cocategoriareceita, ds.cofontereceita, ds.cosubfontereceita, ds.coalinea
         """
         
-        print(f"Executando query para ano={ano}, mes={mes}, coug={coug}, filtro={filtro_receita}")
+        print(f"Executando query para ano={ano}, mes={mes}, coug={coug}")
         
         # Executar query
         cursor = conn.execute(query)
@@ -215,9 +205,7 @@ def gerar_relatorio():
             },
             'filtros': {
                 'coug': coug,
-                'nome_coug': obter_nome_ug(conn, coug) if coug else 'Consolidado',
-                'filtro_receita': filtro_receita,
-                'filtro_descricao': FILTROS_RECEITA[filtro_receita]['descricao']
+                'nome_coug': obter_nome_ug(conn, coug) if coug else 'Consolidado'
             },
             'dados': dados_hierarquicos,
             'totais': totais,
@@ -234,93 +222,196 @@ def gerar_relatorio():
         return jsonify({'erro': str(e)}), 500
 
 def processar_dados_hierarquicos(resultados):
-    """Processa os resultados em estrutura hierárquica"""
+    """Processa os resultados em estrutura hierárquica correta com 4 níveis"""
     dados = []
     
-    # Agrupar por categoria primeiro
+    # Primeiro, criar a estrutura de categorias
     categorias = {}
+    for cat_id, cat_info in CATEGORIA_FONTE_MAP.items():
+        categorias[cat_id] = {
+            'id': f'cat-{cat_id}',
+            'codigo': cat_id,
+            'descricao': cat_info['nome'],
+            'nivel': 0,
+            'tipo': 'categoria',
+            'previsao_inicial': 0,
+            'previsao_atualizada': 0,
+            'receita_atual': 0,
+            'receita_anterior': 0,
+            'variacao_absoluta': 0,
+            'variacao_percentual': 0,
+            'expandido': False,  # Sem botão de expansão
+            'tem_filhos': False,
+            'fontes_inicio': cat_info['fontes_inicio'],
+            'fontes_fim': cat_info['fontes_fim']
+        }
+    
+    # Processar resultados por fonte, subfonte e alínea
+    fontes_por_categoria = {'1': {}, '2': {}, '7': {}}
     
     for row in resultados:
         cat_id = row[0]  # cocategoriareceita
-        cat_nome = row[1]  # nome_categoria
-        fonte_id = row[2]  # cofontereceita
-        fonte_nome = row[3]  # nome_fonte
-        subfonte_id = row[4]  # cosubfontereceita
-        subfonte_nome = row[5]  # nome_subfonte
-        alinea_id = row[6]  # coalinea
-        alinea_nome = row[7]  # nome_alinea
+        fonte_id = row[1]  # cofontereceita
+        nome_fonte = row[2]  # nome_fonte
+        subfonte_id = row[3]  # cosubfontereceita
+        nome_subfonte = row[4]  # nome_subfonte
+        alinea_id = row[5]  # coalinea
+        nome_alinea = row[6]  # nome_alinea
+        previsao_inicial = float(row[7] or 0)
+        previsao_atualizada = float(row[8] or 0)
+        receita_atual = float(row[9] or 0)
+        receita_anterior = float(row[10] or 0)
         
-        # Valores
-        previsao_inicial = float(row[8] or 0)
-        previsao_atualizada = float(row[9] or 0)
-        receita_atual = float(row[10] or 0)
-        receita_anterior = float(row[11] or 0)
+        # Determinar a qual categoria pertence esta fonte
+        fonte_num = int(fonte_id) if fonte_id.isdigit() else 0
+        categoria_id = None
         
-        # Criar estrutura se não existir
-        if cat_id not in categorias:
-            categorias[cat_id] = {
-                'id': f'cat-{cat_id}',
-                'codigo': cat_id,
-                'descricao': cat_nome,
-                'nivel': 0,
-                'tipo': 'categoria',
-                'previsao_inicial': 0,
-                'previsao_atualizada': 0,
-                'receita_atual': 0,
-                'receita_anterior': 0,
-                'variacao_absoluta': 0,
-                'variacao_percentual': 0,
-                'expandido': False,
-                'tem_filhos': True,
-                'filhos': {}
-            }
+        for cid, cinfo in CATEGORIA_FONTE_MAP.items():
+            if cinfo['fontes_inicio'] <= fonte_num <= cinfo['fontes_fim']:
+                categoria_id = cid
+                break
         
-        # Adicionar valores à categoria
-        categorias[cat_id]['previsao_inicial'] += previsao_inicial
-        categorias[cat_id]['previsao_atualizada'] += previsao_atualizada
-        categorias[cat_id]['receita_atual'] += receita_atual
-        categorias[cat_id]['receita_anterior'] += receita_anterior
-        
-        # Adicionar fonte se não existir
-        if fonte_id and fonte_id not in categorias[cat_id]['filhos']:
-            categorias[cat_id]['filhos'][fonte_id] = {
-                'id': f'fonte-{cat_id}-{fonte_id}',
-                'codigo': fonte_id,
-                'descricao': fonte_nome,
-                'nivel': 1,
-                'tipo': 'fonte',
-                'previsao_inicial': previsao_inicial,
-                'previsao_atualizada': previsao_atualizada,
-                'receita_atual': receita_atual,
-                'receita_anterior': receita_anterior,
-                'variacao_absoluta': 0,
-                'variacao_percentual': 0,
-                'expandido': False,
-                'tem_filhos': False
-            }
-    
-    # Converter para lista e calcular variações
-    for cat_data in categorias.values():
-        # Calcular variação da categoria
-        cat_data['variacao_absoluta'] = cat_data['receita_atual'] - cat_data['receita_anterior']
-        if cat_data['receita_anterior'] != 0:
-            cat_data['variacao_percentual'] = (cat_data['variacao_absoluta'] / abs(cat_data['receita_anterior'])) * 100
-        else:
-            cat_data['variacao_percentual'] = 100 if cat_data['receita_atual'] != 0 else 0
-        
-        # Adicionar categoria à lista
-        dados.append(cat_data)
-        
-        # Adicionar fontes
-        for fonte_data in cat_data['filhos'].values():
-            # Calcular variação da fonte
-            fonte_data['variacao_absoluta'] = fonte_data['receita_atual'] - fonte_data['receita_anterior']
-            if fonte_data['receita_anterior'] != 0:
-                fonte_data['variacao_percentual'] = (fonte_data['variacao_absoluta'] / abs(fonte_data['receita_anterior'])) * 100
-            else:
-                fonte_data['variacao_percentual'] = 100 if fonte_data['receita_atual'] != 0 else 0
+        if categoria_id and categoria_id == cat_id:
+            # Adicionar valores à categoria
+            categorias[categoria_id]['previsao_inicial'] += previsao_inicial
+            categorias[categoria_id]['previsao_atualizada'] += previsao_atualizada
+            categorias[categoria_id]['receita_atual'] += receita_atual
+            categorias[categoria_id]['receita_anterior'] += receita_anterior
+            categorias[categoria_id]['tem_filhos'] = True
             
-            dados.append(fonte_data)
+            # Criar ou atualizar fonte
+            if fonte_id not in fontes_por_categoria[categoria_id]:
+                fontes_por_categoria[categoria_id][fonte_id] = {
+                    'id': f'fonte-{categoria_id}-{fonte_id}',
+                    'codigo': fonte_id,
+                    'descricao': nome_fonte,
+                    'nivel': 1,
+                    'tipo': 'fonte',
+                    'categoria_pai': categoria_id,
+                    'previsao_inicial': 0,
+                    'previsao_atualizada': 0,
+                    'receita_atual': 0,
+                    'receita_anterior': 0,
+                    'variacao_absoluta': 0,
+                    'variacao_percentual': 0,
+                    'expandido': False,
+                    'tem_filhos': False,
+                    'subfontes': {}
+                }
+            
+            fonte_data = fontes_por_categoria[categoria_id][fonte_id]
+            fonte_data['previsao_inicial'] += previsao_inicial
+            fonte_data['previsao_atualizada'] += previsao_atualizada
+            fonte_data['receita_atual'] += receita_atual
+            fonte_data['receita_anterior'] += receita_anterior
+            
+            # Adicionar subfonte se existir
+            if subfonte_id and subfonte_id != fonte_id:
+                fonte_data['tem_filhos'] = True
+                
+                # Criar ou atualizar subfonte
+                if subfonte_id not in fonte_data['subfontes']:
+                    fonte_data['subfontes'][subfonte_id] = {
+                        'id': f'subfonte-{categoria_id}-{fonte_id}-{subfonte_id}',
+                        'codigo': subfonte_id,
+                        'descricao': nome_subfonte,
+                        'nivel': 2,
+                        'tipo': 'subfonte',
+                        'categoria_pai': categoria_id,
+                        'fonte_pai': fonte_id,
+                        'previsao_inicial': 0,
+                        'previsao_atualizada': 0,
+                        'receita_atual': 0,
+                        'receita_anterior': 0,
+                        'variacao_absoluta': 0,
+                        'variacao_percentual': 0,
+                        'expandido': False,
+                        'tem_filhos': False,
+                        'alineas': {}
+                    }
+                
+                subfonte_data = fonte_data['subfontes'][subfonte_id]
+                subfonte_data['previsao_inicial'] += previsao_inicial
+                subfonte_data['previsao_atualizada'] += previsao_atualizada
+                subfonte_data['receita_atual'] += receita_atual
+                subfonte_data['receita_anterior'] += receita_anterior
+                
+                # Adicionar alínea se existir e for diferente da subfonte
+                if alinea_id and alinea_id != subfonte_id:
+                    subfonte_data['tem_filhos'] = True
+                    
+                    # Calcular variação da alínea
+                    variacao_absoluta = receita_atual - receita_anterior
+                    if receita_anterior != 0:
+                        variacao_percentual = (variacao_absoluta / abs(receita_anterior)) * 100
+                    else:
+                        variacao_percentual = 100 if receita_atual != 0 else 0
+                    
+                    subfonte_data['alineas'][alinea_id] = {
+                        'id': f'alinea-{categoria_id}-{fonte_id}-{subfonte_id}-{alinea_id}',
+                        'codigo': alinea_id,
+                        'descricao': nome_alinea,
+                        'nivel': 3,
+                        'tipo': 'alinea',
+                        'categoria_pai': categoria_id,
+                        'fonte_pai': fonte_id,
+                        'subfonte_pai': subfonte_id,
+                        'previsao_inicial': previsao_inicial,
+                        'previsao_atualizada': previsao_atualizada,
+                        'receita_atual': receita_atual,
+                        'receita_anterior': receita_anterior,
+                        'variacao_absoluta': variacao_absoluta,
+                        'variacao_percentual': variacao_percentual,
+                        'expandido': False,
+                        'tem_filhos': False
+                    }
+    
+    # Montar estrutura final
+    for cat_id in ['1', '2', '7']:  # Ordem fixa das categorias
+        if cat_id in categorias:
+            cat_data = categorias[cat_id]
+            
+            # Calcular variação da categoria
+            cat_data['variacao_absoluta'] = cat_data['receita_atual'] - cat_data['receita_anterior']
+            if cat_data['receita_anterior'] != 0:
+                cat_data['variacao_percentual'] = (cat_data['variacao_absoluta'] / abs(cat_data['receita_anterior'])) * 100
+            else:
+                cat_data['variacao_percentual'] = 100 if cat_data['receita_atual'] != 0 else 0
+            
+            # Adicionar categoria apenas se tiver valores
+            if (abs(cat_data['previsao_inicial']) + abs(cat_data['previsao_atualizada']) + 
+                abs(cat_data['receita_atual']) + abs(cat_data['receita_anterior'])) > 0.01:
+                dados.append(cat_data)
+                
+                # Adicionar fontes desta categoria
+                for fonte_id in sorted(fontes_por_categoria[cat_id].keys()):
+                    fonte_data = fontes_por_categoria[cat_id][fonte_id]
+                    
+                    # Calcular variação da fonte
+                    fonte_data['variacao_absoluta'] = fonte_data['receita_atual'] - fonte_data['receita_anterior']
+                    if fonte_data['receita_anterior'] != 0:
+                        fonte_data['variacao_percentual'] = (fonte_data['variacao_absoluta'] / abs(fonte_data['receita_anterior'])) * 100
+                    else:
+                        fonte_data['variacao_percentual'] = 100 if fonte_data['receita_atual'] != 0 else 0
+                    
+                    dados.append(fonte_data)
+                    
+                    # Adicionar subfontes desta fonte
+                    for subfonte_id in sorted(fonte_data['subfontes'].keys()):
+                        subfonte_data = fonte_data['subfontes'][subfonte_id]
+                        
+                        # Calcular variação da subfonte
+                        subfonte_data['variacao_absoluta'] = subfonte_data['receita_atual'] - subfonte_data['receita_anterior']
+                        if subfonte_data['receita_anterior'] != 0:
+                            subfonte_data['variacao_percentual'] = (subfonte_data['variacao_absoluta'] / abs(subfonte_data['receita_anterior'])) * 100
+                        else:
+                            subfonte_data['variacao_percentual'] = 100 if subfonte_data['receita_atual'] != 0 else 0
+                        
+                        dados.append(subfonte_data)
+                        
+                        # Adicionar alíneas desta subfonte
+                        for alinea_id in sorted(subfonte_data['alineas'].keys()):
+                            dados.append(subfonte_data['alineas'][alinea_id])
     
     return dados
 

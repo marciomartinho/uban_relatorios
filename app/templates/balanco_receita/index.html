@@ -48,16 +48,6 @@
                             </div>
                         </div>
                         
-                        <!-- Filtros de Tipo de Receita -->
-                        <div class="row mt-3">
-                            <div class="col-12">
-                                <label class="form-label">Tipo de Receita</label>
-                                <div id="filtrosReceita" class="btn-group-sm" role="group">
-                                    <!-- Serão preenchidos dinamicamente -->
-                                </div>
-                            </div>
-                        </div>
-                        
                         <div class="row mt-4">
                             <div class="col-12 text-center">
                                 <button type="submit" class="btn btn-primary">
@@ -73,7 +63,7 @@
                     <div class="alert alert-info mt-3 mb-0">
                         <i class="bi bi-info-circle"></i> 
                         Este relatório apresenta o comparativo entre a previsão e a realização das receitas, 
-                        com análise de variações entre exercícios.
+                        com análise de variações entre exercícios. As categorias de receita são exibidas com suas respectivas fontes.
                     </div>
                 </div>
             </div>
@@ -85,7 +75,7 @@
             
             <!-- Mensagem Inicial -->
             <div id="mensagemInicial" class="alert alert-info text-center">
-                <i class="bi bi-info-circle"></i> Selecione os filtros acima para gerar o relatório
+                <i class="bi bi-info-circle"></i> Carregando dados...
             </div>
         </div>
     </div>
@@ -95,5 +85,7 @@
 {% block scripts %}
 <!-- Biblioteca para gerar imagens -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<!-- Biblioteca para gerar Excel -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="{{ url_for('static', filename='js/balanco_receita.js') }}"></script>
 {% endblock %}
