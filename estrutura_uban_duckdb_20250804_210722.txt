@@ -1,0 +1,307 @@
+====================================================================================================
+DOCUMENTAÇÃO DA ESTRUTURA DO BANCO DE DADOS DUCKDB
+====================================================================================================
+
+Arquivo: dados_brutos\fato\db_local\uban.duckdb
+Data da análise: 04/08/2025 21:07:22
+
+====================================================================================================
+
+RESUMO: 4 tabela(s) encontrada(s)
+----------------------------------------------------------------------------------------------------
+ 1. despesa_lancamento             -       1,048,001 registros
+ 2. despesa_saldo                  -         560,110 registros
+ 3. receita_lancamento             -         490,122 registros
+ 4. receita_saldo                  -          11,998 registros
+
+====================================================================================================
+
+TABELA 1: DESPESA_LANCAMENTO
+====================================================================================================
+
+Total de registros: 1,048,001
+
+ESTRUTURA DA TABELA:
+----------------------------------------------------------------------------------------------------
+#    Campo                          Tipo                 Nulo?      Padrão                        
+----------------------------------------------------------------------------------------------------
+1    coexercicio                    INTEGER              SIM        -                             
+2    coug                           INTEGER              SIM        -                             
+3    cogestao                       INTEGER              SIM        -                             
+4    nudocumento                    VARCHAR              SIM        -                             
+5    nulancamento                   INTEGER              SIM        -                             
+6    coevento                       INTEGER              SIM        -                             
+7    cocontacontabil                BIGINT               SIM        -                             
+8    cocontacorrente                VARCHAR              SIM        -                             
+9    inmes                          INTEGER              SIM        -                             
+10   dalancamento                   DATE                 SIM        -                             
+11   valancamento                   DECIMAL(18,2)        SIM        -                             
+12   indebitocredito                VARCHAR              SIM        -                             
+13   inabreencerra                  INTEGER              SIM        -                             
+14   cougdestino                    INTEGER              SIM        -                             
+15   cogestaodestino                INTEGER              SIM        -                             
+16   datransacao                    DATE                 SIM        -                             
+17   hotransacao                    TIME                 SIM        -                             
+18   cougcontab                     INTEGER              SIM        -                             
+19   cogestaocontab                 INTEGER              SIM        -                             
+20   inesfera                       VARCHAR              SIM        -                             
+21   couo                           VARCHAR              SIM        -                             
+22   cofuncao                       VARCHAR              SIM        -                             
+23   cosubfuncao                    VARCHAR              SIM        -                             
+24   coprograma                     VARCHAR              SIM        -                             
+25   coprojeto                      VARCHAR              SIM        -                             
+26   cosubtitulo                    VARCHAR              SIM        -                             
+27   cofonte                        VARCHAR              SIM        -                             
+28   conatureza                     VARCHAR              SIM        -                             
+29   incategoria                    VARCHAR              SIM        -                             
+30   cogrupo                        VARCHAR              SIM        -                             
+31   comodalidade                   VARCHAR              SIM        -                             
+32   coelemento                     VARCHAR              SIM        -                             
+33   cosubelemento                  VARCHAR              SIM        -                             
+34   periodo                        VARCHAR              SIM        -                             
+35   tipo_lancamento                VARCHAR              SIM        -                             
+36   data_carga                     TIMESTAMP            SIM        CURRENT_TIMESTAMP             
+
+ANÁLISE DE LANÇAMENTOS:
+----------------------------------------------------------------------------------------------------
+Período inicial: 2024-01
+Período final: 2025-06
+Total de períodos: 12
+
+Por tipo de lançamento:
+   CREDITO    -    597,882 registros - R$   139,278,752,293.16
+   DEBITO     -    450,119 registros - R$   154,815,366,012.74
+
+Top 10 UGs com mais lançamentos:
+   UG 130103 -    152,000 registros - R$    15,942,025,899.78
+   UG 130101 -    130,040 registros - R$    23,230,089,661.97
+   UG 160101 -     60,816 registros - R$    24,087,081,551.32
+   UG 170101 -     54,464 registros - R$    23,201,504,857.21
+   UG 170901 -     35,985 registros - R$    17,390,319,881.93
+   UG 190201 -     34,920 registros - R$    11,789,155,460.78
+   UG 320203 -     34,300 registros - R$    45,440,786,977.99
+   UG 140202 -     31,476 registros - R$     9,391,228,259.53
+   UG 220201 -     25,570 registros - R$     5,047,011,284.60
+   UG 220202 -     25,478 registros - R$       560,353,367.23
+
+Distribuição por tamanho de conta corrente:
+   11 caracteres -    673,875 registros
+   38 caracteres -     22,864 registros
+   40 caracteres -    351,262 registros
+
+AMOSTRA DE DADOS (5 primeiros registros):
+----------------------------------------------------------------------------------------------------
+periodo         coexercicio     inmes           coug            nudocumento     valancamento    tipo_lancamento cocontacontabil 
+--------------------------------------------------------------------------------------------------------------------------------
+2024-01         2024            1               10101           2024ND00001     10000.00        DEBITO          522110100       
+2024-01         2024            1               10101           2024ND00002     54700.00        DEBITO          522110100       
+2024-01         2024            1               10101           2024ND00003     316000.00       DEBITO          522110100       
+2024-01         2024            1               10101           2024ND00004     500000.00       DEBITO          522110100       
+2024-01         2024            1               10101           2024ND00005     5355200.00      DEBITO          522110100       
+
+====================================================================================================
+
+TABELA 2: DESPESA_SALDO
+====================================================================================================
+
+Total de registros: 560,110
+
+ESTRUTURA DA TABELA:
+----------------------------------------------------------------------------------------------------
+#    Campo                          Tipo                 Nulo?      Padrão                        
+----------------------------------------------------------------------------------------------------
+1    coexercicio                    INTEGER              NÃO        -                             
+2    coug                           INTEGER              NÃO        -                             
+3    cogestao                       INTEGER              SIM        -                             
+4    cocontacontabil                BIGINT               NÃO        -                             
+5    cocontacorrente                VARCHAR              NÃO        -                             
+6    inmes                          INTEGER              NÃO        -                             
+7    inesfera                       INTEGER              SIM        -                             
+8    couo                           INTEGER              SIM        -                             
+9    cofuncao                       INTEGER              SIM        -                             
+10   cosubfuncao                    INTEGER              SIM        -                             
+11   coprograma                     INTEGER              SIM        -                             
+12   coprojeto                      INTEGER              SIM        -                             
+13   cosubtitulo                    INTEGER              SIM        -                             
+14   cofonte                        BIGINT               SIM        -                             
+15   conatureza                     INTEGER              SIM        -                             
+16   incategoria                    INTEGER              SIM        -                             
+17   vacredito                      DECIMAL(18,2)        SIM        -                             
+18   vadebito                       DECIMAL(18,2)        SIM        -                             
+19   noug                           VARCHAR              SIM        -                             
+20   cogestao_1                     INTEGER              SIM        -                             
+21   nogestao                       VARCHAR              SIM        -                             
+22   intipoadm                      INTEGER              SIM        -                             
+23   instatus                       INTEGER              SIM        -                             
+24   ultalteracao                   VARCHAR              SIM        -                             
+25   saldo_contabil_despesa         DECIMAL(18,2)        SIM        -                             
+26   cogrupo                        VARCHAR              SIM        -                             
+27   comodalidade                   VARCHAR              SIM        -                             
+28   coelemento                     VARCHAR              SIM        -                             
+29   cosubelemento                  VARCHAR              SIM        -                             
+30   periodo                        VARCHAR              SIM        -                             
+31   data_carga                     TIMESTAMP            SIM        CURRENT_TIMESTAMP             
+
+AMOSTRA DE DADOS (5 primeiros registros):
+----------------------------------------------------------------------------------------------------
+periodo         coexercicio     inmes           coug            cocontacontabil 
+--------------------------------------------------------------------------------
+2025-05         2025            5               10101           622920104       
+2025-05         2025            5               160101          622920103       
+2025-05         2025            5               150205          622920104       
+2025-05         2025            5               320203          622920101       
+2025-05         2025            5               170202          622130100       
+
+====================================================================================================
+
+TABELA 3: RECEITA_LANCAMENTO
+====================================================================================================
+
+Total de registros: 490,122
+
+ESTRUTURA DA TABELA:
+----------------------------------------------------------------------------------------------------
+#    Campo                          Tipo                 Nulo?      Padrão                        
+----------------------------------------------------------------------------------------------------
+1    coexercicio                    INTEGER              SIM        -                             
+2    coug                           INTEGER              SIM        -                             
+3    cogestao                       INTEGER              SIM        -                             
+4    nudocumento                    VARCHAR              SIM        -                             
+5    nulancamento                   INTEGER              SIM        -                             
+6    coevento                       INTEGER              SIM        -                             
+7    cocontacontabil                BIGINT               SIM        -                             
+8    cocontacorrente                VARCHAR              SIM        -                             
+9    inmes                          INTEGER              SIM        -                             
+10   dalancamento                   DATE                 SIM        -                             
+11   valancamento                   DECIMAL(18,2)        SIM        -                             
+12   indebitocredito                VARCHAR              SIM        -                             
+13   inabreencerra                  INTEGER              SIM        -                             
+14   cougdestino                    INTEGER              SIM        -                             
+15   cogestaodestino                INTEGER              SIM        -                             
+16   datransacao                    DATE                 SIM        -                             
+17   hotransacao                    TIME                 SIM        -                             
+18   cougcontab                     INTEGER              SIM        -                             
+19   cogestaocontab                 INTEGER              SIM        -                             
+20   coclasseorc                    VARCHAR              SIM        -                             
+21   cofonte                        VARCHAR              SIM        -                             
+22   cocategoriareceita             VARCHAR              SIM        -                             
+23   cofontereceita                 VARCHAR              SIM        -                             
+24   cosubfontereceita              VARCHAR              SIM        -                             
+25   corubrica                      VARCHAR              SIM        -                             
+26   coalinea                       VARCHAR              SIM        -                             
+27   inesfera                       VARCHAR              SIM        -                             
+28   couo                           VARCHAR              SIM        -                             
+29   cofuncao                       VARCHAR              SIM        -                             
+30   cosubfuncao                    VARCHAR              SIM        -                             
+31   coprograma                     VARCHAR              SIM        -                             
+32   coprojeto                      VARCHAR              SIM        -                             
+33   cosubtitulo                    VARCHAR              SIM        -                             
+34   conatureza                     VARCHAR              SIM        -                             
+35   incategoria                    VARCHAR              SIM        -                             
+36   cogrupo                        VARCHAR              SIM        -                             
+37   comodalidade                   VARCHAR              SIM        -                             
+38   coelemento                     VARCHAR              SIM        -                             
+39   cosubelemento                  VARCHAR              SIM        -                             
+40   periodo                        VARCHAR              SIM        -                             
+41   tipo_lancamento                VARCHAR              SIM        -                             
+42   data_carga                     TIMESTAMP            SIM        CURRENT_TIMESTAMP             
+
+ANÁLISE DE LANÇAMENTOS:
+----------------------------------------------------------------------------------------------------
+Período inicial: 2024-01
+Período final: 2025-06
+Total de períodos: 12
+
+Por tipo de lançamento:
+   CREDITO    -    466,167 registros - R$    69,287,069,142.46
+   DEBITO     -     23,955 registros - R$   114,344,560,397.53
+
+Top 10 UGs com mais lançamentos:
+   UG 130105 -    300,581 registros - R$    20,961,450,272.58
+   UG 130101 -     29,789 registros - R$    84,795,753,291.95
+   UG 200202 -     20,237 registros - R$     2,555,417,605.22
+   UG 170901 -     19,004 registros - R$     6,894,828,187.10
+   UG 130103 -     17,976 registros - R$     1,707,659,011.72
+   UG 220201 -     17,871 registros - R$     3,920,288,261.36
+   UG 140202 -      7,813 registros - R$     2,526,377,402.13
+   UG 260101 -      7,776 registros - R$        12,285,497.42
+   UG 320203 -      5,369 registros - R$    37,979,078,134.35
+   UG 200101 -      4,509 registros - R$       398,465,316.04
+
+Distribuição por tamanho de conta corrente:
+   17 caracteres -    488,589 registros
+   38 caracteres -      1,533 registros
+
+AMOSTRA DE DADOS (5 primeiros registros):
+----------------------------------------------------------------------------------------------------
+periodo         coexercicio     inmes           coug            nudocumento     valancamento    tipo_lancamento cocontacontabil 
+--------------------------------------------------------------------------------------------------------------------------------
+2024-01         2024            1               10101           2024OB00001     78.99           CREDITO         621200000       
+2024-01         2024            1               10101           2024OB00001     424.05          CREDITO         621200000       
+2024-01         2024            1               10101           2024OB00001     49.98           CREDITO         621200000       
+2024-01         2024            1               10101           2024OB00003     35.65           CREDITO         621200000       
+2024-01         2024            1               10101           2024OB00003     1.68            CREDITO         621200000       
+
+====================================================================================================
+
+TABELA 4: RECEITA_SALDO
+====================================================================================================
+
+Total de registros: 11,998
+
+ESTRUTURA DA TABELA:
+----------------------------------------------------------------------------------------------------
+#    Campo                          Tipo                 Nulo?      Padrão                        
+----------------------------------------------------------------------------------------------------
+1    coexercicio                    INTEGER              NÃO        -                             
+2    inmes                          INTEGER              NÃO        -                             
+3    coug                           VARCHAR              NÃO        -                             
+4    cocontacontabil                VARCHAR              NÃO        -                             
+5    cocontacorrente                VARCHAR              NÃO        -                             
+6    intipoadm                      INTEGER              SIM        -                             
+7    vacredito                      DECIMAL(18,2)        SIM        -                             
+8    vadebito                       DECIMAL(18,2)        SIM        -                             
+9    saldo_contabil_receita         DECIMAL(18,2)        SIM        -                             
+10   coclasseorc                    VARCHAR              SIM        -                             
+11   cofonte                        VARCHAR              SIM        -                             
+12   cocategoriareceita             VARCHAR              SIM        -                             
+13   cofontereceita                 VARCHAR              SIM        -                             
+14   cosubfontereceita              VARCHAR              SIM        -                             
+15   corubrica                      VARCHAR              SIM        -                             
+16   coalinea                       VARCHAR              SIM        -                             
+17   inesfera                       VARCHAR              SIM        -                             
+18   couo                           VARCHAR              SIM        -                             
+19   cofuncao                       VARCHAR              SIM        -                             
+20   cosubfuncao                    VARCHAR              SIM        -                             
+21   coprograma                     VARCHAR              SIM        -                             
+22   coprojeto                      VARCHAR              SIM        -                             
+23   cosubtitulo                    VARCHAR              SIM        -                             
+24   conatureza                     VARCHAR              SIM        -                             
+25   incategoria                    VARCHAR              SIM        -                             
+26   cogrupo                        VARCHAR              SIM        -                             
+27   comodalidade                   VARCHAR              SIM        -                             
+28   coelemento                     VARCHAR              SIM        -                             
+29   periodo                        VARCHAR              SIM        -                             
+30   data_carga                     TIMESTAMP            SIM        CURRENT_TIMESTAMP             
+
+AMOSTRA DE DADOS (5 primeiros registros):
+----------------------------------------------------------------------------------------------------
+periodo         coexercicio     inmes           coug            cocontacontabil 
+--------------------------------------------------------------------------------
+2025-06         2025            6               130101          621200000       
+2025-06         2025            6               130101          621200000       
+2025-06         2025            6               170901          621200000       
+2025-06         2025            6               150201          621200000       
+2025-06         2025            6               170901          621200000       
+
+====================================================================================================
+
+INFORMAÇÕES ADICIONAIS DO BANCO
+====================================================================================================
+
+Tamanho do arquivo: 146.26 MB
+Versão do DuckDB: v1.3.2
+
+====================================================================================================
+FIM DO RELATÓRIO
+====================================================================================================
