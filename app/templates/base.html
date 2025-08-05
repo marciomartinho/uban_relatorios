@@ -104,6 +104,28 @@
                             </li>
                         </ul>
                     </li>
+
+                    <!-- Menu Balanço Orçamentário -->
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" 
+                        data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-file-earmark-bar-graph"></i> Balanço Orçamentário
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li>
+                                <a class="dropdown-item {% if request.endpoint == 'balanco_receita.index' %}active{% endif %}" 
+                                href="{{ url_for('balanco_receita.index') }}">
+                                    <i class="bi bi-graph-up-arrow"></i> Balanço de Receitas
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item disabled" href="#">
+                                    <i class="bi bi-graph-down-arrow"></i> Balanço de Despesas
+                                    <small class="text-muted">(Em breve)</small>
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
                     
                     <li class="nav-item">
                     

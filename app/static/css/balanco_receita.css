@@ -1,0 +1,118 @@
+/* Estilos para o Balanço Orçamentário da Receita */
+
+/* Container principal */
+.container-fluid {
+    padding-bottom: 50px;
+}
+
+/* Card de filtros */
+.filtros-card {
+    margin-bottom: 20px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.filtros-card .card-header {
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    border: none;
+}
+
+/* Container do relatório */
+.relatorio-container {
+    display: none;
+    animation: fadeIn 0.3s ease;
+}
+
+/* Botões de filtro de receita */
+#filtrosReceita {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.filtro-receita {
+    font-size: 0.875rem;
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    transition: all 0.2s ease;
+}
+
+.filtro-receita:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+.filtro-receita.active {
+    background-color: #1e3c72;
+    border-color: #1e3c72;
+    color: white;
+}
+
+/* Container da tabela */
+.table-container {
+    overflow-x: auto;
+    margin-top: 20px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* Mensagem inicial */
+#mensagemInicial {
+    margin-top: 50px;
+    font-size: 1.1rem;
+}
+
+/* Loading */
+.loading-container {
+    padding: 80px 20px;
+    text-align: center;
+}
+
+.loading-container i {
+    font-size: 3rem;
+    color: #1e3c72;
+    animation: spin 1s linear infinite;
+}
+
+/* Animações */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+    .filtro-receita {
+        font-size: 0.75rem;
+        padding: 0.4rem 0.8rem;
+    }
+    
+    .container-fluid h2 {
+        font-size: 1.5rem;
+    }
+}
+
+/* Impressão */
+@media print {
+    .filtros-card,
+    #mensagemInicial,
+    .navbar,
+    .footer {
+        display: none !important;
+    }
+    
+    .relatorio-container {
+        display: block !important;
+    }
+}

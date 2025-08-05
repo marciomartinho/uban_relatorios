@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/balanco_receita.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <h2 class="text-center mb-4">
+                <i class="bi bi-file-earmark-bar-graph"></i> Balanço Orçamentário da Receita
+            </h2>
+            
+            <!-- Card de Filtros -->
+            <div class="card filtros-card">
+                <div class="card-header text-white">
+                    <h5 class="mb-0"><i class="bi bi-funnel"></i> Filtros do Relatório</h5>
+                </div>
+                <div class="card-body">
+                    <form id="formFiltros">
+                        <div class="row">
+                            <div class="col-md-3">
+                                <div class="mb-3">
+                                    <label for="selectAno" class="form-label">Ano</label>
+                                    <select class="form-select" id="selectAno" required>
+                                        <option value="">Selecione...</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="mb-3">
+                                    <label for="selectMes" class="form-label">Mês</label>
+                                    <select class="form-select" id="selectMes" required>
+                                        <option value="">Selecione o ano primeiro</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="selectUG" class="form-label">Unidade Gestora</label>
+                                    <select class="form-select" id="selectUG">
+                                        <option value="">📊 Dados Consolidados</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Filtros de Tipo de Receita -->
+                        <div class="row mt-3">
+                            <div class="col-12">
+                                <label class="form-label">Tipo de Receita</label>
+                                <div id="filtrosReceita" class="btn-group-sm" role="group">
+                                    <!-- Serão preenchidos dinamicamente -->
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row mt-4">
+                            <div class="col-12 text-center">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="bi bi-search"></i> Gerar Relatório
+                                </button>
+                                <button type="button" class="btn btn-secondary" id="btnLimpar">
+                                    <i class="bi bi-x-circle"></i> Limpar
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                    
+                    <div class="alert alert-info mt-3 mb-0">
+                        <i class="bi bi-info-circle"></i> 
+                        Este relatório apresenta o comparativo entre a previsão e a realização das receitas, 
+                        com análise de variações entre exercícios.
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Container do Relatório -->
+            <div id="relatorioContainer" class="relatorio-container">
+                <!-- O relatório será inserido aqui dinamicamente -->
+            </div>
+            
+            <!-- Mensagem Inicial -->
+            <div id="mensagemInicial" class="alert alert-info text-center">
+                <i class="bi bi-info-circle"></i> Selecione os filtros acima para gerar o relatório
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/balanco_receita.js') }}"></script>
+{% endblock %}
