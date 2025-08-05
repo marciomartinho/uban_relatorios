@@ -1,0 +1,146 @@
+====================================================================================================
+RELATÓRIO DE INTEGRIDADE REFERENCIAL - DUCKDB
+====================================================================================================
+
+Data: 04/08/2025 23:08:45
+Banco: dados_brutos\fato\db_local\uban.duckdb
+
+
+====================================================================================================
+TABELA: DESPESA_LANCAMENTO
+====================================================================================================
+
+Coluna FK            Tabela Dimensão                     Status               Valores Órfãos 
+------------------------------------------------------------------------------------------
+coug                 dim_unidade_gestora                 ✅ OK                               0
+cogestao             dim_gestao                          ✅ OK                               0
+coevento             dim_evento                          ✅ OK                               0
+cocontacontabil      dim_conta_contabil                  ✅ OK                               0
+cofuncao             dim_funcao                          ✅ OK                               0
+cosubfuncao          dim_subfuncao                       ✅ OK                               0
+coprograma           dim_programa                        ✅ OK                               0
+coprojeto            dim_projeto                         ✅ OK                               0
+cosubtitulo          dim_subtitulo                       💥 ERRO                             -
+cofonte              dim_fonte                           ✅ OK                               0
+incategoria          dim_categoria_despesa               ✅ OK                               0
+cogrupo              dim_grupo_despesa                   ✅ OK                               0
+comodalidade         dim_modalidade                      ✅ OK                               0
+coelemento           dim_elemento                        ✅ OK                               0
+
+Resumo: 14 verificações realizadas
+
+====================================================================================================
+TABELA: DESPESA_SALDO
+====================================================================================================
+
+Coluna FK            Tabela Dimensão                     Status               Valores Órfãos 
+------------------------------------------------------------------------------------------
+coug                 dim_unidade_gestora                 ✅ OK                               0
+cogestao             dim_gestao                          ✅ OK                               0
+coevento             dim_evento                          ➖ COLUNA_FK_NAO_EXISTE               -
+cocontacontabil      dim_conta_contabil                  ✅ OK                               0
+cofuncao             dim_funcao                          ✅ OK                               0
+cosubfuncao          dim_subfuncao                       ✅ OK                               0
+coprograma           dim_programa                        ✅ OK                               0
+coprojeto            dim_projeto                         ✅ OK                               0
+cosubtitulo          dim_subtitulo                       💥 ERRO                             -
+cofonte              dim_fonte                           ✅ OK                               0
+incategoria          dim_categoria_despesa               ❌ PROBLEMAS_ENCONTRADOS               4
+cogrupo              dim_grupo_despesa                   ✅ OK                               0
+comodalidade         dim_modalidade                      ✅ OK                               0
+coelemento           dim_elemento                        ✅ OK                               0
+
+Resumo: 14 verificações realizadas
+
+====================================================================================================
+TABELA: RECEITA_LANCAMENTO
+====================================================================================================
+
+Coluna FK            Tabela Dimensão                     Status               Valores Órfãos 
+------------------------------------------------------------------------------------------
+coug                 dim_unidade_gestora                 ✅ OK                               0
+cogestao             dim_gestao                          ✅ OK                               0
+coevento             dim_evento                          ❌ PROBLEMAS_ENCONTRADOS               2
+cocontacontabil      dim_conta_contabil                  ❌ PROBLEMAS_ENCONTRADOS               2
+coclasseorc          dim_classificacao_orcamentaria      ✅ OK                               0
+cocategoriareceita   dim_receita_categoria               ✅ OK                               0
+cofontereceita       dim_receita_origem                  ✅ OK                               0
+cosubfontereceita    dim_receita_especie                 ✅ OK                               0
+corubrica            dim_receita_especificacao           ✅ OK                               0
+coalinea             dim_receita_alinea                  ✅ OK                               0
+
+Resumo: 10 verificações realizadas
+
+====================================================================================================
+TABELA: RECEITA_SALDO
+====================================================================================================
+
+Coluna FK            Tabela Dimensão                     Status               Valores Órfãos 
+------------------------------------------------------------------------------------------
+coug                 dim_unidade_gestora                 ✅ OK                               0
+cogestao             dim_gestao                          ➖ COLUNA_FK_NAO_EXISTE               -
+coevento             dim_evento                          ➖ COLUNA_FK_NAO_EXISTE               -
+cocontacontabil      dim_conta_contabil                  ❌ PROBLEMAS_ENCONTRADOS               2
+coclasseorc          dim_classificacao_orcamentaria      ✅ OK                               0
+cocategoriareceita   dim_receita_categoria               ✅ OK                               0
+cofontereceita       dim_receita_origem                  ✅ OK                               0
+cosubfontereceita    dim_receita_especie                 ✅ OK                               0
+corubrica            dim_receita_especificacao           ✅ OK                               0
+coalinea             dim_receita_alinea                  ✅ OK                               0
+
+Resumo: 10 verificações realizadas
+
+
+====================================================================================================
+DETALHAMENTO DOS PROBLEMAS ENCONTRADOS
+====================================================================================================
+
+
+despesa_saldo.incategoria -> dim_categoria_despesa
+--------------------------------------------------
+Total de registros afetados: 560,110
+Valores distintos: 7
+Valores órfãos: 4
+Exemplos de valores órfãos: 2, 6, 1, 5
+
+receita_lancamento.coevento -> dim_evento
+--------------------------------------------------
+Total de registros afetados: 490,122
+Valores distintos: 449
+Valores órfãos: 2
+Exemplos de valores órfãos: 800281, 805281
+
+receita_lancamento.cocontacontabil -> dim_conta_contabil
+--------------------------------------------------
+Total de registros afetados: 490,122
+Valores distintos: 17
+Valores órfãos: 2
+Exemplos de valores órfãos: 621340199, 621340101
+
+receita_saldo.cocontacontabil -> dim_conta_contabil
+--------------------------------------------------
+Total de registros afetados: 11,998
+Valores distintos: 17
+Valores órfãos: 2
+Exemplos de valores órfãos: 621340101, 621340199
+
+
+====================================================================================================
+RESUMO FINAL
+====================================================================================================
+
+Total de verificações: 48
+Verificações OK: 44
+Problemas encontrados: 4
+
+⚠️ ATENÇÃO: Foram encontrados 4 problemas de integridade!
+
+RECOMENDAÇÕES:
+1. Verifique se todas as tabelas dimensão foram carregadas corretamente
+2. Considere criar registros 'DESCONHECIDO' ou 'NÃO INFORMADO' nas dimensões
+3. Analise os valores órfãos para entender se são dados válidos
+4. Execute limpeza ou correção dos dados nas tabelas fato se necessário
+
+====================================================================================================
+FIM DO RELATÓRIO
+====================================================================================================
