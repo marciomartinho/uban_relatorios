@@ -91,9 +91,15 @@
                         </a>
                         <ul class="dropdown-menu">
                             <li>
-                                <a class="dropdown-item {% if request.endpoint == 'rreo_receita.demonstrativo' %}active{% endif %}" 
-                                   href="{{ url_for('rreo_receita.demonstrativo') }}">
+                                <a class="dropdown-item {% if request.endpoint == 'rreo_receita.rreo_receita_page' %}active{% endif %}" 
+                                   href="{{ url_for('rreo_receita.rreo_receita_page') }}">
                                     <i class="bi bi-graph-up"></i> Demonstrativo de Receitas
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item {% if request.endpoint == 'rreo_despesa.rreo_despesa_page' %}active{% endif %}" 
+                                   href="{{ url_for('rreo_despesa.rreo_despesa_page') }}">
+                                    <i class="bi bi-graph-down"></i> Demonstrativo de Despesas
                                 </a>
                             </li>
                         </ul>

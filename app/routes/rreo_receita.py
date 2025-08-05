@@ -19,10 +19,10 @@ BIMESTRES = {
     6: {'meses': [11, 12], 'nome': '6º Bimestre'}
 }
 
-@rreo_receita.route('/demonstrativo')
-def demonstrativo():
+@rreo_receita.route('/rreo-receita')
+def rreo_receita_page():
     """Página do demonstrativo RREO de Receita"""
-    return render_template('rreo_receita/demonstrativo.html', 
+    return render_template('rreo_receita/rreo_receita.html', 
                          title='RREO - Demonstrativo de Receitas')
 
 @rreo_receita.route('/api/filtros')
