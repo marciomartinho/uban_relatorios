@@ -83,7 +83,7 @@ html, body {
 /* Linhas de título principal */
 .linha-titulo-principal td {
     font-weight: bold;
-    background-color: #f8f9fa;
+    background-color: #d1ecf1;
 }
 
 .linha-titulo-principal td:first-child {

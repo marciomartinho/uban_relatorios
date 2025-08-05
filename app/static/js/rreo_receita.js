@@ -241,18 +241,61 @@ function construirTabela(dados) {
         'TOTAL (V) = (III + IV)',
         dados.total_final
     ));
+    
+    // Linha 6: SALDOS DE EXERCÍCIOS ANTERIORES
+    if (dados.saldos_exercicios_anteriores && 
+        (dados.saldos_exercicios_anteriores.total.previsao_inicial > 0 ||
+         dados.saldos_exercicios_anteriores.total.previsao_atualizada > 0 ||
+         dados.saldos_exercicios_anteriores.total.realizado_ate_bimestre > 0)) {
+        
+        // Linha principal dos saldos
+        tbody.append(criarLinhaCategoria(
+            'SALDOS DE EXERCÍCIOS ANTERIORES',
+            dados.saldos_exercicios_anteriores.total
+        ));
+        
+        // Recursos Arrecadados em Exercícios Anteriores - RPPS
+        if (dados.saldos_exercicios_anteriores.recursos_rpps.previsao_inicial > 0 ||
+            dados.saldos_exercicios_anteriores.recursos_rpps.previsao_atualizada > 0 ||
+            dados.saldos_exercicios_anteriores.recursos_rpps.realizado_ate_bimestre > 0) {
+            
+            tbody.append(criarLinhaFonte(
+                'Recursos Arrecadados em Exercícios Anteriores - RPPS',
+                dados.saldos_exercicios_anteriores.recursos_rpps
+            ));
+        }
+        
+        // Superávit Financeiro Utilizado para Créditos Adicionais
+        if (dados.saldos_exercicios_anteriores.superavit_financeiro.previsao_atualizada > 0 ||
+            dados.saldos_exercicios_anteriores.superavit_financeiro.realizado_ate_bimestre > 0) {
+            
+            tbody.append(criarLinhaFonte(
+                'Superávit Financeiro Utilizado para Créditos Adicionais',
+                dados.saldos_exercicios_anteriores.superavit_financeiro
+            ));
+        }
+    }
 }
 
 // Construir detalhes de uma categoria
 function construirDetalhesCategoria(tbody, detalhes) {
     Object.values(detalhes).forEach(function(fonte) {
-        // Linha da fonte
-        tbody.append(criarLinhaFonte(fonte.nome, fonte.total));
+        // Verificar se a fonte tem apenas uma subfonte
+        const subfontes = Object.values(fonte.subfontes);
+        const temApenasUmaSubfonte = subfontes.length === 1;
         
-        // Subfontes
-        Object.values(fonte.subfontes).forEach(function(subfonte) {
-            tbody.append(criarLinhaSubfonte(subfonte.nome, subfonte));
-        });
+        if (temApenasUmaSubfonte) {
+            // Se tem apenas uma subfonte, mostrar apenas o nível da fonte com os valores da subfonte
+            const unicaSubfonte = subfontes[0];
+            tbody.append(criarLinhaFonte(fonte.nome, unicaSubfonte));
+        } else {
+            // Se tem múltiplas subfontes, mostrar fonte e todas as subfontes
+            tbody.append(criarLinhaFonte(fonte.nome, fonte.total));
+            
+            subfontes.forEach(function(subfonte) {
+                tbody.append(criarLinhaSubfonte(subfonte.nome, subfonte));
+            });
+        }
     });
 }
 
@@ -521,6 +564,31 @@ function exportarExcel() {
     adicionarLinhaCSV('TOTAL DAS RECEITAS (III) = (I + II)', dados.total_receitas);
     adicionarLinhaCSV('DÉFICIT (IV)', dados.deficit);
     adicionarLinhaCSV('TOTAL (V) = (III + IV)', dados.total_final);
+    
+    // Saldos de Exercícios Anteriores
+    if (dados.saldos_exercicios_anteriores && 
+        (dados.saldos_exercicios_anteriores.total.previsao_inicial > 0 ||
+         dados.saldos_exercicios_anteriores.total.previsao_atualizada > 0 ||
+         dados.saldos_exercicios_anteriores.total.realizado_ate_bimestre > 0)) {
+        
+        csv.push(['']); // Linha em branco
+        adicionarLinhaCSV('SALDOS DE EXERCÍCIOS ANTERIORES', dados.saldos_exercicios_anteriores.total);
+        
+        if (dados.saldos_exercicios_anteriores.recursos_rpps.previsao_inicial > 0 ||
+            dados.saldos_exercicios_anteriores.recursos_rpps.previsao_atualizada > 0 ||
+            dados.saldos_exercicios_anteriores.recursos_rpps.realizado_ate_bimestre > 0) {
+            
+            adicionarLinhaCSV('  Recursos Arrecadados em Exercícios Anteriores - RPPS', 
+                dados.saldos_exercicios_anteriores.recursos_rpps, 1);
+        }
+        
+        if (dados.saldos_exercicios_anteriores.superavit_financeiro.previsao_atualizada > 0 ||
+            dados.saldos_exercicios_anteriores.superavit_financeiro.realizado_ate_bimestre > 0) {
+            
+            adicionarLinhaCSV('  Superávit Financeiro Utilizado para Créditos Adicionais', 
+                dados.saldos_exercicios_anteriores.superavit_financeiro, 1);
+        }
+    }
     
     // Rodapé
     csv.push(['']);

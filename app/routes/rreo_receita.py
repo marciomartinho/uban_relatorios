@@ -98,6 +98,11 @@ def gerar_relatorio():
             ['81', '82', '83', '84', '85', '86', '87', '88', '89']
         )
         
+        # Buscar saldos de exercícios anteriores
+        saldos_exercicios_anteriores = buscar_saldos_exercicios_anteriores(
+            conn, ano, meses_bimestre, meses_ate_bimestre
+        )
+        
         conn.close()
         
         # Calcular totais
@@ -157,7 +162,8 @@ def gerar_relatorio():
                 },
                 'total_receitas': total_receitas,
                 'deficit': deficit,
-                'total_final': total_final
+                'total_final': total_final,
+                'saldos_exercicios_anteriores': saldos_exercicios_anteriores
             }
         }
         
@@ -300,4 +306,124 @@ def somar_totais(total1, total2):
         'previsao_atualizada': total1.get('previsao_atualizada', 0) + total2.get('previsao_atualizada', 0),
         'realizado_bimestre': total1.get('realizado_bimestre', 0) + total2.get('realizado_bimestre', 0),
         'realizado_ate_bimestre': total1.get('realizado_ate_bimestre', 0) + total2.get('realizado_ate_bimestre', 0)
+    }
+
+def buscar_saldos_exercicios_anteriores(conn, ano, meses_bimestre, meses_ate_bimestre):
+    """Busca os saldos de exercícios anteriores"""
+    
+    meses_bimestre_str = ','.join([str(m) for m in meses_bimestre])
+    meses_ate_bimestre_str = ','.join([str(m) for m in meses_ate_bimestre])
+    
+    # Primeiro verificar se existe a coluna cocontacorrente
+    check_column = """
+    SELECT column_name 
+    FROM information_schema.columns 
+    WHERE table_name = 'receita_saldo' 
+    AND column_name = 'cocontacorrente'
+    """
+    has_conta_corrente = len(conn.execute(check_column).fetchall()) > 0
+    
+    print(f"Coluna cocontacorrente existe: {has_conta_corrente}")
+    
+    # Se não tem a coluna, criar valores zerados
+    if not has_conta_corrente:
+        print("AVISO: Coluna cocontacorrente não encontrada. Retornando valores zerados.")
+        recursos_rpps = {
+            'previsao_inicial': 0,
+            'previsao_atualizada': 0,
+            'realizado_bimestre': 0,
+            'realizado_ate_bimestre': 0
+        }
+    else:
+        # 1. Recursos Arrecadados em Exercícios Anteriores - RPPS
+        query_rpps = f"""
+        SELECT 
+            -- Previsão inicial (521100000 a 521199999)
+            SUM(CASE 
+                WHEN cocontacontabil >= '521100000' AND cocontacontabil <= '521199999' 
+                AND cocontacorrente LIKE '99%'
+                AND inmes IN ({meses_ate_bimestre_str})
+                THEN saldo_contabil_receita 
+                ELSE 0 
+            END) as previsao_inicial,
+            
+            -- Previsão atualizada (521100000 a 521299999)
+            SUM(CASE 
+                WHEN cocontacontabil >= '521100000' AND cocontacontabil <= '521299999' 
+                AND cocontacorrente LIKE '99%'
+                AND inmes IN ({meses_ate_bimestre_str})
+                THEN saldo_contabil_receita 
+                ELSE 0 
+            END) as previsao_atualizada,
+            
+            -- Realizado no bimestre (621200000 a 621399999)
+            SUM(CASE 
+                WHEN cocontacontabil >= '621200000' AND cocontacontabil <= '621399999' 
+                AND cocontacorrente LIKE '99%'
+                AND inmes IN ({meses_bimestre_str})
+                THEN saldo_contabil_receita 
+                ELSE 0 
+            END) as realizado_bimestre,
+            
+            -- Realizado até o bimestre (621200000 a 621399999)
+            SUM(CASE 
+                WHEN cocontacontabil >= '621200000' AND cocontacontabil <= '621399999' 
+                AND cocontacorrente LIKE '99%'
+                AND inmes IN ({meses_ate_bimestre_str})
+                THEN saldo_contabil_receita 
+                ELSE 0 
+            END) as realizado_ate_bimestre
+            
+        FROM receita_saldo
+        WHERE coexercicio = {ano}
+        """
+        
+        print(f"Executando query RPPS...")
+        result_rpps = conn.execute(query_rpps).fetchone()
+        print(f"Resultado RPPS: {result_rpps}")
+        
+        recursos_rpps = {
+            'previsao_inicial': float(result_rpps[0]) if result_rpps[0] else 0,
+            'previsao_atualizada': float(result_rpps[1]) if result_rpps[1] else 0,
+            'realizado_bimestre': float(result_rpps[2]) if result_rpps[2] else 0,
+            'realizado_ate_bimestre': float(result_rpps[3]) if result_rpps[3] else 0
+        }
+    
+    # 2. Superávit Financeiro Utilizado para Créditos Adicionais
+    query_superavit = f"""
+    SELECT 
+        -- Superávit só tem previsão atualizada e realizado até o bimestre
+        SUM(CASE 
+            WHEN cocontacontabil >= '522130100' AND cocontacontabil <= '522130199' 
+            AND inmes IN ({meses_ate_bimestre_str})
+            THEN saldo_contabil_receita 
+            ELSE 0 
+        END) as valor_superavit
+        
+    FROM receita_saldo
+    WHERE coexercicio = {ano}
+    """
+    
+    print(f"Executando query Superávit...")
+    result_superavit = conn.execute(query_superavit).fetchone()
+    print(f"Resultado Superávit: {result_superavit}")
+    
+    valor_superavit = float(result_superavit[0]) if result_superavit[0] else 0
+    
+    superavit_financeiro = {
+        'previsao_inicial': 0,  # Superávit não tem previsão inicial
+        'previsao_atualizada': valor_superavit,
+        'realizado_bimestre': 0,  # Superávit não tem realizado no bimestre
+        'realizado_ate_bimestre': valor_superavit
+    }
+    
+    # Total dos saldos
+    total_saldos = somar_totais(recursos_rpps, superavit_financeiro)
+    
+    print(f"Total saldos: {total_saldos}")
+    
+    return {
+        'total': total_saldos,
+        'recursos_rpps': recursos_rpps,
+        'superavit_financeiro': superavit_financeiro
     }
