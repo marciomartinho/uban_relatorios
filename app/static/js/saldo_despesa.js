@@ -16,11 +16,10 @@ let totaisGlobais = {
     totalPorNatureza: {}
 };
 
-// Mapeamento de nomes de colunas
+// Mapeamento de nomes de colunas (removido intipoadm)
 const nomesColunas = {
     'inmes': 'Mês',
     'cocontacorrente': 'Conta Corrente',
-    'intipoadm': 'Tipo Adm',
     'saldo_contabil_despesa': 'Saldo Contábil',
     'conatureza': 'Natureza Despesa',
     'cofonte': 'Fonte',
@@ -564,8 +563,8 @@ function construirTabela(dados) {
     
     const consolidado = dados[0].cocontacorrente === 'CONSOLIDADO';
     
-    // Definir colunas baseadas no tipo de visualização
-    let colunas = ['inmes', 'cocontacorrente', 'intipoadm', 'saldo_contabil_despesa'];
+    // Definir colunas baseadas no tipo de visualização (removido intipoadm)
+    let colunas = ['inmes', 'cocontacorrente', 'saldo_contabil_despesa'];
     
     if (!consolidado) {
         // Adicionar campos da natureza de despesa
@@ -709,7 +708,7 @@ function construirTabela(dados) {
             
             // Total da pagina atual
             var pageTotal = api
-                .column(3, { page: 'current' })
+                .column(2, { page: 'current' })  // Coluna de saldo agora é índice 2
                 .data()
                 .reduce(function(a, b) {
                     return a + (b || 0);
@@ -718,13 +717,13 @@ function construirTabela(dados) {
             // Atualizar footer
             if (display.length < data.length) {
                 $(api.column(0).footer()).html('TOTAL DA PAGINA');
-                $(api.column(3).footer()).html(
+                $(api.column(2).footer()).html(
                     '<span class="' + (pageTotal < 0 ? 'text-negative' : 'text-positive') + '">' + 
                     formatarNumero(pageTotal) + '</span>'
                 );
             } else {
                 $(api.column(0).footer()).html('TOTAL GERAL');
-                $(api.column(3).footer()).html(
+                $(api.column(2).footer()).html(
                     '<span class="' + (totaisGlobais.totalGeral < 0 ? 'text-negative' : 'text-positive') + '">' + 
                     formatarNumero(totaisGlobais.totalGeral) + '</span>'
                 );
@@ -829,8 +828,8 @@ function exportarExcel() {
     
     let csv = [];
     
-    // Determinar colunas baseado nos dados
-    let headers = ['inmes', 'cocontacorrente', 'intipoadm', 'saldo_contabil_despesa'];
+    // Determinar colunas baseado nos dados (sem intipoadm)
+    let headers = ['inmes', 'cocontacorrente', 'saldo_contabil_despesa'];
     if (dadosFiltrados[0].cocontacorrente !== 'CONSOLIDADO') {
         headers = headers.concat([
             'conatureza', 'cofonte', 'inesfera', 'couo',

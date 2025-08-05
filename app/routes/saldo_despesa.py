@@ -136,7 +136,6 @@ def get_dados():
             SELECT 
                 inmes,
                 'CONSOLIDADO' as cocontacorrente,
-                MAX(intipoadm) as intipoadm,
                 SUM(saldo_contabil_despesa) as saldo_contabil_despesa,
                 -- Para consolidado, campos individuais ficam nulos
                 NULL as conatureza,
@@ -166,7 +165,6 @@ def get_dados():
             SELECT 
                 inmes,
                 cocontacorrente,
-                intipoadm,
                 saldo_contabil_despesa,
                 -- Campos principais
                 conatureza,
@@ -196,7 +194,7 @@ def get_dados():
         
         # Converter para lista de dicionários
         dados = []
-        colunas = ['inmes', 'cocontacorrente', 'intipoadm', 'saldo_contabil_despesa',
+        colunas = ['inmes', 'cocontacorrente', 'saldo_contabil_despesa',
                    'conatureza', 'cofonte', 'inesfera', 'couo', 'cofuncao', 
                    'cosubfuncao', 'coprograma', 'coprojeto', 'cosubtitulo',
                    'cogrupo', 'comodalidade', 'coelemento', 'cosubelemento', 
@@ -211,7 +209,7 @@ def get_dados():
                 # Converter valores numéricos
                 if col == 'saldo_contabil_despesa' and valor is not None:
                     dado[col] = float(valor)
-                elif col in ['inmes', 'intipoadm', 'tamanho_conta'] and valor is not None:
+                elif col in ['inmes', 'tamanho_conta'] and valor is not None:
                     dado[col] = int(valor)
                 else:
                     dado[col] = valor
