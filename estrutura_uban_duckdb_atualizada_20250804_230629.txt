@@ -1,0 +1,1030 @@
+========================================================================================================================
+DOCUMENTAÇÃO DA ESTRUTURA DO BANCO DE DADOS DUCKDB - VERSÃO ATUALIZADA
+========================================================================================================================
+
+Arquivo: dados_brutos\fato\db_local\uban.duckdb
+Data da análise: 04/08/2025 23:06:29
+
+========================================================================================================================
+
+RESUMO GERAL: 24 tabela(s) encontrada(s)
+   - Tabelas Fato: 4
+   - Tabelas Dimensão: 20
+
+------------------------------------------------------------------------------------------------------------------------
+
+TABELAS FATO:
+------------------------------------------------------------------------------------------------------------------------
+ 1. despesa_lancamento                       -       1,048,001 registros
+ 2. despesa_saldo                            -         560,110 registros
+ 3. receita_lancamento                       -         490,122 registros
+ 4. receita_saldo                            -          11,998 registros
+
+TABELAS DIMENSÃO:
+------------------------------------------------------------------------------------------------------------------------
+ 1. dim_categoria_despesa                    -               4 registros
+ 2. dim_classificacao_orcamentaria           -           4,055 registros
+ 3. dim_conta_contabil                       -          10,566 registros
+ 4. dim_elemento                             -              75 registros
+ 5. dim_evento                               -           7,837 registros
+ 6. dim_fonte                                -           8,616 registros
+ 7. dim_funcao                               -              29 registros
+ 8. dim_gestao                               -             138 registros
+ 9. dim_grupo_despesa                        -               9 registros
+10. dim_modalidade                           -              13 registros
+11. dim_programa                             -              36 registros
+12. dim_projeto                              -             791 registros
+13. dim_receita_alinea                       -             634 registros
+14. dim_receita_categoria                    -               4 registros
+15. dim_receita_especie                      -              86 registros
+16. dim_receita_especificacao                -             212 registros
+17. dim_receita_origem                       -              24 registros
+18. dim_subfuncao                            -             112 registros
+19. dim_subtitulo                            -             791 registros
+20. dim_unidade_gestora                      -             256 registros
+
+========================================================================================================================
+
+DETALHAMENTO - TABELAS FATO
+========================================================================================================================
+
+TABELA FATO 1: DESPESA_LANCAMENTO
+========================================================================================================================
+
+Total de registros: 1,048,001
+
+ESTRUTURA DA TABELA:
+------------------------------------------------------------------------------------------------------------------------
+#    Campo                          Tipo                 Nulo?      Padrão                        
+------------------------------------------------------------------------------------------------------------------------
+1    coexercicio                    INTEGER              SIM        -                             
+2    coug                           INTEGER              SIM        -                             
+3    cogestao                       INTEGER              SIM        -                             
+4    nudocumento                    VARCHAR              SIM        -                             
+5    nulancamento                   INTEGER              SIM        -                             
+6    coevento                       INTEGER              SIM        -                             
+7    cocontacontabil                BIGINT               SIM        -                             
+8    cocontacorrente                VARCHAR              SIM        -                             
+9    inmes                          INTEGER              SIM        -                             
+10   dalancamento                   DATE                 SIM        -                             
+11   valancamento                   DECIMAL(18,2)        SIM        -                             
+12   indebitocredito                VARCHAR              SIM        -                             
+13   inabreencerra                  INTEGER              SIM        -                             
+14   cougdestino                    INTEGER              SIM        -                             
+15   cogestaodestino                INTEGER              SIM        -                             
+16   datransacao                    DATE                 SIM        -                             
+17   hotransacao                    TIME                 SIM        -                             
+18   cougcontab                     INTEGER              SIM        -                             
+19   cogestaocontab                 INTEGER              SIM        -                             
+20   inesfera                       VARCHAR              SIM        -                             
+21   couo                           VARCHAR              SIM        -                             
+22   cofuncao                       VARCHAR              SIM        -                             
+23   cosubfuncao                    VARCHAR              SIM        -                             
+24   coprograma                     VARCHAR              SIM        -                             
+25   coprojeto                      VARCHAR              SIM        -                             
+26   cosubtitulo                    VARCHAR              SIM        -                             
+27   cofonte                        VARCHAR              SIM        -                             
+28   conatureza                     VARCHAR              SIM        -                             
+29   incategoria                    VARCHAR              SIM        -                             
+30   cogrupo                        VARCHAR              SIM        -                             
+31   comodalidade                   VARCHAR              SIM        -                             
+32   coelemento                     VARCHAR              SIM        -                             
+33   cosubelemento                  VARCHAR              SIM        -                             
+34   periodo                        VARCHAR              SIM        -                             
+35   tipo_lancamento                VARCHAR              SIM        -                             
+36   data_carga                     TIMESTAMP            SIM        CURRENT_TIMESTAMP             
+
+ANÁLISE DE PERÍODOS:
+--------------------------------------------------
+Período inicial: 2024-01
+Período final: 2025-06
+Total de períodos: 12
+
+========================================================================================================================
+
+TABELA FATO 2: DESPESA_SALDO
+========================================================================================================================
+
+Total de registros: 560,110
+
+ESTRUTURA DA TABELA:
+------------------------------------------------------------------------------------------------------------------------
+#    Campo                          Tipo                 Nulo?      Padrão                        
+------------------------------------------------------------------------------------------------------------------------
+1    coexercicio                    INTEGER              NÃO        -                             
+2    coug                           INTEGER              NÃO        -                             
+3    cogestao                       INTEGER              SIM        -                             
+4    cocontacontabil                BIGINT               NÃO        -                             
+5    cocontacorrente                VARCHAR              NÃO        -                             
+6    inmes                          INTEGER              NÃO        -                             
+7    inesfera                       INTEGER              SIM        -                             
+8    couo                           INTEGER              SIM        -                             
+9    cofuncao                       INTEGER              SIM        -                             
+10   cosubfuncao                    INTEGER              SIM        -                             
+11   coprograma                     INTEGER              SIM        -                             
+12   coprojeto                      INTEGER              SIM        -                             
+13   cosubtitulo                    INTEGER              SIM        -                             
+14   cofonte                        BIGINT               SIM        -                             
+15   conatureza                     INTEGER              SIM        -                             
+16   incategoria                    INTEGER              SIM        -                             
+17   vacredito                      DECIMAL(18,2)        SIM        -                             
+18   vadebito                       DECIMAL(18,2)        SIM        -                             
+19   noug                           VARCHAR              SIM        -                             
+20   cogestao_1                     INTEGER              SIM        -                             
+21   nogestao                       VARCHAR              SIM        -                             
+22   intipoadm                      INTEGER              SIM        -                             
+23   instatus                       INTEGER              SIM        -                             
+24   ultalteracao                   VARCHAR              SIM        -                             
+25   saldo_contabil_despesa         DECIMAL(18,2)        SIM        -                             
+26   cogrupo                        VARCHAR              SIM        -                             
+27   comodalidade                   VARCHAR              SIM        -                             
+28   coelemento                     VARCHAR              SIM        -                             
+29   cosubelemento                  VARCHAR              SIM        -                             
+30   periodo                        VARCHAR              SIM        -                             
+31   data_carga                     TIMESTAMP            SIM        CURRENT_TIMESTAMP             
+
+
+========================================================================================================================
+
+TABELA FATO 3: RECEITA_LANCAMENTO
+========================================================================================================================
+
+Total de registros: 490,122
+
+ESTRUTURA DA TABELA:
+------------------------------------------------------------------------------------------------------------------------
+#    Campo                          Tipo                 Nulo?      Padrão                        
+------------------------------------------------------------------------------------------------------------------------
+1    coexercicio                    INTEGER              SIM        -                             
+2    coug                           INTEGER              SIM        -                             
+3    cogestao                       INTEGER              SIM        -                             
+4    nudocumento                    VARCHAR              SIM        -                             
+5    nulancamento                   INTEGER              SIM        -                             
+6    coevento                       INTEGER              SIM        -                             
+7    cocontacontabil                BIGINT               SIM        -                             
+8    cocontacorrente                VARCHAR              SIM        -                             
+9    inmes                          INTEGER              SIM        -                             
+10   dalancamento                   DATE                 SIM        -                             
+11   valancamento                   DECIMAL(18,2)        SIM        -                             
+12   indebitocredito                VARCHAR              SIM        -                             
+13   inabreencerra                  INTEGER              SIM        -                             
+14   cougdestino                    INTEGER              SIM        -                             
+15   cogestaodestino                INTEGER              SIM        -                             
+16   datransacao                    DATE                 SIM        -                             
+17   hotransacao                    TIME                 SIM        -                             
+18   cougcontab                     INTEGER              SIM        -                             
+19   cogestaocontab                 INTEGER              SIM        -                             
+20   coclasseorc                    VARCHAR              SIM        -                             
+21   cofonte                        VARCHAR              SIM        -                             
+22   cocategoriareceita             VARCHAR              SIM        -                             
+23   cofontereceita                 VARCHAR              SIM        -                             
+24   cosubfontereceita              VARCHAR              SIM        -                             
+25   corubrica                      VARCHAR              SIM        -                             
+26   coalinea                       VARCHAR              SIM        -                             
+27   inesfera                       VARCHAR              SIM        -                             
+28   couo                           VARCHAR              SIM        -                             
+29   cofuncao                       VARCHAR              SIM        -                             
+30   cosubfuncao                    VARCHAR              SIM        -                             
+31   coprograma                     VARCHAR              SIM        -                             
+32   coprojeto                      VARCHAR              SIM        -                             
+33   cosubtitulo                    VARCHAR              SIM        -                             
+34   conatureza                     VARCHAR              SIM        -                             
+35   incategoria                    VARCHAR              SIM        -                             
+36   cogrupo                        VARCHAR              SIM        -                             
+37   comodalidade                   VARCHAR              SIM        -                             
+38   coelemento                     VARCHAR              SIM        -                             
+39   cosubelemento                  VARCHAR              SIM        -                             
+40   periodo                        VARCHAR              SIM        -                             
+41   tipo_lancamento                VARCHAR              SIM        -                             
+42   data_carga                     TIMESTAMP            SIM        CURRENT_TIMESTAMP             
+
+ANÁLISE DE PERÍODOS:
+--------------------------------------------------
+Período inicial: 2024-01
+Período final: 2025-06
+Total de períodos: 12
+
+========================================================================================================================
+
+TABELA FATO 4: RECEITA_SALDO
+========================================================================================================================
+
+Total de registros: 11,998
+
+ESTRUTURA DA TABELA:
+------------------------------------------------------------------------------------------------------------------------
+#    Campo                          Tipo                 Nulo?      Padrão                        
+------------------------------------------------------------------------------------------------------------------------
+1    coexercicio                    INTEGER              NÃO        -                             
+2    inmes                          INTEGER              NÃO        -                             
+3    coug                           VARCHAR              NÃO        -                             
+4    cocontacontabil                VARCHAR              NÃO        -                             
+5    cocontacorrente                VARCHAR              NÃO        -                             
+6    intipoadm                      INTEGER              SIM        -                             
+7    vacredito                      DECIMAL(18,2)        SIM        -                             
+8    vadebito                       DECIMAL(18,2)        SIM        -                             
+9    saldo_contabil_receita         DECIMAL(18,2)        SIM        -                             
+10   coclasseorc                    VARCHAR              SIM        -                             
+11   cofonte                        VARCHAR              SIM        -                             
+12   cocategoriareceita             VARCHAR              SIM        -                             
+13   cofontereceita                 VARCHAR              SIM        -                             
+14   cosubfontereceita              VARCHAR              SIM        -                             
+15   corubrica                      VARCHAR              SIM        -                             
+16   coalinea                       VARCHAR              SIM        -                             
+17   inesfera                       VARCHAR              SIM        -                             
+18   couo                           VARCHAR              SIM        -                             
+19   cofuncao                       VARCHAR              SIM        -                             
+20   cosubfuncao                    VARCHAR              SIM        -                             
+21   coprograma                     VARCHAR              SIM        -                             
+22   coprojeto                      VARCHAR              SIM        -                             
+23   cosubtitulo                    VARCHAR              SIM        -                             
+24   conatureza                     VARCHAR              SIM        -                             
+25   incategoria                    VARCHAR              SIM        -                             
+26   cogrupo                        VARCHAR              SIM        -                             
+27   comodalidade                   VARCHAR              SIM        -                             
+28   coelemento                     VARCHAR              SIM        -                             
+29   periodo                        VARCHAR              SIM        -                             
+30   data_carga                     TIMESTAMP            SIM        CURRENT_TIMESTAMP             
+
+
+========================================================================================================================
+
+
+
+DETALHAMENTO - TABELAS DIMENSÃO
+========================================================================================================================
+
+TABELA DIMENSÃO 1: DIM_CATEGORIA_DESPESA
+========================================================================================================================
+
+Total de registros: 4
+
+ESTRUTURA DA TABELA:
+------------------------------------------------------------------------------------------------------------------------
+#    Campo                          Tipo                 Nulo?      Padrão                        
+------------------------------------------------------------------------------------------------------------------------
+1    incategoria                    BIGINT               SIM        -                             
+2    nocategoria                    VARCHAR              SIM        -                             
+
+ÍNDICES:
+   - idx_dim_categoria_despesa_incategoria
+
+AMOSTRA DE DADOS (5 primeiros registros):
+------------------------------------------------------------------------------------------------------------------------
+incategoria         nocategoria         
+----------------------------------------
+4                   Despesas de Cap...  
+0                                       
+3                   Despesas Correntes  
+9                   Reserva de Cont...  
+
+========================================================================================================================
+
+TABELA DIMENSÃO 2: DIM_CLASSIFICACAO_ORCAMENTARIA
+========================================================================================================================
+
+Total de registros: 4,055
+
+ESTRUTURA DA TABELA:
+------------------------------------------------------------------------------------------------------------------------
+#    Campo                          Tipo                 Nulo?      Padrão                        
+------------------------------------------------------------------------------------------------------------------------
+1    coclasseorc                    BIGINT               SIM        -                             
+2    inclassificacao                VARCHAR              SIM        -                             
+3    noclassificacao                VARCHAR              SIM        -                             
+4    incontabiliza                  VARCHAR              SIM        -                             
+5    innatureza                     VARCHAR              SIM        -                             
+6    inprimaria                     VARCHAR              SIM        -                             
+7    inpessoal                      VARCHAR              SIM        -                             
+8    inmto                          VARCHAR              SIM        -                             
+9    inespecificacao                BIGINT               SIM        -                             
+10   txfuncao                       VARCHAR              SIM        -                             
+11   txdescricao                    VARCHAR              SIM        -                             
+12   txobservacao                   VARCHAR              SIM        -                             
+13   instatus                       BIGINT               SIM        -                             
+14   ultalteracao                   VARCHAR              SIM        -                             
+
+AMOSTRA DE DADOS (5 primeiros registros):
+------------------------------------------------------------------------------------------------------------------------
+coclasseorc         inclassificacao     noclassificacao     incontabiliza       innatureza          inprimaria          
+------------------------------------------------------------------------------------------------------------------------
+31901165            D                   GRATIFICAÇÃO DE...  S                   N                   N                   
+33503922            D                   SERVIÇOS PARA E...  S                   N                   N                   
+33913301            D                   PASSAGENS PARA ...  S                   N                   N                   
+33913960            D                   TRANSPORTE ESCO...  S                   N                   N                   
+33913934            D                   TRANSPORTE ESCO...  S                   N                   N                   
+
+========================================================================================================================
+
+TABELA DIMENSÃO 3: DIM_CONTA_CONTABIL
+========================================================================================================================
+
+Total de registros: 10,566
+
+ESTRUTURA DA TABELA:
+------------------------------------------------------------------------------------------------------------------------
+#    Campo                          Tipo                 Nulo?      Padrão                        
+------------------------------------------------------------------------------------------------------------------------
+1    cocontacontabil                BIGINT               SIM        -                             
+2    nocontacontabil                VARCHAR              SIM        -                             
+3    txfuncao                       VARCHAR              SIM        -                             
+4    txdebito                       VARCHAR              SIM        -                             
+5    txcredito                      VARCHAR              SIM        -                             
+6    txsaldo                        VARCHAR              SIM        -                             
+7    txobservacao                   VARCHAR              SIM        -                             
+8    incontacorrente                VARCHAR              SIM        -                             
+9    cotipoinscricao                VARCHAR              SIM        -                             
+10   inlancamento                   VARCHAR              SIM        -                             
+11   cocontrapartida                BIGINT               SIM        -                             
+12   ininversaosaldo                VARCHAR              SIM        -                             
+13   inescrituracao                 VARCHAR              SIM        -                             
+14   insaldocontabil                VARCHAR              SIM        -                             
+15   innatureza                     VARCHAR              SIM        -                             
+16   inencerramento                 VARCHAR              SIM        -                             
+17   insiscontabil                  VARCHAR              SIM        -                             
+18   inintegracao                   VARCHAR              SIM        -                             
+19   instatus                       BIGINT               SIM        -                             
+20   ultalteracao                   VARCHAR              SIM        -                             
+21   txdescricao                    VARCHAR              SIM        -                             
+22   inmto                          VARCHAR              SIM        -                             
+23   inespecificacao                BIGINT               SIM        -                             
+24   insuperavit                    VARCHAR              SIM        -                             
+25   inorigem                       VARCHAR              SIM        -                             
+26   dcl                            DOUBLE               SIM        -                             
+27   cocontafederal                 DOUBLE               SIM        -                             
+
+ÍNDICES:
+   - idx_dim_conta_contabil_cocontacontabil
+
+AMOSTRA DE DADOS (5 primeiros registros):
+------------------------------------------------------------------------------------------------------------------------
+cocontacontabil     nocontacontabil     txfuncao            txdebito            txcredito           txsaldo             
+------------------------------------------------------------------------------------------------------------------------
+812210300           ORDENADOR DE DE...  REPRESENTA O SO...                 ...                 ...                 ...  
+121210499           OUTROS CREDITOS...  REGISTRA O CRÉD...  PELA INSCRIÇÃO....  PELA BAIXA.    ...  DEVEDOR - DEMON...  
+451220104           MOVIMENTO DE FU...  REGISTRA O SOMA...  PELO ENCERRAMEN...  PELO MOVIMENTO ...  CREDOR. DEMOSNT...  
+237220357           AJUSTES ATIVO N...  REGISTRA OS VAL...  PELO AJUSTE DE ...  PELO AJUSTE DE ...  CREDOR/DEVEDOR ...  
+952311505           CONVÊNIOS A TER...  REGISTRA OS VAL...  PELAS BAIXAS   ...  PELO ESTORNO DE...  CREDOR - DEMONS...  
+
+========================================================================================================================
+
+TABELA DIMENSÃO 4: DIM_ELEMENTO
+========================================================================================================================
+
+Total de registros: 75
+
+ESTRUTURA DA TABELA:
+------------------------------------------------------------------------------------------------------------------------
+#    Campo                          Tipo                 Nulo?      Padrão                        
+------------------------------------------------------------------------------------------------------------------------
+1    coelemento                     BIGINT               SIM        -                             
+2    noelemento                     VARCHAR              SIM        -                             
+3    instatus                       BIGINT               SIM        -                             
+4    ultalteracao                   VARCHAR              SIM        -                             
+5    txdescricao                    DOUBLE               SIM        -                             
+
+ÍNDICES:
+   - idx_dim_elemento_coelemento
+
+AMOSTRA DE DADOS (5 primeiros registros):
+------------------------------------------------------------------------------------------------------------------------
+coelemento          noelemento          instatus            ultalteracao        txdescricao         
+----------------------------------------------------------------------------------------------------
+40                  SERVIÇO DE TECN...  0                   20240620092031 ...  NULL                
+1                   APOSENTADORIAS ...  0                   20240620092031 ...  NULL                
+3                   PENSÕES        ...  0                   20240620092031 ...  NULL                
+4                   CONTRATAÇÃO POR...  0                   20240620092031 ...  NULL                
+5                   OUTROS BENEFÍCI...  0                   20240620092031 ...  NULL                
+
+========================================================================================================================
+
+TABELA DIMENSÃO 5: DIM_EVENTO
+========================================================================================================================
+
+Total de registros: 7,837
+
+ESTRUTURA DA TABELA:
+------------------------------------------------------------------------------------------------------------------------
+#    Campo                          Tipo                 Nulo?      Padrão                        
+------------------------------------------------------------------------------------------------------------------------
+1    coevento                       BIGINT               SIM        -                             
+2    noevento                       VARCHAR              SIM        -                             
+3    txdescricao                    VARCHAR              SIM        -                             
+4    inpe                           VARCHAR              SIM        -                             
+5    inne                           VARCHAR              SIM        -                             
+6    innc                           VARCHAR              SIM        -                             
+7    innd                           VARCHAR              SIM        -                             
+8    innl                           VARCHAR              SIM        -                             
+9    inob                           VARCHAR              SIM        -                             
+10   ingr                           VARCHAR              SIM        -                             
+11   insinal                        VARCHAR              SIM        -                             
+12   ininscricao                    BIGINT               SIM        -                             
+13   incredor                       BIGINT               SIM        -                             
+14   inabreencerra                  BIGINT               SIM        -                             
+15   ingestaotesouro                BIGINT               SIM        -                             
+16   inestorno                      VARCHAR              SIM        -                             
+17   coclassificacao                VARCHAR              SIM        -                             
+18   inexercicione                  VARCHAR              SIM        -                             
+19   infonteevento                  VARCHAR              SIM        -                             
+20   inusoexclusivo                 BIGINT               SIM        -                             
+21   inugorigem                     BIGINT               SIM        -                             
+22   ingestaoorigem                 BIGINT               SIM        -                             
+23   inugdestino                    VARCHAR              SIM        -                             
+24   ingestaodestino                VARCHAR              SIM        -                             
+25   incomplementar                 VARCHAR              SIM        -                             
+26   cocomplementar                 BIGINT               SIM        -                             
+27   inexigefatura                  VARCHAR              SIM        -                             
+28   inexigeprocesso                VARCHAR              SIM        -                             
+29   inexigetransf                  VARCHAR              SIM        -                             
+30   inexigecontrato                VARCHAR              SIM        -                             
+31   txobservacao                   VARCHAR              SIM        -                             
+32   instatus                       BIGINT               SIM        -                             
+33   ultalteracao                   VARCHAR              SIM        -                             
+34   ines                           VARCHAR              SIM        -                             
+35   inoc                           VARCHAR              SIM        -                             
+36   inab                           VARCHAR              SIM        -                             
+37   coclasseorc                    VARCHAR              SIM        -                             
+38   inga                           VARCHAR              SIM        -                             
+39   inexigenfe                     VARCHAR              SIM        -                             
+
+ÍNDICES:
+   - idx_dim_evento_coevento
+
+AMOSTRA DE DADOS (5 primeiros registros):
+------------------------------------------------------------------------------------------------------------------------
+coevento            noevento            txdescricao         inpe                inne                innc                
+------------------------------------------------------------------------------------------------------------------------
+565758              BAIXA E CANCELA...  BAIXA E CANCELA...  N                   N                   N                   
+565677              COMPENS. DO ADI...  COMPENSAÇÃO  DO...  N                   N                   N                   
+565759              BAIXA  PARCELAM...  BAIXA  PARCELAM...  N                   N                   N                   
+565762              BAIXA DE PARCEL...  BAIXA DE PARCEL...  N                   N                   N                   
+546603              BAIXA DE OBRIGA...  BAIXA DE OBRIGA...  N                   N                   N                   
+
+========================================================================================================================
+
+TABELA DIMENSÃO 6: DIM_FONTE
+========================================================================================================================
+
+Total de registros: 8,616
+
+ESTRUTURA DA TABELA:
+------------------------------------------------------------------------------------------------------------------------
+#    Campo                          Tipo                 Nulo?      Padrão                        
+------------------------------------------------------------------------------------------------------------------------
+1    cofonte                        BIGINT               SIM        -                             
+2    nofonte                        VARCHAR              SIM        -                             
+3    intipofonte                    BIGINT               SIM        -                             
+4    infontetesouro                 VARCHAR              SIM        -                             
+5    instatus                       BIGINT               SIM        -                             
+6    ultalteracao                   VARCHAR              SIM        -                             
+7    txdescricao                    VARCHAR              SIM        -                             
+8    indestinacao                   BIGINT               SIM        -                             
+9    cofontefederal                 BIGINT               SIM        -                             
+
+ÍNDICES:
+   - idx_dim_fonte_cofonte
+
+AMOSTRA DE DADOS (5 primeiros registros):
+------------------------------------------------------------------------------------------------------------------------
+cofonte             nofonte             intipofonte         infontetesouro      instatus            ultalteracao        
+------------------------------------------------------------------------------------------------------------------------
+132016912           AQUISIÇÃO DE VI...  9                   N                   0                   20250206115307 ...  
+332016912           AQUISIÇÃO DE VI...  9                   N                   0                   20250206115307 ...  
+738128641           EPI PROPOSTA:12...  9                   N                   0                   20250319181048 ...  
+838128641           EPI PROPOSTA:12...  9                   N                   0                   20250319181048 ...  
+738128645           EPI PROPOSTA:12...  9                   N                   0                   20250319181343 ...  
+
+========================================================================================================================
+
+TABELA DIMENSÃO 7: DIM_FUNCAO
+========================================================================================================================
+
+Total de registros: 29
+
+ESTRUTURA DA TABELA:
+------------------------------------------------------------------------------------------------------------------------
+#    Campo                          Tipo                 Nulo?      Padrão                        
+------------------------------------------------------------------------------------------------------------------------
+1    cofuncao                       BIGINT               SIM        -                             
+2    nofuncao                       VARCHAR              SIM        -                             
+3    txdescricao                    VARCHAR              SIM        -                             
+4    instatus                       BIGINT               SIM        -                             
+5    ultalteracao                   VARCHAR              SIM        -                             
+
+ÍNDICES:
+   - idx_dim_funcao_cofuncao
+
+AMOSTRA DE DADOS (5 primeiros registros):
+------------------------------------------------------------------------------------------------------------------------
+cofuncao            nofuncao            txdescricao         instatus            ultalteracao        
+----------------------------------------------------------------------------------------------------
+25                  ENERGIA        ...  ENERGIA.            0                   20240620091541 ...  
+26                  TRANSPORTE     ...  TRANSPORTE.         0                   20240620091541 ...  
+27                  DESPORTO E LAZE...  DESPORTO E LAZER.   0                   20240620091541 ...  
+28                  ENCARGOS ESPECI...  ENCARGOS ESPECI...  0                   20240620091541 ...  
+99                  RESERVA DE CONT...  RESERVA DE CONT...  0                   20240620091541 ...  
+
+========================================================================================================================
+
+TABELA DIMENSÃO 8: DIM_GESTAO
+========================================================================================================================
+
+Total de registros: 138
+
+ESTRUTURA DA TABELA:
+------------------------------------------------------------------------------------------------------------------------
+#    Campo                          Tipo                 Nulo?      Padrão                        
+------------------------------------------------------------------------------------------------------------------------
+1    cogestao                       BIGINT               SIM        -                             
+2    nogestao                       VARCHAR              SIM        -                             
+3    intipoadm                      BIGINT               SIM        -                             
+4    instatus                       BIGINT               SIM        -                             
+5    ultalteracao                   VARCHAR              SIM        -                             
+
+ÍNDICES:
+   - idx_dim_gestao_cogestao
+
+AMOSTRA DE DADOS (5 primeiros registros):
+------------------------------------------------------------------------------------------------------------------------
+cogestao            nogestao            intipoadm           instatus            ultalteracao        
+----------------------------------------------------------------------------------------------------
+20901               FUNDO DE TRANSP...  9                   0                   20240620091338 ...  
+22901               FUNDO DE SAUDE ...  7                   0                   20240620091338 ...  
+22902               FUNDO DE SAUDE ...  7                   0                   20240620091338 ...  
+23901               FUNDO DE CULTUR...  7                   0                   20240620091338 ...  
+16201               FUNDACAO EDUCAC...  4                   0                   20240620091338 ...  
+
+========================================================================================================================
+
+TABELA DIMENSÃO 9: DIM_GRUPO_DESPESA
+========================================================================================================================
+
+Total de registros: 9
+
+ESTRUTURA DA TABELA:
+------------------------------------------------------------------------------------------------------------------------
+#    Campo                          Tipo                 Nulo?      Padrão                        
+------------------------------------------------------------------------------------------------------------------------
+1    cogrupo                        BIGINT               SIM        -                             
+2    nogrupo                        VARCHAR              SIM        -                             
+
+ÍNDICES:
+   - idx_dim_grupo_despesa_cogrupo
+
+AMOSTRA DE DADOS (5 primeiros registros):
+------------------------------------------------------------------------------------------------------------------------
+cogrupo             nogrupo             
+----------------------------------------
+1                   PESSOAL E ENCAR...  
+2                   JUROS E ENCARGO...  
+3                   OUTRAS DESPESAS...  
+4                   INVESTIMENTO   ...  
+5                   INVERSÕES FINAN...  
+
+========================================================================================================================
+
+TABELA DIMENSÃO 10: DIM_MODALIDADE
+========================================================================================================================
+
+Total de registros: 13
+
+ESTRUTURA DA TABELA:
+------------------------------------------------------------------------------------------------------------------------
+#    Campo                          Tipo                 Nulo?      Padrão                        
+------------------------------------------------------------------------------------------------------------------------
+1    comodalidade                   BIGINT               SIM        -                             
+2    nomodalidade                   VARCHAR              SIM        -                             
+3    instatus                       BIGINT               SIM        -                             
+4    ultalteracao                   VARCHAR              SIM        -                             
+5    txdescricao                    DOUBLE               SIM        -                             
+
+ÍNDICES:
+   - idx_dim_modalidade_comodalidade
+
+AMOSTRA DE DADOS (5 primeiros registros):
+------------------------------------------------------------------------------------------------------------------------
+comodalidade        nomodalidade        instatus            ultalteracao        txdescricao         
+----------------------------------------------------------------------------------------------------
+20                  TRANSFERÊNCIAS ...  0                   20240620092948 ...  NULL                
+30                  TRANSFERÊNCIAS ...  0                   20240620092948 ...  NULL                
+40                  TRANSFERÊNCIAS ...  0                   20240620092948 ...  NULL                
+50                  TRANSFERÊNCIAS ...  0                   20240620092948 ...  NULL                
+60                  TRANSFERÊNCIAS ...  0                   20240620092948 ...  NULL                
+
+========================================================================================================================
+
+TABELA DIMENSÃO 11: DIM_PROGRAMA
+========================================================================================================================
+
+Total de registros: 36
+
+ESTRUTURA DA TABELA:
+------------------------------------------------------------------------------------------------------------------------
+#    Campo                          Tipo                 Nulo?      Padrão                        
+------------------------------------------------------------------------------------------------------------------------
+1    coprograma                     BIGINT               SIM        -                             
+2    noprograma                     VARCHAR              SIM        -                             
+3    txdescricao                    VARCHAR              SIM        -                             
+4    instatus                       BIGINT               SIM        -                             
+5    ultalteracao                   VARCHAR              SIM        -                             
+6    txobjetivo                     VARCHAR              SIM        -                             
+
+ÍNDICES:
+   - idx_dim_programa_coprograma
+
+AMOSTRA DE DADOS (5 primeiros registros):
+------------------------------------------------------------------------------------------------------------------------
+coprograma          noprograma          txdescricao         instatus            ultalteracao        txobjetivo          
+------------------------------------------------------------------------------------------------------------------------
+1                   PROGRAMA DE OPE...  PROGRAMA DE OPE...  0                   CARGA PPA 2024-...  X                   
+6201                AGRONEGÓCIO E D...  AGRONEGÓCIO E D...  0                   CARGA PPA 2024-...  X                   
+6202                SAÚDE EM AÇÃO  ...  SAÚDE EM AÇÃO       0                   CARGA PPA 2024-...  X                   
+6203                GESTÃO PARA RES...  GESTÃO PARA RES...  0                   CARGA PPA 2024-...  X                   
+6204                ATUAÇÃO LEGISLA...  ATUAÇÃO LEGISLA...  0                   CARGA PPA 2024-...  X                   
+
+========================================================================================================================
+
+TABELA DIMENSÃO 12: DIM_PROJETO
+========================================================================================================================
+
+Total de registros: 791
+
+ESTRUTURA DA TABELA:
+------------------------------------------------------------------------------------------------------------------------
+#    Campo                          Tipo                 Nulo?      Padrão                        
+------------------------------------------------------------------------------------------------------------------------
+1    coprojeto                      BIGINT               SIM        -                             
+2    noprojeto                      VARCHAR              SIM        -                             
+3    txdescricao                    VARCHAR              SIM        -                             
+4    instatus                       BIGINT               SIM        -                             
+5    ultalteracao                   VARCHAR              SIM        -                             
+6    innovo                         BIGINT               SIM        -                             
+7    coprioridade1                  BIGINT               SIM        -                             
+8    coprioridade2                  BIGINT               SIM        -                             
+9    coprioridade3                  BIGINT               SIM        -                             
+10   coprioridade4                  BIGINT               SIM        -                             
+11   coprioridade5                  BIGINT               SIM        -                             
+12   cotipoacao                     BIGINT               SIM        -                             
+13   coproduto                      BIGINT               SIM        -                             
+14   codetalhamento                 BIGINT               SIM        -                             
+
+ÍNDICES:
+   - idx_dim_projeto_coprojeto
+
+AMOSTRA DE DADOS (5 primeiros registros):
+------------------------------------------------------------------------------------------------------------------------
+coprojeto           noprojeto           txdescricao         instatus            ultalteracao        innovo              
+------------------------------------------------------------------------------------------------------------------------
+3678                REALIZAÇÃO DE E...  REALIZAÇÃO DE E...  0                   20240828143514 ...  0                   
+3696                MODERNIZAÇÃO DA...  MODERNIZAÇÃO DA...  0                   20240828143514 ...  0                   
+3710                IMPLEMENTAÇÃO D...  IMPLEMENTAÇÃO D...  0                   20240828143514 ...  0                   
+3711                REALIZAÇÃO DE E...  REALIZAÇÃO DE E...  0                   20240828143514 ...  0                   
+3718                PROMOÇÃO E CONS...  PROMOÇÃO E CONS...  0                   20240828143514 ...  0                   
+
+========================================================================================================================
+
+TABELA DIMENSÃO 13: DIM_RECEITA_ALINEA
+========================================================================================================================
+
+Total de registros: 634
+
+ESTRUTURA DA TABELA:
+------------------------------------------------------------------------------------------------------------------------
+#    Campo                          Tipo                 Nulo?      Padrão                        
+------------------------------------------------------------------------------------------------------------------------
+1    coalinea                       BIGINT               SIM        -                             
+2    noalinea                       VARCHAR              SIM        -                             
+
+ÍNDICES:
+   - idx_dim_receita_alinea_coalinea
+
+AMOSTRA DE DADOS (5 primeiros registros):
+------------------------------------------------------------------------------------------------------------------------
+coalinea            noalinea            
+----------------------------------------
+100000              Receitas Corren...  
+110000              Impostos, Taxas...  
+111000              Impostos       ...  
+111200              Impostos sobre ...  
+111201              Imposto sobre a...  
+
+========================================================================================================================
+
+TABELA DIMENSÃO 14: DIM_RECEITA_CATEGORIA
+========================================================================================================================
+
+Total de registros: 4
+
+ESTRUTURA DA TABELA:
+------------------------------------------------------------------------------------------------------------------------
+#    Campo                          Tipo                 Nulo?      Padrão                        
+------------------------------------------------------------------------------------------------------------------------
+1    cocategoriareceita             BIGINT               SIM        -                             
+2    nocategoriareceita             VARCHAR              SIM        -                             
+
+ÍNDICES:
+   - idx_dim_receita_categoria_cocategoriareceita
+
+AMOSTRA DE DADOS (5 primeiros registros):
+------------------------------------------------------------------------------------------------------------------------
+cocategoriareceita  nocategoriareceita  
+----------------------------------------
+1                   Receitas Corren...  
+2                   Receitas de Cap...  
+7                   Receitas Corren...  
+9                   Recursos Arreca...  
+
+========================================================================================================================
+
+TABELA DIMENSÃO 15: DIM_RECEITA_ESPECIE
+========================================================================================================================
+
+Total de registros: 86
+
+ESTRUTURA DA TABELA:
+------------------------------------------------------------------------------------------------------------------------
+#    Campo                          Tipo                 Nulo?      Padrão                        
+------------------------------------------------------------------------------------------------------------------------
+1    cosubfontereceita              BIGINT               SIM        -                             
+2    nosubfontereceita              VARCHAR              SIM        -                             
+
+ÍNDICES:
+   - idx_dim_receita_especie_cosubfontereceita
+
+AMOSTRA DE DADOS (5 primeiros registros):
+------------------------------------------------------------------------------------------------------------------------
+cosubfontereceita   nosubfontereceita   
+----------------------------------------
+100                 Receitas Corren...  
+110                 Impostos, Taxas...  
+111                 Impostos       ...  
+112                 Taxas          ...  
+113                 Contribuição de...  
+
+========================================================================================================================
+
+TABELA DIMENSÃO 16: DIM_RECEITA_ESPECIFICACAO
+========================================================================================================================
+
+Total de registros: 212
+
+ESTRUTURA DA TABELA:
+------------------------------------------------------------------------------------------------------------------------
+#    Campo                          Tipo                 Nulo?      Padrão                        
+------------------------------------------------------------------------------------------------------------------------
+1    corubrica                      BIGINT               SIM        -                             
+2    norubrica                      VARCHAR              SIM        -                             
+
+ÍNDICES:
+   - idx_dim_receita_especificacao_corubrica
+
+AMOSTRA DE DADOS (5 primeiros registros):
+------------------------------------------------------------------------------------------------------------------------
+corubrica           norubrica           
+----------------------------------------
+1000                Receitas Corren...  
+1100                Impostos, Taxas...  
+1119                Outros Impostos...  
+1120                Taxas          ...  
+1212                Contribuição pa...  
+
+========================================================================================================================
+
+TABELA DIMENSÃO 17: DIM_RECEITA_ORIGEM
+========================================================================================================================
+
+Total de registros: 24
+
+ESTRUTURA DA TABELA:
+------------------------------------------------------------------------------------------------------------------------
+#    Campo                          Tipo                 Nulo?      Padrão                        
+------------------------------------------------------------------------------------------------------------------------
+1    cofontereceita                 BIGINT               SIM        -                             
+2    nofontereceita                 VARCHAR              SIM        -                             
+
+ÍNDICES:
+   - idx_dim_receita_origem_cofontereceita
+
+AMOSTRA DE DADOS (5 primeiros registros):
+------------------------------------------------------------------------------------------------------------------------
+cofontereceita      nofontereceita      
+----------------------------------------
+10                  Receitas Corren...  
+11                  Impostos, Taxas...  
+12                  Contribuições  ...  
+13                  Receita Patrimo...  
+14                  Receita Agropec...  
+
+========================================================================================================================
+
+TABELA DIMENSÃO 18: DIM_SUBFUNCAO
+========================================================================================================================
+
+Total de registros: 112
+
+ESTRUTURA DA TABELA:
+------------------------------------------------------------------------------------------------------------------------
+#    Campo                          Tipo                 Nulo?      Padrão                        
+------------------------------------------------------------------------------------------------------------------------
+1    cosubfuncao                    BIGINT               SIM        -                             
+2    nosubfuncao                    VARCHAR              SIM        -                             
+3    txdescricao                    VARCHAR              SIM        -                             
+4    instatus                       BIGINT               SIM        -                             
+5    ultalteracao                   VARCHAR              SIM        -                             
+
+ÍNDICES:
+   - idx_dim_subfuncao_cosubfuncao
+
+AMOSTRA DE DADOS (5 primeiros registros):
+------------------------------------------------------------------------------------------------------------------------
+cosubfuncao         nosubfuncao         txdescricao         instatus            ultalteracao        
+----------------------------------------------------------------------------------------------------
+632                 COLONIZAÇÃO    ...  COLONIZAÇÃO         0                   20240620091641 ...  
+661                 PROMOÇÃO INDUST...  PROMOÇÃO INDUST...  0                   20240620091641 ...  
+512                 SANEAMENTO BÁSI...  SANEAMENTO BÁSI...  0                   20240620091641 ...  
+541                 PRESERVAÇÃO E C...  PRESERVAÇÃO E C...  0                   20240620091641 ...  
+542                 CONTROLE AMBIEN...  CONTROLE AMBIENTAL  0                   20240620091641 ...  
+
+========================================================================================================================
+
+TABELA DIMENSÃO 19: DIM_SUBTITULO
+========================================================================================================================
+
+Total de registros: 791
+
+ESTRUTURA DA TABELA:
+------------------------------------------------------------------------------------------------------------------------
+#    Campo                          Tipo                 Nulo?      Padrão                        
+------------------------------------------------------------------------------------------------------------------------
+1    coprojeto                      BIGINT               SIM        -                             
+2    noprojeto                      VARCHAR              SIM        -                             
+3    txdescricao                    VARCHAR              SIM        -                             
+4    instatus                       BIGINT               SIM        -                             
+5    ultalteracao                   VARCHAR              SIM        -                             
+6    innovo                         BIGINT               SIM        -                             
+7    coprioridade1                  BIGINT               SIM        -                             
+8    coprioridade2                  BIGINT               SIM        -                             
+9    coprioridade3                  BIGINT               SIM        -                             
+10   coprioridade4                  BIGINT               SIM        -                             
+11   coprioridade5                  BIGINT               SIM        -                             
+12   cotipoacao                     BIGINT               SIM        -                             
+13   coproduto                      BIGINT               SIM        -                             
+14   codetalhamento                 BIGINT               SIM        -                             
+
+AMOSTRA DE DADOS (5 primeiros registros):
+------------------------------------------------------------------------------------------------------------------------
+coprojeto           noprojeto           txdescricao         instatus            ultalteracao        innovo              
+------------------------------------------------------------------------------------------------------------------------
+3678                REALIZAÇÃO DE E...  REALIZAÇÃO DE E...  0                   20240828143514 ...  0                   
+3696                MODERNIZAÇÃO DA...  MODERNIZAÇÃO DA...  0                   20240828143514 ...  0                   
+3710                IMPLEMENTAÇÃO D...  IMPLEMENTAÇÃO D...  0                   20240828143514 ...  0                   
+3711                REALIZAÇÃO DE E...  REALIZAÇÃO DE E...  0                   20240828143514 ...  0                   
+3718                PROMOÇÃO E CONS...  PROMOÇÃO E CONS...  0                   20240828143514 ...  0                   
+
+========================================================================================================================
+
+TABELA DIMENSÃO 20: DIM_UNIDADE_GESTORA
+========================================================================================================================
+
+Total de registros: 256
+
+ESTRUTURA DA TABELA:
+------------------------------------------------------------------------------------------------------------------------
+#    Campo                          Tipo                 Nulo?      Padrão                        
+------------------------------------------------------------------------------------------------------------------------
+1    coug                           BIGINT               SIM        -                             
+2    noug                           VARCHAR              SIM        -                             
+3    coorgao                        BIGINT               SIM        -                             
+4    couo                           BIGINT               SIM        -                             
+5    insituacao                     BIGINT               SIM        -                             
+6    edug                           VARCHAR              SIM        -                             
+7    cocep                          BIGINT               SIM        -                             
+8    sgufug                         VARCHAR              SIM        -                             
+9    nomunicipio                    VARCHAR              SIM        -                             
+10   cougauditoria                  BIGINT               SIM        -                             
+11   cougfinanceira                 BIGINT               SIM        -                             
+12   cougcontabil                   BIGINT               SIM        -                             
+13   cougpolo                       BIGINT               SIM        -                             
+14   nucgc                          BIGINT               SIM        -                             
+15   nucpfordenador                 BIGINT               SIM        -                             
+16   noordenador                    VARCHAR              SIM        -                             
+17   nucpfgestor                    BIGINT               SIM        -                             
+18   nogestor                       VARCHAR              SIM        -                             
+19   nucpfassinatura                BIGINT               SIM        -                             
+20   noassinatura                   VARCHAR              SIM        -                             
+21   nucpfchefesof                  BIGINT               SIM        -                             
+22   nochefesof                     VARCHAR              SIM        -                             
+23   nucpfgestoradm                 BIGINT               SIM        -                             
+24   nogestoradm                    VARCHAR              SIM        -                             
+25   instatus                       BIGINT               SIM        -                             
+26   ultalteracao                   VARCHAR              SIM        -                             
+27   txdescricao                    DOUBLE               SIM        -                             
+28   inestatal                      DOUBLE               SIM        -                             
+29   coarea                         DOUBLE               SIM        -                             
+30   inpermitedigitacao             DOUBLE               SIM        -                             
+31   vateto                         DOUBLE               SIM        -                             
+
+ÍNDICES:
+   - idx_dim_unidade_gestora_coug
+
+AMOSTRA DE DADOS (5 primeiros registros):
+------------------------------------------------------------------------------------------------------------------------
+coug                noug                coorgao             couo                insituacao          edug                
+------------------------------------------------------------------------------------------------------------------------
+130998              SUBSECRETARIA D...  32000               0                   1                   ANEXO DO BURITI...  
+180202              INSTITUTO DE DE...  28000               0                   1                   SCS QUADRA 06 B...  
+130888              UNIDADE DE GERE...  19000               0                   1                   BSB            ...  
+190202              COMPANHIA DE SA...  22200               0                   1                   SCS ED. CAESB Q...  
+190204              COMPANHIA ENERG...  22400               0                   1                   SGAN 601            
+
+========================================================================================================================
+
+
+
+ANÁLISE DE RELACIONAMENTOS (FATO x DIMENSÃO)
+========================================================================================================================
+
+RELACIONAMENTOS IDENTIFICADOS:
+------------------------------------------------------------------------------------------------------------------------
+despesa_lancamento.cocontacontabil -> dim_conta_contabil.cocontacontabil
+despesa_lancamento.coelemento -> dim_elemento.coelemento
+despesa_lancamento.coevento -> dim_evento.coevento
+despesa_lancamento.cofonte -> dim_fonte.cofonte
+despesa_lancamento.cofuncao -> dim_funcao.cofuncao
+despesa_lancamento.cogestao -> dim_gestao.cogestao
+despesa_lancamento.cogrupo -> dim_grupo_despesa.cogrupo
+despesa_lancamento.comodalidade -> dim_modalidade.comodalidade
+despesa_lancamento.coprograma -> dim_programa.coprograma
+despesa_lancamento.coprojeto -> dim_projeto.coprojeto
+despesa_lancamento.cosubfuncao -> dim_subfuncao.cosubfuncao
+despesa_lancamento.cosubtitulo -> dim_subtitulo.cosubtitulo
+despesa_lancamento.coug -> dim_unidade_gestora.coug
+despesa_lancamento.incategoria -> dim_categoria_despesa.incategoria
+despesa_saldo.cocontacontabil -> dim_conta_contabil.cocontacontabil
+despesa_saldo.coelemento -> dim_elemento.coelemento
+despesa_saldo.cofonte -> dim_fonte.cofonte
+despesa_saldo.cofuncao -> dim_funcao.cofuncao
+despesa_saldo.cogestao -> dim_gestao.cogestao
+despesa_saldo.cogrupo -> dim_grupo_despesa.cogrupo
+despesa_saldo.comodalidade -> dim_modalidade.comodalidade
+despesa_saldo.coprograma -> dim_programa.coprograma
+despesa_saldo.coprojeto -> dim_projeto.coprojeto
+despesa_saldo.cosubfuncao -> dim_subfuncao.cosubfuncao
+despesa_saldo.cosubtitulo -> dim_subtitulo.cosubtitulo
+despesa_saldo.coug -> dim_unidade_gestora.coug
+despesa_saldo.incategoria -> dim_categoria_despesa.incategoria
+receita_lancamento.coalinea -> dim_receita_alinea.coalinea
+receita_lancamento.cocategoriareceita -> dim_receita_categoria.cocategoriareceita
+receita_lancamento.coclasseorc -> dim_classificacao_orcamentaria.coclasseorc
+receita_lancamento.cocontacontabil -> dim_conta_contabil.cocontacontabil
+receita_lancamento.coelemento -> dim_elemento.coelemento
+receita_lancamento.coevento -> dim_evento.coevento
+receita_lancamento.cofonte -> dim_fonte.cofonte
+receita_lancamento.cofontereceita -> dim_receita_origem.cofontereceita
+receita_lancamento.cofuncao -> dim_funcao.cofuncao
+receita_lancamento.cogestao -> dim_gestao.cogestao
+receita_lancamento.cogrupo -> dim_grupo_despesa.cogrupo
+receita_lancamento.comodalidade -> dim_modalidade.comodalidade
+receita_lancamento.coprograma -> dim_programa.coprograma
+receita_lancamento.coprojeto -> dim_projeto.coprojeto
+receita_lancamento.corubrica -> dim_receita_especificacao.corubrica
+receita_lancamento.cosubfontereceita -> dim_receita_especie.cosubfontereceita
+receita_lancamento.cosubfuncao -> dim_subfuncao.cosubfuncao
+receita_lancamento.cosubtitulo -> dim_subtitulo.cosubtitulo
+receita_lancamento.coug -> dim_unidade_gestora.coug
+receita_lancamento.incategoria -> dim_categoria_despesa.incategoria
+receita_saldo.coalinea -> dim_receita_alinea.coalinea
+receita_saldo.cocategoriareceita -> dim_receita_categoria.cocategoriareceita
+receita_saldo.coclasseorc -> dim_classificacao_orcamentaria.coclasseorc
+receita_saldo.cocontacontabil -> dim_conta_contabil.cocontacontabil
+receita_saldo.coelemento -> dim_elemento.coelemento
+receita_saldo.cofonte -> dim_fonte.cofonte
+receita_saldo.cofontereceita -> dim_receita_origem.cofontereceita
+receita_saldo.cofuncao -> dim_funcao.cofuncao
+receita_saldo.cogrupo -> dim_grupo_despesa.cogrupo
+receita_saldo.comodalidade -> dim_modalidade.comodalidade
+receita_saldo.coprograma -> dim_programa.coprograma
+receita_saldo.coprojeto -> dim_projeto.coprojeto
+receita_saldo.corubrica -> dim_receita_especificacao.corubrica
+receita_saldo.cosubfontereceita -> dim_receita_especie.cosubfontereceita
+receita_saldo.cosubfuncao -> dim_subfuncao.cosubfuncao
+receita_saldo.cosubtitulo -> dim_subtitulo.cosubtitulo
+receita_saldo.coug -> dim_unidade_gestora.coug
+receita_saldo.incategoria -> dim_categoria_despesa.incategoria
+
+
+INFORMAÇÕES ADICIONAIS DO BANCO
+========================================================================================================================
+
+Tamanho do arquivo: 146.26 MB
+Versão do DuckDB: v1.3.2
+
+ESTATÍSTICAS GERAIS:
+--------------------------------------------------
+Total de registros (Fato): 2,110,231
+Total de registros (Dimensão): 34,288
+Total geral de registros: 2,144,519
+
+========================================================================================================================
+FIM DO RELATÓRIO
+========================================================================================================================
