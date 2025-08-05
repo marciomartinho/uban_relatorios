@@ -179,11 +179,11 @@ function construirTabela(dados) {
     }
     
     // RESERVA DE CONTINGÊNCIA
-    if (dados.reserva_contingencia.total.dotacao_inicial > 0 ||
-        dados.reserva_contingencia.total.dotacao_autorizada > 0) {
+    if (dados.reserva_contingencia && (dados.reserva_contingencia.dotacao_inicial > 0 ||
+        dados.reserva_contingencia.dotacao_autorizada > 0)) {
         tbody.append(criarLinhaGrupo(
             'RESERVA DE CONTINGÊNCIA',
-            dados.reserva_contingencia.total
+            dados.reserva_contingencia
         ));
     }
     
@@ -451,9 +451,9 @@ function exportarExcel() {
     }
     
     // Reserva de Contingência
-    if (dados.reserva_contingencia.total.dotacao_inicial > 0 ||
-        dados.reserva_contingencia.total.dotacao_autorizada > 0) {
-        adicionarLinhaCSV('RESERVA DE CONTINGÊNCIA', dados.reserva_contingencia.total, 1);
+    if (dados.reserva_contingencia && (dados.reserva_contingencia.dotacao_inicial > 0 ||
+        dados.reserva_contingencia.dotacao_autorizada > 0)) {
+        adicionarLinhaCSV('RESERVA DE CONTINGÊNCIA', dados.reserva_contingencia, 1);
     }
     
     // Despesas Intra

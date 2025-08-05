@@ -19,17 +19,6 @@ BIMESTRES = {
     6: {'meses': [11, 12], 'nome': '6º Bimestre'}
 }
 
-# Mapeamento de categorias de despesa
-CATEGORIAS_DESPESA = {
-    '1': 'PESSOAL E ENCARGOS SOCIAIS',
-    '2': 'JUROS E ENCARGOS DA DÍVIDA',
-    '3': 'OUTRAS DESPESAS CORRENTES',
-    '4': 'INVESTIMENTOS',
-    '5': 'INVERSÕES FINANCEIRAS',
-    '6': 'AMORTIZAÇÃO DA DÍVIDA',
-    '9': 'RESERVA DE CONTINGÊNCIA'
-}
-
 @rreo_despesa.route('/rreo-despesa')
 def rreo_despesa_page():
     """Página do demonstrativo RREO de Despesa"""
@@ -113,11 +102,9 @@ def gerar_relatorio():
             apenas_intra=True
         )
         
-        # Buscar reserva de contingência
-        reserva_contingencia = buscar_despesas_por_categoria(
-            conn, ano, meses_bimestre, meses_ate_bimestre,
-            ['9'],  # Categoria reserva de contingência
-            excluir_intra=True
+        # Buscar reserva de contingência (incategoria = 9)
+        reserva_contingencia = buscar_reserva_contingencia(
+            conn, ano, meses_bimestre, meses_ate_bimestre
         )
         
         conn.close()
@@ -127,7 +114,6 @@ def gerar_relatorio():
         total_capital_exceto = calcular_total_grupo(despesas_capital_exceto)
         total_correntes_intra = calcular_total_grupo(despesas_correntes_intra)
         total_capital_intra = calcular_total_grupo(despesas_capital_intra)
-        total_reserva = calcular_total_grupo(reserva_contingencia)
         
         # Total exceto intra (VI)
         total_exceto_intra = somar_totais(total_correntes_exceto, total_capital_exceto)
@@ -137,7 +123,7 @@ def gerar_relatorio():
         
         # Total das despesas (VIII) = (VI) + (VII) + Reserva
         total_despesas_parcial = somar_totais(total_exceto_intra, total_intra)
-        total_despesas = somar_totais(total_despesas_parcial, total_reserva)
+        total_despesas = somar_totais(total_despesas_parcial, reserva_contingencia)
         
         # Linha superávit (IX) - zerada
         superavit = {
@@ -182,10 +168,7 @@ def gerar_relatorio():
                         'detalhes': despesas_capital_intra
                     }
                 },
-                'reserva_contingencia': {
-                    'total': total_reserva,
-                    'detalhes': reserva_contingencia
-                },
+                'reserva_contingencia': reserva_contingencia,
                 'total_despesas': total_despesas,
                 'superavit': superavit,
                 'total_final': total_final
@@ -200,11 +183,11 @@ def gerar_relatorio():
         traceback.print_exc()
         return jsonify({'erro': str(e)}), 500
 
-def buscar_despesas_por_categoria(conn, ano, meses_bimestre, meses_ate_bimestre, categorias, excluir_intra=False, apenas_intra=False):
-    """Busca despesas por categoria com filtro de modalidade"""
+def buscar_despesas_por_categoria(conn, ano, meses_bimestre, meses_ate_bimestre, grupos, excluir_intra=False, apenas_intra=False):
+    """Busca despesas por grupo com filtro de modalidade"""
     
     # Converter listas para string SQL
-    categorias_str = ','.join([f"'{c}'" for c in categorias])
+    grupos_str = ','.join([f"'{g}'" for g in grupos])
     meses_bimestre_str = ','.join([str(m) for m in meses_bimestre])
     meses_ate_bimestre_str = ','.join([str(m) for m in meses_ate_bimestre])
     
@@ -218,7 +201,7 @@ def buscar_despesas_por_categoria(conn, ano, meses_bimestre, meses_ate_bimestre,
     query = f"""
     WITH dados_agrupados AS (
         SELECT 
-            incategoria,
+            cogrupo,
             -- Dotação inicial (522110000 a 522119999)
             SUM(CASE 
                 WHEN cocontacontabil >= '522110000' AND cocontacontabil <= '522119999' 
@@ -282,20 +265,20 @@ def buscar_despesas_por_categoria(conn, ano, meses_bimestre, meses_ate_bimestre,
             
         FROM despesa_saldo
         WHERE coexercicio = {ano}
-        AND incategoria IN ({categorias_str})
+        AND cogrupo IN ({grupos_str})
         {filtro_modalidade}
-        GROUP BY incategoria
+        GROUP BY cogrupo
     )
     SELECT 
         d.*,
-        COALESCE(c.nocategoria, 'Categoria ' || d.incategoria) as nome_categoria
+        COALESCE(g.nogrupo, 'Grupo ' || d.cogrupo) as nome_grupo
     FROM dados_agrupados d
-    LEFT JOIN dim_categoria_despesa c ON d.incategoria = CAST(c.incategoria AS VARCHAR)
+    LEFT JOIN dim_grupo_despesa g ON d.cogrupo = CAST(g.cogrupo AS VARCHAR)
     WHERE d.dotacao_inicial != 0 OR d.dotacao_autorizada != 0 
           OR d.empenhado_bimestre != 0 OR d.empenhado_ate_bimestre != 0
           OR d.liquidado_bimestre != 0 OR d.liquidado_ate_bimestre != 0
           OR d.pago_ate_bimestre != 0
-    ORDER BY d.incategoria
+    ORDER BY d.cogrupo
     """
     
     result = conn.execute(query).fetchall()
@@ -304,16 +287,13 @@ def buscar_despesas_por_categoria(conn, ano, meses_bimestre, meses_ate_bimestre,
     dados_organizados = {}
     
     for row in result:
-        categoria = row[0]
-        nome_categoria = row[8]
+        grupo = row[0]
+        nome_grupo = row[8]
         
-        # Usar o nome fixo do mapeamento se disponível
-        if categoria in CATEGORIAS_DESPESA:
-            nome_categoria = CATEGORIAS_DESPESA[categoria]
-        
-        dados_organizados[categoria] = {
-            'codigo': categoria,
-            'nome': nome_categoria,
+        # Usar o nome do grupo da dimensão
+        dados_organizados[grupo] = {
+            'codigo': grupo,
+            'nome': nome_grupo,
             'dotacao_inicial': float(row[1]),
             'dotacao_autorizada': float(row[2]),
             'empenhado_bimestre': float(row[3]),
@@ -347,6 +327,93 @@ def calcular_total_grupo(grupo_dados):
         total['pago_ate_bimestre'] += categoria_data.get('pago_ate_bimestre', 0)
     
     return total
+
+def buscar_reserva_contingencia(conn, ano, meses_bimestre, meses_ate_bimestre):
+    """Busca reserva de contingência (incategoria = 9)"""
+    
+    meses_bimestre_str = ','.join([str(m) for m in meses_bimestre])
+    meses_ate_bimestre_str = ','.join([str(m) for m in meses_ate_bimestre])
+    
+    query = f"""
+    SELECT 
+        -- Dotação inicial (522110000 a 522119999)
+        SUM(CASE 
+            WHEN cocontacontabil >= '522110000' AND cocontacontabil <= '522119999' 
+            AND inmes IN ({meses_ate_bimestre_str})
+            THEN saldo_contabil_despesa 
+            ELSE 0 
+        END) as dotacao_inicial,
+        
+        -- Dotação autorizada (inclui créditos suplementares)
+        SUM(CASE 
+            WHEN (
+                (cocontacontabil >= '522110000' AND cocontacontabil <= '522119999') OR
+                (cocontacontabil >= '522120000' AND cocontacontabil <= '522129999') OR
+                (cocontacontabil >= '522150000' AND cocontacontabil <= '522159999') OR
+                (cocontacontabil >= '522190000' AND cocontacontabil <= '522199999')
+            )
+            AND inmes IN ({meses_ate_bimestre_str})
+            THEN saldo_contabil_despesa 
+            ELSE 0 
+        END) as dotacao_autorizada,
+        
+        -- Empenhado no bimestre (622130000 a 622139999)
+        SUM(CASE 
+            WHEN cocontacontabil >= '622130000' AND cocontacontabil <= '622139999' 
+            AND inmes IN ({meses_bimestre_str})
+            THEN saldo_contabil_despesa 
+            ELSE 0 
+        END) as empenhado_bimestre,
+        
+        -- Empenhado até o bimestre (622130000 a 622139999)
+        SUM(CASE 
+            WHEN cocontacontabil >= '622130000' AND cocontacontabil <= '622139999' 
+            AND inmes IN ({meses_ate_bimestre_str})
+            THEN saldo_contabil_despesa 
+            ELSE 0 
+        END) as empenhado_ate_bimestre,
+        
+        -- Liquidado no bimestre
+        SUM(CASE 
+            WHEN cocontacontabil IN ('622130300', '622130400', '622130700')
+            AND inmes IN ({meses_bimestre_str})
+            THEN saldo_contabil_despesa 
+            ELSE 0 
+        END) as liquidado_bimestre,
+        
+        -- Liquidado até o bimestre
+        SUM(CASE 
+            WHEN cocontacontabil IN ('622130300', '622130400', '622130700')
+            AND inmes IN ({meses_ate_bimestre_str})
+            THEN saldo_contabil_despesa 
+            ELSE 0 
+        END) as liquidado_ate_bimestre,
+        
+        -- Pago até o bimestre
+        SUM(CASE 
+            WHEN cocontacontabil = '622920104'
+            AND inmes IN ({meses_ate_bimestre_str})
+            THEN saldo_contabil_despesa 
+            ELSE 0 
+        END) as pago_ate_bimestre
+        
+    FROM despesa_saldo
+    WHERE coexercicio = {ano}
+    AND incategoria = '9'
+    AND comodalidade != '91'
+    """
+    
+    result = conn.execute(query).fetchone()
+    
+    return {
+        'dotacao_inicial': float(result[0]) if result[0] else 0,
+        'dotacao_autorizada': float(result[1]) if result[1] else 0,
+        'empenhado_bimestre': float(result[2]) if result[2] else 0,
+        'empenhado_ate_bimestre': float(result[3]) if result[3] else 0,
+        'liquidado_bimestre': float(result[4]) if result[4] else 0,
+        'liquidado_ate_bimestre': float(result[5]) if result[5] else 0,
+        'pago_ate_bimestre': float(result[6]) if result[6] else 0
+    }
 
 def somar_totais(total1, total2):
     """Soma dois dicionários de totais"""
