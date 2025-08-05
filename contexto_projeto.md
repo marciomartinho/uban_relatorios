@@ -570,4 +570,23 @@ PostgreSQL: Usado para Saldos (menor volume)
 DuckDB: Usado para Lançamentos (1.5M+ registros)
 Performance: DuckDB é 10-100x mais rápido para análises
 
-Só para enviar ao git
+----
+
+Como usar mensalmente:
+
+Coloque os 4 arquivos Excel do mês na pasta dados_brutos/fato/:
+
+DespesaLancamentoJulho.xlsx
+DespesaSaldoJulho.xlsx
+ReceitaLancamentoJulho.xlsx
+ReceitaSaldoJulho.xlsx
+
+
+Execute o comando:
+bashpython scripts/carga_mensal_duckdb.py Julho
+
+Após a carga, gere o relatório de conferência:
+bashpython scripts/relatorio_conferencia_duckdb.py
+
+
+O script unificado carga_mensal_duckdb.py irá processar os 4 arquivos automaticamente, verificando se os períodos já existem e perguntando se deseja sobrescrever.
