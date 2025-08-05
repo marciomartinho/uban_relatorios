@@ -22,7 +22,7 @@
                 <div class="card-body">
                     <form id="formFiltros">
                         <div class="row">
-                            <div class="col-md-3">
+                            <div class="col-md-2">
                                 <div class="mb-3">
                                     <label for="selectAno" class="form-label">Ano</label>
                                     <select class="form-select" id="selectAno" required>
@@ -30,7 +30,7 @@
                                     </select>
                                 </div>
                             </div>
-                            <div class="col-md-3">
+                            <div class="col-md-2">
                                 <div class="mb-3">
                                     <label for="selectMes" class="form-label">Mês</label>
                                     <select class="form-select" id="selectMes" required>
@@ -38,11 +38,31 @@
                                     </select>
                                 </div>
                             </div>
-                            <div class="col-md-6">
+                            <div class="col-md-4">
                                 <div class="mb-3">
                                     <label for="selectUG" class="form-label">Unidade Gestora</label>
                                     <select class="form-select" id="selectUG">
                                         <option value="">📊 Dados Consolidados</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="selectTipoReceita" class="form-label">Tipo de Receita</label>
+                                    <select class="form-select" id="selectTipoReceita">
+                                        <option value="todas" selected>Todas as Receitas</option>
+                                        <option value="11">Impostos, Taxas e Contribuições (Tributárias)</option>
+                                        <option value="12">Contribuições</option>
+                                        <option value="13">Receita Patrimonial</option>
+                                        <option value="14">Receita Agropecuária</option>
+                                        <option value="15">Receita Industrial</option>
+                                        <option value="16">Receita de Serviços</option>
+                                        <option value="17">Transferências Correntes</option>
+                                        <option value="19">Outras Receitas Correntes</option>
+                                        <option value="21">Operações de Crédito</option>
+                                        <option value="22">Alienação de Bens</option>
+                                        <option value="23">Amortização de Empréstimos</option>
+                                        <option value="24">Transferências de Capital</option>
                                     </select>
                                 </div>
                             </div>

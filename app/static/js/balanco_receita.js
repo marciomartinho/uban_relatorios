@@ -5,6 +5,7 @@ console.log('Balanço Receita JS carregado');
 // Variáveis globais
 let dadosRelatorio = null;
 let filtrosCarregados = false;
+let dadosOriginais = null; // Para armazenar os dados originais sem filtro
 
 // Inicialização
 $(document).ready(function() {
@@ -189,6 +190,7 @@ function gerarRelatorio() {
     const ano = $('#selectAno').val();
     const mes = $('#selectMes').val();
     const coug = $('#selectUG').val();
+    const tipoReceita = $('#selectTipoReceita').val();
     
     // Validação
     if (!ano || !mes) {
@@ -196,7 +198,7 @@ function gerarRelatorio() {
         return;
     }
     
-    console.log('🦆 Gerando relatório:', {ano, mes, coug});
+    console.log('🦆 Gerando relatório:', {ano, mes, coug, tipoReceita});
     
     // Esconder mensagem inicial e mostrar loading
     $('#mensagemInicial').hide();
@@ -215,16 +217,23 @@ function gerarRelatorio() {
         data: {
             ano: ano,
             mes: mes,
-            coug: coug
+            coug: coug,
+            tipo_receita: tipoReceita
         },
         success: function(response) {
             console.log('✅ Relatório gerado:', response);
             
             // Armazenar dados globalmente
             dadosRelatorio = response;
+            dadosOriginais = JSON.parse(JSON.stringify(response)); // Clonar dados originais
             
             // Renderizar relatório completo
             renderizarRelatorio(response);
+            
+            // Aplicar filtro se não for "todas"
+            if (tipoReceita !== 'todas') {
+                aplicarFiltroReceita(tipoReceita);
+            }
         },
         error: function(xhr) {
             console.error('❌ Erro ao gerar relatório:', xhr);
@@ -419,13 +428,377 @@ function formatarPercentual(valor) {
     }).format(valor) + '%';
 }
 
+// Aplicar filtro de receita dinamicamente na tabela
+function aplicarFiltroReceita(tipoFiltro) {
+    // Se não for passado o tipo, pegar do select
+    const filtroAtivo = tipoFiltro || $('#selectTipoReceita').val();
+    console.log('Aplicando filtro:', filtroAtivo);
+    
+    // Primeiro, resetar todas as linhas
+    $('tr[data-nivel]').hide();
+    
+    if (filtroAtivo === 'todas') {
+        // Mostrar todas as categorias e fontes (nível 0 e 1)
+        $('tr[data-nivel="0"]').show();
+        $('tr[data-nivel="1"]').show();
+        
+        // Restaurar valores originais das categorias
+        if (dadosOriginais) {
+            dadosOriginais.dados.forEach(function(item) {
+                if (item.nivel === 0) {
+                    const $row = $(`tr[data-id="${item.id}"]`);
+                    if ($row.length) {
+                        $row.find('td:eq(1)').text(formatarValor(item.previsao_inicial));
+                        $row.find('td:eq(2)').text(formatarValor(item.previsao_atualizada));
+                        $row.find('td:eq(3)').text(formatarValor(item.receita_atual));
+                        $row.find('td:eq(4)').text(formatarValor(item.receita_anterior));
+                        
+                        const $varAbsoluta = $row.find('td:eq(5)');
+                        $varAbsoluta.text(formatarValor(item.variacao_absoluta));
+                        $varAbsoluta.removeClass('text-success text-danger');
+                        if (item.variacao_absoluta >= 0) {
+                            $varAbsoluta.addClass('text-success');
+                        } else {
+                            $varAbsoluta.addClass('text-danger');
+                        }
+                        
+                        const $varPercentual = $row.find('td:eq(6)');
+                        $varPercentual.text(formatarPercentual(item.variacao_percentual));
+                        $varPercentual.removeClass('text-success text-danger');
+                        if (item.variacao_percentual >= 0) {
+                            $varPercentual.addClass('text-success');
+                        } else {
+                            $varPercentual.addClass('text-danger');
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Para subfontes e alíneas, respeitar o estado de expansão
+        $('tr[data-nivel="2"], tr[data-nivel="3"]').each(function() {
+            const $row = $(this);
+            const id = $row.data('id');
+            const nivel = parseInt($row.data('nivel'));
+            
+            if (nivel === 2) {
+                // Verificar se a fonte pai está expandida
+                const $tr = $row.closest('tr');
+                const classes = $tr.attr('class') || '';
+                const match = classes.match(/filho-de-fonte-(\d+)-(\d+)/);
+                
+                if (match) {
+                    const catId = match[1];
+                    const fonteId = match[2];
+                    const fonteBtn = $(`.toggle-btn[data-id="fonte-${catId}-${fonteId}"]`);
+                    if (fonteBtn.hasClass('expanded')) {
+                        $row.show();
+                    }
+                }
+            } else if (nivel === 3) {
+                // Verificar se a subfonte pai está expandida
+                const $tr = $row.closest('tr');
+                const classes = $tr.attr('class') || '';
+                const match = classes.match(/filho-de-subfonte-(\d+)-(\d+)-(\d+)/);
+                
+                if (match) {
+                    const catId = match[1];
+                    const fonteId = match[2];
+                    const subfonteId = match[3];
+                    const subfonteBtn = $(`.toggle-btn[data-id="subfonte-${catId}-${fonteId}-${subfonteId}"]`);
+                    if (subfonteBtn.hasClass('expanded')) {
+                        // Também verificar se a fonte pai está expandida
+                        const fonteBtn = $(`.toggle-btn[data-id="fonte-${catId}-${fonteId}"]`);
+                        if (fonteBtn.hasClass('expanded')) {
+                            $row.show();
+                        }
+                    }
+                }
+            }
+        });
+    } else {
+        // Definir quais fontes mostrar baseado no filtro
+        let fontesParaMostrar = [];
+        let categoriasComDados = new Set(); // Para rastrear categorias que têm dados
+        let totaisPorCategoria = {}; // Para armazenar os totais recalculados por categoria
+        
+        // Determinar fontes baseado no filtro
+        switch(filtroAtivo) {
+            case '11': fontesParaMostrar = ['11', '71']; break;
+            case '12': fontesParaMostrar = ['12', '72']; break;
+            case '13': fontesParaMostrar = ['13', '73']; break;
+            case '14': fontesParaMostrar = ['14', '74']; break;
+            case '15': fontesParaMostrar = ['15', '75']; break;
+            case '16': fontesParaMostrar = ['16', '76']; break;
+            case '17': fontesParaMostrar = ['17', '77']; break;
+            case '19': fontesParaMostrar = ['19', '79']; break;
+            case '21': fontesParaMostrar = ['21']; break;
+            case '22': fontesParaMostrar = ['22']; break;
+            case '23': fontesParaMostrar = ['23']; break;
+            case '24': fontesParaMostrar = ['24']; break;
+        }
+        
+        console.log('Fontes para mostrar:', fontesParaMostrar);
+        
+        // Primeiro, verificar quais categorias têm fontes com dados e calcular totais
+        dadosOriginais.dados.forEach(function(item) {
+            if (item.nivel === 1 && item.id) {
+                const match = item.id.match(/fonte-(\d+)-(\d+)/);
+                if (match) {
+                    const catId = match[1];
+                    const fonteId = match[2];
+                    
+                    // Se a fonte está na lista para mostrar
+                    if (fontesParaMostrar.includes(fonteId)) {
+                        categoriasComDados.add(catId);
+                        
+                        // Inicializar totais da categoria se não existir
+                        if (!totaisPorCategoria[catId]) {
+                            totaisPorCategoria[catId] = {
+                                previsao_inicial: 0,
+                                previsao_atualizada: 0,
+                                receita_atual: 0,
+                                receita_anterior: 0,
+                                variacao_absoluta: 0,
+                                variacao_percentual: 0
+                            };
+                        }
+                        
+                        // Somar valores desta fonte aos totais da categoria
+                        totaisPorCategoria[catId].previsao_inicial += item.previsao_inicial;
+                        totaisPorCategoria[catId].previsao_atualizada += item.previsao_atualizada;
+                        totaisPorCategoria[catId].receita_atual += item.receita_atual;
+                        totaisPorCategoria[catId].receita_anterior += item.receita_anterior;
+                    }
+                }
+            }
+        });
+        
+        // Calcular variações para cada categoria
+        Object.keys(totaisPorCategoria).forEach(function(catId) {
+            const totais = totaisPorCategoria[catId];
+            totais.variacao_absoluta = totais.receita_atual - totais.receita_anterior;
+            if (totais.receita_anterior !== 0) {
+                totais.variacao_percentual = (totais.variacao_absoluta / Math.abs(totais.receita_anterior)) * 100;
+            } else {
+                totais.variacao_percentual = totais.receita_atual !== 0 ? 100 : 0;
+            }
+        });
+        
+        console.log('Categorias com dados:', Array.from(categoriasComDados));
+        console.log('Totais por categoria:', totaisPorCategoria);
+        
+        // Mostrar apenas categorias que têm dados e atualizar seus valores
+        $('tr[data-nivel="0"]').each(function() {
+            const $row = $(this);
+            const id = $row.data('id');
+            
+            // Extrair o ID da categoria
+            const match = id.match(/cat-(\d+)/);
+            if (match) {
+                const catId = match[1];
+                if (categoriasComDados.has(catId)) {
+                    $row.show();
+                    
+                    // Atualizar valores da categoria com os totais filtrados
+                    if (totaisPorCategoria[catId]) {
+                        const totais = totaisPorCategoria[catId];
+                        $row.find('td:eq(1)').text(formatarValor(totais.previsao_inicial));
+                        $row.find('td:eq(2)').text(formatarValor(totais.previsao_atualizada));
+                        $row.find('td:eq(3)').text(formatarValor(totais.receita_atual));
+                        $row.find('td:eq(4)').text(formatarValor(totais.receita_anterior));
+                        
+                        const $varAbsoluta = $row.find('td:eq(5)');
+                        $varAbsoluta.text(formatarValor(totais.variacao_absoluta));
+                        $varAbsoluta.removeClass('text-success text-danger');
+                        if (totais.variacao_absoluta >= 0) {
+                            $varAbsoluta.addClass('text-success');
+                        } else {
+                            $varAbsoluta.addClass('text-danger');
+                        }
+                        
+                        const $varPercentual = $row.find('td:eq(6)');
+                        $varPercentual.text(formatarPercentual(totais.variacao_percentual));
+                        $varPercentual.removeClass('text-success text-danger');
+                        if (totais.variacao_percentual >= 0) {
+                            $varPercentual.addClass('text-success');
+                        } else {
+                            $varPercentual.addClass('text-danger');
+                        }
+                    }
+                }
+            }
+        });
+        
+        // Mostrar apenas as fontes filtradas e seus filhos
+        $('tr[data-nivel]').each(function() {
+            const $row = $(this);
+            const nivel = parseInt($row.data('nivel'));
+            const id = $row.data('id') || '';
+            
+            if (nivel === 1) {
+                // Para fontes, verificar o ID
+                const match = id.match(/fonte-(\d+)-(\d+)/);
+                if (match) {
+                    const catId = match[1];
+                    const fonteId = match[2];
+                    if (fontesParaMostrar.includes(fonteId) && categoriasComDados.has(catId)) {
+                        $row.show();
+                    }
+                }
+            } else if (nivel === 2) {
+                // Para subfontes, verificar se pertencem a uma fonte filtrada
+                const $tr = $row.closest('tr');
+                const classes = $tr.attr('class') || '';
+                const match = classes.match(/filho-de-fonte-(\d+)-(\d+)/);
+                
+                if (match) {
+                    const catId = match[1];
+                    const fonteId = match[2];
+                    if (fontesParaMostrar.includes(fonteId) && categoriasComDados.has(catId)) {
+                        // Verificar se a fonte pai está expandida
+                        const fonteBtn = $(`.toggle-btn[data-id="fonte-${catId}-${fonteId}"]`);
+                        if (fonteBtn.hasClass('expanded')) {
+                            $row.show();
+                        }
+                    }
+                }
+            } else if (nivel === 3) {
+                // Para alíneas, verificar se pertencem a uma fonte filtrada
+                const $tr = $row.closest('tr');
+                const classes = $tr.attr('class') || '';
+                const match = classes.match(/filho-de-subfonte-(\d+)-(\d+)-(\d+)/);
+                
+                if (match) {
+                    const catId = match[1];
+                    const fonteId = match[2];
+                    const subfonteId = match[3];
+                    if (fontesParaMostrar.includes(fonteId) && categoriasComDados.has(catId)) {
+                        // Verificar se tanto a fonte quanto a subfonte estão expandidas
+                        const fonteBtn = $(`.toggle-btn[data-id="fonte-${catId}-${fonteId}"]`);
+                        const subfonteBtn = $(`.toggle-btn[data-id="subfonte-${catId}-${fonteId}-${subfonteId}"]`);
+                        
+                        if (fonteBtn.hasClass('expanded') && subfonteBtn.hasClass('expanded')) {
+                            $row.show();
+                        }
+                    }
+                }
+            }
+        });
+    }
+    
+    // Recalcular totais baseado nas linhas visíveis
+    recalcularTotais();
+}
+
+// Recalcular totais baseado no filtro selecionado
+function recalcularTotais() {
+    if (!dadosRelatorio || !dadosOriginais) {
+        console.log('Dados não disponíveis para recalcular totais');
+        return;
+    }
+    
+    const filtroAtivo = $('#selectTipoReceita').val();
+    console.log('Recalculando totais para filtro:', filtroAtivo);
+    
+    let totais = {
+        previsao_inicial: 0,
+        previsao_atualizada: 0,
+        receita_atual: 0,
+        receita_anterior: 0,
+        variacao_absoluta: 0,
+        variacao_percentual: 0
+    };
+    
+    if (filtroAtivo === 'todas') {
+        // Usar totais originais
+        totais = dadosRelatorio.totais;
+    } else {
+        // Definir quais fontes somar baseado no filtro
+        let fontesParaSomar = [];
+        
+        switch(filtroAtivo) {
+            case '11': fontesParaSomar = ['11', '71']; break;
+            case '12': fontesParaSomar = ['12', '72']; break;
+            case '13': fontesParaSomar = ['13', '73']; break;
+            case '14': fontesParaSomar = ['14', '74']; break;
+            case '15': fontesParaSomar = ['15', '75']; break;
+            case '16': fontesParaSomar = ['16', '76']; break;
+            case '17': fontesParaSomar = ['17', '77']; break;
+            case '19': fontesParaSomar = ['19', '79']; break;
+            case '21': fontesParaSomar = ['21']; break;
+            case '22': fontesParaSomar = ['22']; break;
+            case '23': fontesParaSomar = ['23']; break;
+            case '24': fontesParaSomar = ['24']; break;
+        }
+        
+        console.log('Fontes para somar:', fontesParaSomar);
+        
+        // Calcular totais apenas para as fontes filtradas
+        dadosOriginais.dados.forEach(function(item) {
+            if (item.nivel === 1 && item.id) {
+                const match = item.id.match(/fonte-\d+-(\d+)/);
+                if (match) {
+                    const fonteId = match[1];
+                    if (fontesParaSomar.includes(fonteId)) {
+                        console.log('Somando fonte:', fonteId, item);
+                        totais.previsao_inicial += item.previsao_inicial;
+                        totais.previsao_atualizada += item.previsao_atualizada;
+                        totais.receita_atual += item.receita_atual;
+                        totais.receita_anterior += item.receita_anterior;
+                    }
+                }
+            }
+        });
+        
+        // Calcular variações
+        totais.variacao_absoluta = totais.receita_atual - totais.receita_anterior;
+        if (totais.receita_anterior !== 0) {
+            totais.variacao_percentual = (totais.variacao_absoluta / Math.abs(totais.receita_anterior)) * 100;
+        } else {
+            totais.variacao_percentual = totais.receita_atual !== 0 ? 100 : 0;
+        }
+    }
+    
+    console.log('Totais calculados:', totais);
+    
+    // Atualizar linha de total na tabela
+    const $totalRow = $('tr.table-dark');
+    if ($totalRow.length) {
+        $totalRow.find('td:eq(1)').text(formatarValor(totais.previsao_inicial));
+        $totalRow.find('td:eq(2)').text(formatarValor(totais.previsao_atualizada));
+        $totalRow.find('td:eq(3)').text(formatarValor(totais.receita_atual));
+        $totalRow.find('td:eq(4)').text(formatarValor(totais.receita_anterior));
+        
+        const $varAbsoluta = $totalRow.find('td:eq(5)');
+        $varAbsoluta.text(formatarValor(totais.variacao_absoluta));
+        $varAbsoluta.removeClass('text-success text-danger');
+        if (totais.variacao_absoluta >= 0) {
+            $varAbsoluta.addClass('text-success');
+        } else {
+            $varAbsoluta.addClass('text-danger');
+        }
+        
+        const $varPercentual = $totalRow.find('td:eq(6)');
+        $varPercentual.text(formatarPercentual(totais.variacao_percentual));
+        $varPercentual.removeClass('text-success text-danger');
+        if (totais.variacao_percentual >= 0) {
+            $varPercentual.addClass('text-success');
+        } else {
+            $varPercentual.addClass('text-danger');
+        }
+    }
+}
+
 // Limpar filtros
 function limparFiltros() {
     $('#formFiltros')[0].reset();
     $('#selectMes').empty().append('<option value="">Selecione o ano primeiro</option>');
+    $('#selectTipoReceita').val('todas');
     $('#relatorioContainer').hide();
     $('#mensagemInicial').show();
     dadosRelatorio = null;
+    dadosOriginais = null;
 }
 
 // Exportar para Excel
