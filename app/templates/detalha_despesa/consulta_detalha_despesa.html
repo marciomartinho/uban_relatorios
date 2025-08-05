@@ -11,7 +11,7 @@
     </h2>
     
    
-    <!-- Filtros -->
+<!-- Filtros -->
     <div class="card shadow-sm mb-4">
         <div class="card-header bg-danger text-white">
             <h5 class="mb-0">
@@ -22,25 +22,35 @@
             <form id="formFiltros">
                 <div class="row">
                     <div class="col-md-3 mb-3">
-                        <label for="selectAno" class="form-label">Ano</label>
+                        <label for="selectAno" class="form-label">
+                            Ano
+                            <span class="badge bg-secondary ms-1">1º</span>
+                        </label>
                         <select class="form-select" id="selectAno" name="ano" required>
                             <option value="">Selecione o ano...</option>
                         </select>
                     </div>
                     
                     <div class="col-md-4 mb-3">
-                        <label for="selectConta" class="form-label">Conta Contábil</label>
-                        <select class="form-select" id="selectConta" name="conta" required>
-                            <option value="">Selecione a conta...</option>
+                        <label for="selectConta" class="form-label">
+                            Conta Contábil
+                            <span class="badge bg-secondary ms-1">2º</span>
+                        </label>
+                        <select class="form-select" id="selectConta" name="conta" required disabled>
+                            <option value="">Primeiro selecione o ano...</option>
                         </select>
+                        <small class="text-muted">Mostrando apenas contas com dados no ano selecionado</small>
                     </div>
                     
                     <div class="col-md-3 mb-3">
-                        <label for="selectUG" class="form-label">UG Contábil</label>
-                        <select class="form-select" id="selectUG" name="ug" required>
-                            <option value="">Selecione a UG Contábil...</option>
-                            <option value="CONSOLIDADO">CONSOLIDADO</option>
+                        <label for="selectUG" class="form-label">
+                            UG Contábil
+                            <span class="badge bg-secondary ms-1">3º</span>
+                        </label>
+                        <select class="form-select" id="selectUG" name="ug" required disabled>
+                            <option value="">Primeiro selecione a conta...</option>
                         </select>
+                        <small class="text-muted">Mostrando apenas UGs com dados na conta selecionada</small>
                     </div>
                     
                     <div class="col-md-2 mb-3">

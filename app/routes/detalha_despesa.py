@@ -16,11 +16,11 @@ def consulta():
 
 @detalha_despesa.route('/api/filtros')
 def get_filtros():
-    """Retorna os valores únicos para os filtros"""
+    """Retorna apenas os anos únicos - filtros iniciais"""
     try:
         conn = db_duckdb.get_connection()
         
-        # Buscar anos únicos
+        # Buscar apenas anos únicos inicialmente
         anos_query = """
         SELECT DISTINCT YEAR(dalancamento) as ano
         FROM despesa_lancamento 
@@ -29,35 +29,93 @@ def get_filtros():
         """
         anos = [row[0] for row in conn.execute(anos_query).fetchall()]
         
-        # Buscar contas contábeis únicas - ordenadas numericamente
-        contas_query = """
-        SELECT DISTINCT cocontacontabil
-        FROM despesa_lancamento 
-        WHERE cocontacontabil IS NOT NULL
-        ORDER BY cocontacontabil ASC
-        """
-        contas = [row[0] for row in conn.execute(contas_query).fetchall()]
-        
-        # Buscar UGs Contábeis únicas
-        ugs_query = """
-        SELECT DISTINCT cougcontab 
-        FROM despesa_lancamento 
-        WHERE cougcontab IS NOT NULL
-        ORDER BY cougcontab
-        """
-        ugs = [row[0] for row in conn.execute(ugs_query).fetchall()]
-        
         conn.close()
         
         return jsonify({
             'anos': anos,
-            'contas': contas,
-            'ugs': ugs,
-            'fonte': 'DuckDB Local',
-            'cache_disponivel': True  # DuckDB é sempre rápido
+            'fonte': 'DuckDB Local'
         })
         
     except Exception as e:
+        print(f"Erro em get_filtros: {str(e)}")
+        return jsonify({'erro': str(e)}), 500
+
+@detalha_despesa.route('/api/contas-por-ano')
+def get_contas_por_ano():
+    """Retorna as contas contábeis disponíveis para um ano específico"""
+    try:
+        ano = request.args.get('ano')
+        
+        if not ano:
+            return jsonify({'erro': 'Ano é obrigatório'}), 400
+            
+        # Validar que ano é numérico
+        try:
+            int(ano)
+        except ValueError:
+            return jsonify({'erro': 'Ano deve ser numérico'}), 400
+        
+        conn = db_duckdb.get_connection()
+        
+        # Buscar contas contábeis que possuem dados no ano selecionado
+        contas_query = """
+        SELECT DISTINCT cocontacontabil 
+        FROM despesa_lancamento 
+        WHERE YEAR(dalancamento) = ?
+            AND cocontacontabil IS NOT NULL
+        ORDER BY cocontacontabil
+        """
+        
+        contas = [row[0] for row in conn.execute(contas_query, [int(ano)]).fetchall()]
+        
+        conn.close()
+        
+        return jsonify({
+            'contas': contas
+        })
+        
+    except Exception as e:
+        print(f"Erro em get_contas_por_ano: {str(e)}")
+        return jsonify({'erro': str(e)}), 500
+
+@detalha_despesa.route('/api/ugs-por-ano-conta')
+def get_ugs_por_ano_conta():
+    """Retorna as UGs contábeis disponíveis para um ano e conta específicos"""
+    try:
+        ano = request.args.get('ano')
+        conta = request.args.get('conta')
+        
+        if not all([ano, conta]):
+            return jsonify({'erro': 'Ano e conta são obrigatórios'}), 400
+            
+        # Validar que ano é numérico
+        try:
+            int(ano)
+        except ValueError:
+            return jsonify({'erro': 'Ano deve ser numérico'}), 400
+        
+        conn = db_duckdb.get_connection()
+        
+        # Buscar UGs contábeis que possuem dados no ano e conta selecionados
+        ugs_query = """
+        SELECT DISTINCT cougcontab 
+        FROM despesa_lancamento 
+        WHERE YEAR(dalancamento) = ? 
+            AND cocontacontabil = ?
+            AND cougcontab IS NOT NULL
+        ORDER BY cougcontab
+        """
+        
+        ugs = [row[0] for row in conn.execute(ugs_query, [int(ano), conta]).fetchall()]
+        
+        conn.close()
+        
+        return jsonify({
+            'ugs': ugs
+        })
+        
+    except Exception as e:
+        print(f"Erro em get_ugs_por_ano_conta: {str(e)}")
         return jsonify({'erro': str(e)}), 500
 
 @detalha_despesa.route('/api/dados')
@@ -99,7 +157,7 @@ def get_dados():
             ORDER BY MONTH(dalancamento), dalancamento, nudocumento
             LIMIT ?
             """
-            params = [int(ano), int(conta), int(limite)]
+            params = [int(ano), conta, int(limite)]
         else:
             query = """
             SELECT 
@@ -123,29 +181,32 @@ def get_dados():
             ORDER BY MONTH(dalancamento), dalancamento, nudocumento
             LIMIT ?
             """
-            params = [int(ano), int(conta), int(ug), int(limite)]
+            params = [int(ano), conta, ug, int(limite)]
         
         # Executar query
         result = conn.execute(query, params).fetchall()
         
         # Converter para lista de dicionários
         dados = []
+        colunas = ['mes', 'nudocumento', 'coevento', 'conatureza', 'cocontacorrente',
+                   'valancamento', 'indebitocredito', 'coug', 'dalancamento',
+                   'tipo_lancamento', 'cofonte', 'couo', 'coprograma']
+        
         for row in result:
-            dados.append({
-                'mes': row[0],
-                'nudocumento': row[1],
-                'coevento': row[2],
-                'conatureza': row[3],
-                'cocontacorrente': row[4],
-                'valancamento': row[5],
-                'indebitocredito': row[6],
-                'coug': row[7],
-                'dalancamento': row[8],
-                'tipo_lancamento': row[9],
-                'cofonte': row[10],
-                'couo': row[11],
-                'coprograma': row[12]
-            })
+            # Criar dicionário garantindo conversão de tipos
+            dado = {}
+            for i, col in enumerate(colunas):
+                valor = row[i]
+                
+                # Converter valores numéricos
+                if col == 'valancamento' and valor is not None:
+                    dado[col] = float(valor)
+                elif col == 'mes' and valor is not None:
+                    dado[col] = int(valor)
+                else:
+                    dado[col] = valor
+                    
+            dados.append(dado)
         
         # Verificar se tem mais registros
         if ug == 'CONSOLIDADO':
@@ -153,17 +214,21 @@ def get_dados():
             SELECT COUNT(*) FROM despesa_lancamento
             WHERE YEAR(dalancamento) = ? AND cocontacontabil = ?
             """
-            count_params = [int(ano), int(conta)]
+            count_params = [int(ano), conta]
         else:
             count_query = """
             SELECT COUNT(*) FROM despesa_lancamento
             WHERE YEAR(dalancamento) = ? AND cocontacontabil = ? AND cougcontab = ?
             """
-            count_params = [int(ano), int(conta), int(ug)]
+            count_params = [int(ano), conta, ug]
         
         total_registros = conn.execute(count_query, count_params).fetchone()[0]
         
         conn.close()
+        
+        # Log temporário para debug
+        print(f"🔍 Consulta retornou {len(dados)} registros")
+        print(f"   Filtros: ano={ano}, conta={conta}, ug={ug}")
         
         return jsonify({
             'dados': dados,
@@ -175,6 +240,9 @@ def get_dados():
         })
         
     except Exception as e:
+        print(f"Erro em get_dados: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'erro': str(e)}), 500
 
 @detalha_despesa.route('/api/totais')
@@ -204,7 +272,7 @@ def get_totais():
                 AND cocontacontabil = ?
             GROUP BY tipo_lancamento
             """
-            params = [int(ano), int(conta)]
+            params = [int(ano), conta]
         else:
             query = """
             SELECT 
@@ -217,7 +285,7 @@ def get_totais():
                 AND cougcontab = ?
             GROUP BY tipo_lancamento
             """
-            params = [int(ano), int(conta), int(ug)]
+            params = [int(ano), conta, ug]
         
         # Executar query
         result = conn.execute(query, params).fetchall()
@@ -258,7 +326,7 @@ def get_totais():
             ORDER BY total DESC
             LIMIT 5
             """
-            natureza_params = [int(ano), int(conta)]
+            natureza_params = [int(ano), conta]
         else:
             natureza_query = """
             SELECT 
@@ -274,7 +342,7 @@ def get_totais():
             ORDER BY total DESC
             LIMIT 5
             """
-            natureza_params = [int(ano), int(conta), int(ug)]
+            natureza_params = [int(ano), conta, ug]
         
         natureza_result = conn.execute(natureza_query, natureza_params).fetchall()
         

@@ -21,25 +21,35 @@
             <form id="formFiltros">
                 <div class="row">
                     <div class="col-md-3 mb-3">
-                        <label for="selectAno" class="form-label">Ano</label>
+                        <label for="selectAno" class="form-label">
+                            Ano
+                            <span class="badge bg-secondary ms-1">1º</span>
+                        </label>
                         <select class="form-select" id="selectAno" name="ano" required>
                             <option value="">Selecione o ano...</option>
                         </select>
                     </div>
                     
                     <div class="col-md-4 mb-3">
-                        <label for="selectConta" class="form-label">Conta Contábil</label>
-                        <select class="form-select" id="selectConta" name="conta" required>
-                            <option value="">Selecione a conta...</option>
+                        <label for="selectConta" class="form-label">
+                            Conta Contábil
+                            <span class="badge bg-secondary ms-1">2º</span>
+                        </label>
+                        <select class="form-select" id="selectConta" name="conta" required disabled>
+                            <option value="">Primeiro selecione o ano...</option>
                         </select>
+                        <small class="text-muted">Mostrando apenas contas com dados no ano selecionado</small>
                     </div>
                     
                     <div class="col-md-3 mb-3">
-                        <label for="selectUG" class="form-label">UG Contábil</label>
-                        <select class="form-select" id="selectUG" name="ug" required>
-                            <option value="">Selecione a UG Contábil...</option>
-                            <option value="CONSOLIDADO">CONSOLIDADO</option>
+                        <label for="selectUG" class="form-label">
+                            UG Contábil
+                            <span class="badge bg-secondary ms-1">3º</span>
+                        </label>
+                        <select class="form-select" id="selectUG" name="ug" required disabled>
+                            <option value="">Primeiro selecione a conta...</option>
                         </select>
+                        <small class="text-muted">Mostrando apenas UGs com dados na conta selecionada</small>
                     </div>
                     
                     <div class="col-md-2 mb-3">
@@ -136,6 +146,7 @@
                                 <div class="h5 mb-0 font-weight-bold text-gray-800" id="totalLancamentos">
                                     0
                                 </div>
+                                <div class="text-muted small" id="infoLimite"></div>
                             </div>
                             <div class="col-auto">
                                 <i class="bi bi-journal-text text-info" style="font-size: 2rem;"></i>
@@ -163,6 +174,10 @@
                 </div>
             </div>
             <div class="card-body">
+                <div id="avisoLimite" class="alert alert-info" style="display: none;">
+                    <i class="bi bi-info-circle"></i> 
+                    <span id="textoAvisoLimite"></span>
+                </div>
                 <div id="divTabela" class="table-responsive">
                     <!-- Tabela será inserida aqui via JavaScript -->
                 </div>
@@ -188,6 +203,7 @@
                     <span class="visually-hidden">Carregando...</span>
                 </div>
                 <p class="mb-0">Carregando dados...</p>
+                <small class="text-muted">Processando grande volume de dados...</small>
             </div>
         </div>
     </div>

@@ -1,9 +1,11 @@
-// JavaScript para Consulta Saldo Despesa - Versao com Cards Dinamicos
+// JavaScript para Consulta Saldo Despesa - Versão DuckDB
 
 // Verificar se jQuery esta carregado
 if (typeof jQuery === 'undefined') {
     console.error('jQuery nao esta carregado!');
 }
+
+console.log('Arquivo saldo_despesa.js carregado - Versão DuckDB');
 
 let tabelaDados = null;
 let dadosOriginais = [];
@@ -67,11 +69,14 @@ $(document).ready(function() {
 // Carregar opcoes dos filtros
 function carregarFiltros() {
     console.log('Carregando filtros...');
+    console.log('🦆 Usando dados do DuckDB local');
+    
     $.ajax({
         url: '/saldo-despesa/api/filtros',
         method: 'GET',
         success: function(data) {
-            console.log('Filtros carregados:', data);
+            console.log('✅ Filtros carregados:', data);
+            
             // Anos
             $('#selectAno').empty().append('<option value="">Selecione o ano...</option>');
             if (data.anos && data.anos.length > 0) {
@@ -80,12 +85,17 @@ function carregarFiltros() {
                 });
             }
             
+            // Adicionar badge indicando fonte local se ainda não existir
+            if (data.fonte === 'DuckDB Local' && !$('#badgeLocal').length) {
+                $('h2').append(' <span id="badgeLocal" class="badge bg-danger ms-2">DuckDB Local</span>');
+            }
+            
             // Desabilitar selects dependentes inicialmente
             $('#selectConta').prop('disabled', true);
             $('#selectUG').prop('disabled', true);
         },
         error: function(xhr) {
-            console.error('Erro ao carregar filtros:', xhr);
+            console.error('❌ Erro ao carregar filtros:', xhr);
             let erro = xhr.responseJSON ? xhr.responseJSON.erro : 'Erro desconhecido';
             mostrarErro('#mensagemInicial', 'Erro ao carregar filtros: ' + erro);
         }
@@ -140,18 +150,22 @@ function configurarEventos() {
             .prop('disabled', true);
             
         if (ano) {
+            console.log('🦆 Buscando contas para o ano', ano);
+            
             // Buscar contas disponiveis para o ano selecionado
             $.ajax({
                 url: '/saldo-despesa/api/contas-por-ano',
                 method: 'GET',
                 data: { ano: ano },
                 success: function(data) {
+                    console.log('✅ Contas carregadas:', data.contas.length);
                     $('#selectConta').prop('disabled', false);
                     data.contas.forEach(function(conta) {
                         $('#selectConta').append('<option value="' + conta + '">' + conta + '</option>');
                     });
                 },
                 error: function(xhr) {
+                    console.error('❌ Erro ao carregar contas:', xhr);
                     let erro = xhr.responseJSON ? xhr.responseJSON.erro : 'Erro desconhecido';
                     alert('Erro ao carregar contas: ' + erro);
                 }
@@ -170,6 +184,8 @@ function configurarEventos() {
             .prop('disabled', true);
             
         if (ano && conta) {
+            console.log('🦆 Buscando UGs para conta', conta);
+            
             // Buscar UGs disponiveis para o ano e conta selecionados
             $.ajax({
                 url: '/saldo-despesa/api/ugs-por-ano-conta',
@@ -179,6 +195,7 @@ function configurarEventos() {
                     conta: conta 
                 },
                 success: function(data) {
+                    console.log('✅ UGs carregadas:', data.ugs.length);
                     $('#selectUG').prop('disabled', false);
                     
                     // Adicionar opcao CONSOLIDADO sempre
@@ -190,6 +207,7 @@ function configurarEventos() {
                     });
                 },
                 error: function(xhr) {
+                    console.error('❌ Erro ao carregar UGs:', xhr);
                     let erro = xhr.responseJSON ? xhr.responseJSON.erro : 'Erro desconhecido';
                     alert('Erro ao carregar UGs: ' + erro);
                 }
@@ -245,7 +263,19 @@ function consultarDados() {
         return;
     }
     
-    $('#modalLoading').modal('show');
+    console.log('🦆 Consultando dados no DuckDB:', {ano, conta, ug});
+    
+    // Tentar mostrar o modal de diferentes formas
+    try {
+        $('#modalLoading').modal('show');
+    } catch (e) {
+        console.log('Erro ao mostrar modal com Bootstrap, usando método alternativo');
+        $('#modalLoading').addClass('show');
+        $('#modalLoading').css('display', 'block');
+        $('body').append('<div class="modal-backdrop fade show"></div>');
+        $('body').addClass('modal-open');
+    }
+    
     $('#mensagemInicial').hide();
     
     $.ajax({
@@ -257,12 +287,31 @@ function consultarDados() {
             ug: ug
         },
         success: function(response) {
+            console.log('✅ Dados carregados:', response);
+            
+            // Adicionar badge de fonte se retornado
+            if (response.fonte === 'DuckDB Local') {
+                console.log('📊 Total de registros:', response.total);
+            }
+            
+            // Verificar se há dados
+            if (!response.dados || response.dados.length === 0) {
+                $('#modalLoading').modal('hide');
+                $('#divTabela').html('<p class="text-center text-muted py-3">Nenhum registro encontrado.</p>');
+                $('#areaResultados').show();
+                return;
+            }
+            
             // Ordenar dados por mes e armazenar
             dadosOriginais = response.dados.sort(function(a, b) {
                 return a.inmes - b.inmes;
             });
             
             dadosFiltrados = [...dadosOriginais];
+            
+            // Log para debug
+            console.log('Primeiro registro:', dadosOriginais[0]);
+            console.log('Tipo do saldo:', typeof dadosOriginais[0].saldo_contabil_despesa);
             
             // Calcular totais ANTES de construir a tabela
             calcularTotais(dadosOriginais);
@@ -271,25 +320,58 @@ function consultarDados() {
             // Mostrar a area ANTES de construir a tabela
             $('#areaResultados').show();
             
+            // Fechar modal ANTES de construir a tabela
+            $('#modalLoading').modal('hide');
+            
+            // Forçar fechamento do modal se ainda estiver visível
+            setTimeout(function() {
+                // Verificar se o modal ainda está visível e forçar fechamento
+                if ($('#modalLoading').hasClass('show') || $('#modalLoading').is(':visible')) {
+                    console.log('Forçando fechamento do modal...');
+                    $('#modalLoading').removeClass('show');
+                    $('#modalLoading').css('display', 'none');
+                    $('.modal-backdrop').remove();
+                    $('body').removeClass('modal-open');
+                    $('body').css('padding-right', '');
+                }
+            }, 500);
+            
             // Pequeno delay para garantir que o DOM esta atualizado
             setTimeout(function() {
-                // Construir a tabela apos a area estar visivel
-                construirTabela(dadosOriginais);
-                
-                // Mostrar naturezas
-                mostrarTopNaturezas();
-                
-                // Forcar recalculo da largura das colunas
-                if (tabelaDados) {
-                    tabelaDados.columns.adjust();
-                    $(window).trigger('resize');
+                try {
+                    // Construir a tabela apos a area estar visivel
+                    construirTabela(dadosOriginais);
+                    
+                    // Mostrar naturezas
+                    mostrarTopNaturezas();
+                    
+                    // Forcar recalculo da largura das colunas
+                    if (tabelaDados) {
+                        tabelaDados.columns.adjust();
+                        $(window).trigger('resize');
+                    }
+                } catch (e) {
+                    console.error('Erro ao construir tabela:', e);
+                    $('#divTabela').html('<div class="alert alert-danger">Erro ao construir a tabela: ' + e.message + '</div>');
                 }
-            }, 50);
-            
-            $('#modalLoading').modal('hide');
+            }, 100);
         },
         error: function(xhr) {
+            // Garantir que o modal seja fechado em caso de erro
             $('#modalLoading').modal('hide');
+            
+            // Forçar fechamento se necessário
+            setTimeout(function() {
+                if ($('#modalLoading').hasClass('show') || $('#modalLoading').is(':visible')) {
+                    $('#modalLoading').removeClass('show');
+                    $('#modalLoading').css('display', 'none');
+                    $('.modal-backdrop').remove();
+                    $('body').removeClass('modal-open');
+                    $('body').css('padding-right', '');
+                }
+            }, 100);
+            
+            console.error('❌ Erro ao consultar dados:', xhr);
             let erro = xhr.responseJSON ? xhr.responseJSON.erro : 'Erro desconhecido';
             mostrarErro('#divTabela', 'Erro ao consultar dados: ' + erro);
             $('#areaResultados').show();
@@ -369,7 +451,8 @@ function calcularTotais(dados) {
     };
     
     dados.forEach(function(row) {
-        const saldo = row.saldo_contabil_despesa || 0;
+        // Garantir que saldo é um número
+        const saldo = parseFloat(row.saldo_contabil_despesa) || 0;
         
         // Total geral
         totaisGlobais.totalGeral += saldo;
@@ -392,6 +475,8 @@ function calcularTotais(dados) {
             totaisGlobais.totalPorNatureza[row.conatureza].quantidade++;
         }
     });
+    
+    console.log('Totais calculados:', totaisGlobais);
 }
 
 // Atualizar cards de totais
@@ -479,10 +564,11 @@ function construirTabela(dados) {
     
     const consolidado = dados[0].cocontacorrente === 'CONSOLIDADO';
     
-    // Definir colunas
+    // Definir colunas baseadas no tipo de visualização
     let colunas = ['inmes', 'cocontacorrente', 'intipoadm', 'saldo_contabil_despesa'];
     
     if (!consolidado) {
+        // Adicionar campos da natureza de despesa
         colunas = colunas.concat([
             'conatureza', 'cofonte', 'inesfera', 'couo',
             'cofuncao', 'cosubfuncao', 'coprograma', 
@@ -739,6 +825,8 @@ function exportarExcel() {
         return;
     }
     
+    console.log('📊 Exportando dados do DuckDB...');
+    
     let csv = [];
     
     // Determinar colunas baseado nos dados
@@ -833,6 +921,11 @@ function exportarExcel() {
         });
     }
     
+    // Adicionar informação sobre a fonte
+    csv.push('');
+    csv.push(['FONTE: DuckDB Local'].join(';'));
+    csv.push(['Data da exportação: ' + new Date().toLocaleString('pt-BR')].join(';'));
+    
     let csvContent = '\ufeff' + csv.join('\n');
     let blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     let link = document.createElement('a');
@@ -851,4 +944,6 @@ function exportarExcel() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    
+    console.log('✅ Exportação concluída:', filename);
 }

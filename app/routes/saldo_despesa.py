@@ -1,8 +1,8 @@
 """
-Blueprint para consultas de saldo de despesa
+Blueprint para consultas de saldo de despesa - Versão DuckDB
 """
 from flask import Blueprint, render_template, jsonify, request
-from app.modules.database import db
+from app.modules.database_duckdb import db_duckdb
 import pandas as pd
 
 # Criar blueprint
@@ -18,17 +18,21 @@ def consulta():
 def get_filtros():
     """Retorna apenas os anos únicos - filtros iniciais"""
     try:
+        conn = db_duckdb.get_connection()
+        
         # Buscar apenas anos únicos inicialmente
         anos_query = """
         SELECT DISTINCT coexercicio 
-        FROM despesas.fato_despesa_saldo 
+        FROM despesa_saldo 
         ORDER BY coexercicio DESC
         """
-        result = db.execute_query(anos_query)
-        anos = [str(row[0]) for row in result]
+        anos = [row[0] for row in conn.execute(anos_query).fetchall()]
+        
+        conn.close()
         
         return jsonify({
-            'anos': anos
+            'anos': anos,
+            'fonte': 'DuckDB Local'
         })
         
     except Exception as e:
@@ -44,22 +48,25 @@ def get_contas_por_ano():
         if not ano:
             return jsonify({'erro': 'Ano é obrigatório'}), 400
             
-        # Validar que ano é numérico para evitar SQL injection
+        # Validar que ano é numérico
         try:
             int(ano)
         except ValueError:
             return jsonify({'erro': 'Ano deve ser numérico'}), 400
-            
+        
+        conn = db_duckdb.get_connection()
+        
         # Buscar contas contábeis que possuem dados no ano selecionado
-        contas_query = f"""
+        contas_query = """
         SELECT DISTINCT cocontacontabil 
-        FROM despesas.fato_despesa_saldo 
-        WHERE coexercicio = {ano}
+        FROM despesa_saldo 
+        WHERE coexercicio = ?
         ORDER BY cocontacontabil
         """
         
-        result = db.execute_query(contas_query)
-        contas = [str(row[0]) for row in result]
+        contas = [row[0] for row in conn.execute(contas_query, [int(ano)]).fetchall()]
+        
+        conn.close()
         
         return jsonify({
             'contas': contas
@@ -79,23 +86,25 @@ def get_ugs_por_ano_conta():
         if not all([ano, conta]):
             return jsonify({'erro': 'Ano e conta são obrigatórios'}), 400
             
-        # Validar que ano e conta são numéricos para evitar SQL injection
+        # Validar que ano é numérico
         try:
             int(ano)
-            int(conta)
         except ValueError:
-            return jsonify({'erro': 'Ano e conta devem ser numéricos'}), 400
-            
+            return jsonify({'erro': 'Ano deve ser numérico'}), 400
+        
+        conn = db_duckdb.get_connection()
+        
         # Buscar UGs que possuem dados no ano e conta selecionados
-        ugs_query = f"""
+        ugs_query = """
         SELECT DISTINCT coug 
-        FROM despesas.fato_despesa_saldo 
-        WHERE coexercicio = {ano} AND cocontacontabil = {conta}
+        FROM despesa_saldo 
+        WHERE coexercicio = ? AND cocontacontabil = ?
         ORDER BY coug
         """
         
-        result = db.execute_query(ugs_query)
-        ugs = [str(row[0]) for row in result]
+        ugs = [row[0] for row in conn.execute(ugs_query, [int(ano), conta]).fetchall()]
+        
+        conn.close()
         
         return jsonify({
             'ugs': ugs
@@ -118,46 +127,42 @@ def get_dados():
         if not all([ano, conta, ug]):
             return jsonify({'erro': 'Parâmetros obrigatórios: ano, conta, ug'}), 400
         
-        # Converter parâmetros para os tipos corretos
-        try:
-            ano = int(ano)
-            conta = int(conta)
-            ug = int(ug) if ug != 'CONSOLIDADO' else ug
-        except ValueError:
-            return jsonify({'erro': 'Parâmetros inválidos'}), 400
+        conn = db_duckdb.get_connection()
         
         # Montar query base
         if ug == 'CONSOLIDADO':
             # Se for consolidado, agrupa por mês
-            query = f"""
+            query = """
             SELECT 
                 inmes,
                 'CONSOLIDADO' as cocontacorrente,
                 MAX(intipoadm) as intipoadm,
                 SUM(saldo_contabil_despesa) as saldo_contabil_despesa,
                 -- Para consolidado, campos individuais ficam nulos
-                NULL::integer as conatureza,
-                NULL::bigint as cofonte,
-                NULL::integer as inesfera,
-                NULL::integer as couo,
-                NULL::integer as cofuncao,
-                NULL::integer as cosubfuncao,
-                NULL::integer as coprograma,
-                NULL::integer as coprojeto,
-                NULL::integer as cosubtitulo,
+                NULL as conatureza,
+                NULL as cofonte,
+                NULL as inesfera,
+                NULL as couo,
+                NULL as cofuncao,
+                NULL as cosubfuncao,
+                NULL as coprograma,
+                NULL as coprojeto,
+                NULL as cosubtitulo,
                 -- Campos derivados também nulos
-                NULL::varchar as cogrupo,
-                NULL::varchar as comodalidade,
-                NULL::varchar as coelemento,
-                NULL::varchar as cosubelemento
-            FROM despesas.fato_despesa_saldo
-            WHERE coexercicio = {ano} AND cocontacontabil = {conta}
+                NULL as cogrupo,
+                NULL as comodalidade,
+                NULL as coelemento,
+                NULL as cosubelemento,
+                0 as tamanho_conta
+            FROM despesa_saldo
+            WHERE coexercicio = ? AND cocontacontabil = ?
             GROUP BY inmes
             ORDER BY inmes
             """
+            params = [int(ano), conta]
         else:
             # Query normal com UG específica
-            query = f"""
+            query = """
             SELECT 
                 inmes,
                 cocontacorrente,
@@ -177,26 +182,56 @@ def get_dados():
                 cogrupo,
                 comodalidade,
                 coelemento,
-                cosubelemento
-            FROM despesas.fato_despesa_saldo
-            WHERE coexercicio = {ano} 
-                AND cocontacontabil = {conta} 
-                AND coug = {ug}
+                cosubelemento,
+                -- Tamanho da conta para determinar quais campos mostrar
+                LENGTH(TRIM(cocontacorrente)) as tamanho_conta
+            FROM despesa_saldo
+            WHERE coexercicio = ? AND cocontacontabil = ? AND coug = ?
             ORDER BY inmes, conatureza, cofonte
             """
+            params = [int(ano), conta, ug]
         
         # Executar query
-        df = db.read_sql(query, None)
+        result = conn.execute(query, params).fetchall()
         
         # Converter para lista de dicionários
-        dados = df.to_dict('records')
+        dados = []
+        colunas = ['inmes', 'cocontacorrente', 'intipoadm', 'saldo_contabil_despesa',
+                   'conatureza', 'cofonte', 'inesfera', 'couo', 'cofuncao', 
+                   'cosubfuncao', 'coprograma', 'coprojeto', 'cosubtitulo',
+                   'cogrupo', 'comodalidade', 'coelemento', 'cosubelemento', 
+                   'tamanho_conta']
+        
+        for row in result:
+            # Criar dicionário garantindo conversão de tipos
+            dado = {}
+            for i, col in enumerate(colunas):
+                valor = row[i]
+                
+                # Converter valores numéricos
+                if col == 'saldo_contabil_despesa' and valor is not None:
+                    dado[col] = float(valor)
+                elif col in ['inmes', 'intipoadm', 'tamanho_conta'] and valor is not None:
+                    dado[col] = int(valor)
+                else:
+                    dado[col] = valor
+                    
+            dados.append(dado)
+        
+        conn.close()
+        
+        # Log temporário para debug
+        print(f"🔍 Consulta retornou {len(dados)} registros")
+        print(f"   Filtros: ano={ano}, conta={conta}, ug={ug}")
         
         return jsonify({
             'dados': dados,
-            'total': len(dados)
+            'total': len(dados),
+            'fonte': 'DuckDB Local'
         })
         
     except Exception as e:
+        print(f"Erro em get_dados: {str(e)}")
         import traceback
-        print(traceback.format_exc())
+        traceback.print_exc()
         return jsonify({'erro': str(e)}), 500
