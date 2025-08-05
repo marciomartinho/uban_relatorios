@@ -118,14 +118,6 @@ venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### 2. Variáveis de Ambiente (.env)
-```
-DB_HOST=31.97.128.109
-DB_PORT=5432
-DB_NAME=relatorios_uban
-DB_USER=seu_usuario
-DB_PASSWORD=sua_senha
-```
 
 ### 3. Primeira Execução
 ```bash
