@@ -22,7 +22,7 @@
                 <div class="card-body">
                     <form id="formFiltros">
                         <div class="row">
-                            <div class="col-md-4">
+                            <div class="col-md-6">
                                 <div class="mb-3">
                                     <label for="selectAno" class="form-label">Ano</label>
                                     <select class="form-select" id="selectAno" required>
@@ -30,15 +30,7 @@
                                     </select>
                                 </div>
                             </div>
-                            <div class="col-md-4">
-                                <div class="mb-3">
-                                    <label for="selectUG" class="form-label">Unidade Gestora</label>
-                                    <select class="form-select" id="selectUG" required>
-                                        <option value="">Selecione a UG...</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div class="col-md-4">
+                            <div class="col-md-6">
                                 <div class="mb-3">
                                     <label for="selectBimestre" class="form-label">Bimestre</label>
                                     <select class="form-select" id="selectBimestre" required>
@@ -58,6 +50,9 @@
                             </div>
                         </div>
                     </form>
+                    <div class="alert alert-info mt-3 mb-0">
+                        <i class="bi bi-info-circle"></i> Os valores apresentados são consolidados do Distrito Federal
+                    </div>
                 </div>
             </div>
             
@@ -77,9 +72,9 @@
                     <table class="table table-bordered table-sm relatorio-tabela" id="tabelaRREO">
                         <thead>
                             <tr>
-                                <th rowspan="3" class="align-middle text-center" style="width: 30%;">RECEITAS</th>
-                                <th rowspan="2" colspan="2" class="text-center">PREVISÃO INICIAL</th>
-                                <th rowspan="2" colspan="2" class="text-center">PREVISÃO ATUALIZADA<br/>(a)</th>
+                                <th rowspan="3" class="align-middle text-center" style="width: 35%;">RECEITAS</th>
+                                <th rowspan="2" class="text-center">PREVISÃO INICIAL</th>
+                                <th rowspan="2" class="text-center">PREVISÃO ATUALIZADA<br/>(a)</th>
                                 <th colspan="4" class="text-center">RECEITAS REALIZADAS</th>
                                 <th rowspan="3" class="align-middle text-center">SALDO<br/>(a-c)</th>
                             </tr>
@@ -88,14 +83,13 @@
                                 <th colspan="2" class="text-center">ATÉ O BIMESTRE<br/>(c)</th>
                             </tr>
                             <tr>
-                                <th class="text-center" style="width: 8%;">R$</th>
-                                <th class="text-center" style="width: 4%;">%</th>
-                                <th class="text-center" style="width: 8%;">R$</th>
-                                <th class="text-center" style="width: 4%;">%</th>
-                                <th class="text-center" style="width: 8%;">R$</th>
-                                <th class="text-center" style="width: 4%;">%</th>
-                                <th class="text-center" style="width: 8%;">R$</th>
-                                <th class="text-center" style="width: 4%;">%</th>
+                                <th class="text-center" style="width: 10%;">R$</th>
+                                <th class="text-center" style="width: 10%;">R$</th>
+                                <th class="text-center" style="width: 10%;">R$</th>
+                                <th class="text-center" style="width: 5%;">%</th>
+                                <th class="text-center" style="width: 10%;">R$</th>
+                                <th class="text-center" style="width: 5%;">%</th>
+                                <th class="text-center" style="width: 10%;">R$</th>
                             </tr>
                         </thead>
                         <tbody id="corpoRelatorio">

@@ -39,19 +39,10 @@ def get_filtros():
         """
         anos = [row[0] for row in conn.execute(anos_query).fetchall()]
         
-        # Buscar UGs disponíveis
-        ugs_query = """
-        SELECT DISTINCT coug 
-        FROM receita_saldo 
-        ORDER BY coug
-        """
-        ugs = [row[0] for row in conn.execute(ugs_query).fetchall()]
-        
         conn.close()
         
         return jsonify({
             'anos': anos,
-            'ugs': ugs,
             'bimestres': [
                 {'valor': k, 'nome': v['nome']} 
                 for k, v in BIMESTRES.items()
@@ -68,11 +59,10 @@ def gerar_relatorio():
     try:
         # Pegar parâmetros
         ano = request.args.get('ano')
-        ug = request.args.get('ug')
         bimestre = int(request.args.get('bimestre', 1))
         
-        if not all([ano, ug]):
-            return jsonify({'erro': 'Parâmetros obrigatórios: ano, ug, bimestre'}), 400
+        if not ano:
+            return jsonify({'erro': 'Parâmetros obrigatórios: ano, bimestre'}), 400
         
         # Validar bimestre
         if bimestre not in BIMESTRES:
@@ -84,22 +74,28 @@ def gerar_relatorio():
         
         conn = db_duckdb.get_connection()
         
-        # Buscar dados de receitas correntes
+        # Buscar dados de receitas correntes (exceto intra)
         receitas_correntes = buscar_receitas_por_categoria(
-            conn, ano, ug, meses_bimestre, meses_ate_bimestre, 
+            conn, ano, meses_bimestre, meses_ate_bimestre, 
             ['11', '12', '13', '14', '15', '16', '17', '18', '19']
         )
         
-        # Buscar dados de receitas de capital
+        # Buscar dados de receitas de capital (exceto intra)
         receitas_capital = buscar_receitas_por_categoria(
-            conn, ano, ug, meses_bimestre, meses_ate_bimestre,
+            conn, ano, meses_bimestre, meses_ate_bimestre,
             ['21', '22', '23', '24', '25', '26', '27', '28', '29']
         )
         
-        # Buscar dados de receitas intra-orçamentárias
-        receitas_intra = buscar_receitas_por_categoria(
-            conn, ano, ug, meses_bimestre, meses_ate_bimestre,
+        # Buscar dados de receitas intra-orçamentárias correntes
+        receitas_intra_correntes = buscar_receitas_por_categoria(
+            conn, ano, meses_bimestre, meses_ate_bimestre,
             ['71', '72', '73', '74', '75', '76', '77', '78', '79']
+        )
+        
+        # Buscar dados de receitas intra-orçamentárias de capital
+        receitas_intra_capital = buscar_receitas_por_categoria(
+            conn, ano, meses_bimestre, meses_ate_bimestre,
+            ['81', '82', '83', '84', '85', '86', '87', '88', '89']
         )
         
         conn.close()
@@ -107,15 +103,19 @@ def gerar_relatorio():
         # Calcular totais
         total_correntes = calcular_total_categoria(receitas_correntes)
         total_capital = calcular_total_categoria(receitas_capital)
-        total_intra = calcular_total_categoria(receitas_intra)
+        total_intra_correntes = calcular_total_categoria(receitas_intra_correntes)
+        total_intra_capital = calcular_total_categoria(receitas_intra_capital)
         
         # Total exceto intra
         total_exceto_intra = somar_totais(total_correntes, total_capital)
         
-        # Total geral
+        # Total intra
+        total_intra = somar_totais(total_intra_correntes, total_intra_capital)
+        
+        # Total geral de receitas
         total_receitas = somar_totais(total_exceto_intra, total_intra)
         
-        # Linha déficit (zerada por enquanto)
+        # Linha déficit (zerada)
         deficit = {
             'previsao_inicial': 0,
             'previsao_atualizada': 0,
@@ -129,7 +129,6 @@ def gerar_relatorio():
         # Montar estrutura do relatório
         relatorio = {
             'ano': ano,
-            'ug': ug,
             'bimestre': bimestre,
             'nome_bimestre': BIMESTRES[bimestre]['nome'],
             'data_geracao': datetime.now().strftime('%d/%m/%Y %H:%M'),
@@ -147,7 +146,14 @@ def gerar_relatorio():
                 },
                 'receitas_intra': {
                     'total': total_intra,
-                    'detalhes': receitas_intra
+                    'receitas_correntes': {
+                        'total': total_intra_correntes,
+                        'detalhes': receitas_intra_correntes
+                    },
+                    'receitas_capital': {
+                        'total': total_intra_capital,
+                        'detalhes': receitas_intra_capital
+                    }
                 },
                 'total_receitas': total_receitas,
                 'deficit': deficit,
@@ -163,10 +169,10 @@ def gerar_relatorio():
         traceback.print_exc()
         return jsonify({'erro': str(e)}), 500
 
-def buscar_receitas_por_categoria(conn, ano, ug, meses_bimestre, meses_ate_bimestre, codigos_fonte):
-    """Busca receitas por categoria (correntes, capital ou intra)"""
+def buscar_receitas_por_categoria(conn, ano, meses_bimestre, meses_ate_bimestre, codigos_fonte):
+    """Busca receitas por categoria (correntes, capital ou intra) - valores consolidados"""
     
-    # Converter listas de códigos para string SQL
+    # Converter listas para string SQL
     codigos_str = ','.join([f"'{c}'" for c in codigos_fonte])
     meses_bimestre_str = ','.join([str(m) for m in meses_bimestre])
     meses_ate_bimestre_str = ','.join([str(m) for m in meses_ate_bimestre])
@@ -210,20 +216,22 @@ def buscar_receitas_por_categoria(conn, ano, ug, meses_bimestre, meses_ate_bimes
             
         FROM receita_saldo
         WHERE coexercicio = {ano}
-        AND coug = '{ug}'
         AND cofontereceita IN ({codigos_str})
         GROUP BY cofontereceita, cosubfontereceita
+    ),
+    dados_com_nomes AS (
+        SELECT 
+            d.*,
+            COALESCE(f.nofontereceita, 'Fonte ' || d.cofontereceita) as nome_fonte,
+            COALESCE(sf.nosubfontereceita, 'Subfonte ' || d.cosubfontereceita) as nome_subfonte
+        FROM dados_agrupados d
+        LEFT JOIN dim_receita_origem f ON d.cofontereceita = f.cofontereceita
+        LEFT JOIN dim_receita_especie sf ON d.cosubfontereceita = sf.cosubfontereceita
     )
-    SELECT 
-        d.*,
-        COALESCE(f.nofontereceita, 'Fonte ' || d.cofontereceita) as nome_fonte,
-        COALESCE(sf.nosubfontereceita, 'Subfonte ' || d.cosubfontereceita) as nome_subfonte
-    FROM dados_agrupados d
-    LEFT JOIN fontereceita f ON d.cofontereceita = f.cofontereceita
-    LEFT JOIN subfontereceita sf ON d.cosubfontereceita = sf.cosubfontereceita
-    WHERE d.previsao_inicial != 0 OR d.previsao_atualizada != 0 
-          OR d.realizado_bimestre != 0 OR d.realizado_ate_bimestre != 0
-    ORDER BY d.cofontereceita, d.cosubfontereceita
+    SELECT * FROM dados_com_nomes
+    WHERE previsao_inicial != 0 OR previsao_atualizada != 0 
+          OR realizado_bimestre != 0 OR realizado_ate_bimestre != 0
+    ORDER BY cofontereceita, cosubfontereceita
     """
     
     result = conn.execute(query).fetchall()

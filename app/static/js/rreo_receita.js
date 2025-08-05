@@ -30,14 +30,6 @@ function carregarFiltros() {
                 });
             }
             
-            // UGs
-            $('#selectUG').empty().append('<option value="">Selecione a UG...</option>');
-            if (data.ugs && data.ugs.length > 0) {
-                data.ugs.forEach(function(ug) {
-                    $('#selectUG').append('<option value="' + ug + '">' + ug + '</option>');
-                });
-            }
-            
             // Bimestres
             $('#selectBimestre').empty().append('<option value="">Selecione o bimestre...</option>');
             if (data.bimestres && data.bimestres.length > 0) {
@@ -77,15 +69,14 @@ function configurarEventos() {
 // Gerar relatório
 function gerarRelatorio() {
     const ano = $('#selectAno').val();
-    const ug = $('#selectUG').val();
     const bimestre = $('#selectBimestre').val();
     
-    if (!ano || !ug || !bimestre) {
+    if (!ano || !bimestre) {
         alert('Por favor, preencha todos os filtros!');
         return;
     }
     
-    console.log('🦆 Gerando relatório RREO:', {ano, ug, bimestre});
+    console.log('🦆 Gerando relatório RREO:', {ano, bimestre});
     
     // Mostrar loading
     $('#modalLoading').modal('show');
@@ -96,32 +87,50 @@ function gerarRelatorio() {
         method: 'GET',
         data: {
             ano: ano,
-            ug: ug,
             bimestre: bimestre
         },
         success: function(response) {
             console.log('✅ Relatório gerado:', response);
             
-            // Armazenar dados
-            dadosRelatorio = response;
-            
-            // Atualizar título do período
-            $('#tituloPeriodo').text(`ATÉ O ${response.nome_bimestre.toUpperCase()} DE ${response.ano}`);
-            
-            // Atualizar data de geração
-            $('#dataGeracao').text(response.data_geracao);
-            
-            // Construir tabela
-            construirTabela(response.dados);
-            
-            // Mostrar área do relatório
-            $('#areaRelatorio').show();
-            
-            // Fechar modal
-            $('#modalLoading').modal('hide');
+            try {
+                // Armazenar dados
+                dadosRelatorio = response;
+                
+                // Atualizar título do período
+                $('#tituloPeriodo').text(`ATÉ O ${response.nome_bimestre.toUpperCase()} DE ${response.ano}`);
+                
+                // Atualizar data de geração
+                $('#dataGeracao').text(response.data_geracao);
+                
+                // Construir tabela
+                construirTabela(response.dados);
+                
+                // Mostrar área do relatório
+                $('#areaRelatorio').show();
+                
+                // Esconder mensagem inicial
+                $('#mensagemInicial').hide();
+                
+            } catch (error) {
+                console.error('Erro ao processar resposta:', error);
+                mostrarErro('Erro ao processar dados do relatório');
+            } finally {
+                // Sempre fechar modal
+                $('#modalLoading').modal('hide');
+                // Forçar fechamento se necessário
+                setTimeout(function() {
+                    $('#modalLoading').modal('hide');
+                    $('.modal-backdrop').remove();
+                    $('body').removeClass('modal-open');
+                }, 100);
+            }
         },
         error: function(xhr) {
+            // Sempre fechar modal primeiro
             $('#modalLoading').modal('hide');
+            $('.modal-backdrop').remove();
+            $('body').removeClass('modal-open');
+            
             console.error('❌ Erro ao gerar relatório:', xhr);
             let erro = xhr.responseJSON ? xhr.responseJSON.erro : 'Erro desconhecido';
             mostrarErro('Erro ao gerar relatório: ' + erro);
@@ -181,11 +190,35 @@ function construirTabela(dados) {
             dados.receitas_intra.total
         ));
         
-        // Detalhes das receitas intra
-        construirDetalhesCategoria(
-            tbody,
-            dados.receitas_intra.detalhes
-        );
+        // RECEITAS CORRENTES - INTRA-ORÇAMENTÁRIAS
+        if (dados.receitas_intra.receitas_correntes.total.previsao_inicial > 0 ||
+            dados.receitas_intra.receitas_correntes.total.realizado_ate_bimestre > 0) {
+            
+            tbody.append(criarLinhaCategoria(
+                'RECEITAS CORRENTES - INTRA-ORÇAMENTÁRIAS',
+                dados.receitas_intra.receitas_correntes.total
+            ));
+            
+            construirDetalhesCategoria(
+                tbody,
+                dados.receitas_intra.receitas_correntes.detalhes
+            );
+        }
+        
+        // RECEITAS DE CAPITAL - INTRA-ORÇAMENTÁRIAS
+        if (dados.receitas_intra.receitas_capital.total.previsao_inicial > 0 ||
+            dados.receitas_intra.receitas_capital.total.realizado_ate_bimestre > 0) {
+            
+            tbody.append(criarLinhaCategoria(
+                'RECEITAS DE CAPITAL - INTRA-ORÇAMENTÁRIAS',
+                dados.receitas_intra.receitas_capital.total
+            ));
+            
+            construirDetalhesCategoria(
+                tbody,
+                dados.receitas_intra.receitas_capital.detalhes
+            );
+        }
     }
     
     // Linha 3: TOTAL DAS RECEITAS (III) = (I + II)
@@ -263,13 +296,11 @@ function criarLinha(titulo, valores, classe) {
     let html = '<tr class="' + classe + '">';
     html += '<td>' + titulo + '</td>';
     
-    // Previsão Inicial
+    // Previsão Inicial (sem %)
     html += '<td class="valor-numerico">' + formatarValor(valores.previsao_inicial) + '</td>';
-    html += '<td class="valor-percentual">-</td>';
     
-    // Previsão Atualizada
+    // Previsão Atualizada (sem %)
     html += '<td class="valor-numerico">' + formatarValor(valores.previsao_atualizada) + '</td>';
-    html += '<td class="valor-percentual">-</td>';
     
     // Realizado no Bimestre
     html += '<td class="valor-numerico">' + formatarValor(valores.realizado_bimestre) + '</td>';
@@ -320,7 +351,6 @@ function formatarPercentual(valor) {
 // Limpar filtros
 function limparFiltros() {
     $('#selectAno').val('');
-    $('#selectUG').val('');
     $('#selectBimestre').val('');
     
     $('#areaRelatorio').hide();
@@ -362,9 +392,7 @@ function exportarExcel() {
     csv.push([
         'RECEITAS',
         'PREVISÃO INICIAL',
-        '',
         'PREVISÃO ATUALIZADA',
-        '',
         'NO BIMESTRE',
         '%',
         'ATÉ O BIMESTRE',
@@ -383,9 +411,7 @@ function exportarExcel() {
         csv.push([
             titulo,
             valores.previsao_inicial.toFixed(2).replace('.', ','),
-            '',
             valores.previsao_atualizada.toFixed(2).replace('.', ','),
-            '',
             valores.realizado_bimestre.toFixed(2).replace('.', ','),
             percBimestre.toFixed(2).replace('.', ','),
             valores.realizado_ate_bimestre.toFixed(2).replace('.', ','),
@@ -430,13 +456,33 @@ function exportarExcel() {
     if (dados.receitas_intra.total.previsao_inicial > 0) {
         adicionarLinhaCSV('RECEITAS (INTRA-ORÇAMENTÁRIAS) (II)', dados.receitas_intra.total);
         
-        Object.values(dados.receitas_intra.detalhes).forEach(function(fonte) {
-            adicionarLinhaCSV('  ' + fonte.nome, fonte.total);
+        // Receitas Correntes - Intra
+        if (dados.receitas_intra.receitas_correntes.total.previsao_inicial > 0) {
+            adicionarLinhaCSV('  RECEITAS CORRENTES - INTRA-ORÇAMENTÁRIAS', 
+                dados.receitas_intra.receitas_correntes.total);
             
-            Object.values(fonte.subfontes).forEach(function(subfonte) {
-                adicionarLinhaCSV('    ' + subfonte.nome, subfonte);
+            Object.values(dados.receitas_intra.receitas_correntes.detalhes).forEach(function(fonte) {
+                adicionarLinhaCSV('    ' + fonte.nome, fonte.total);
+                
+                Object.values(fonte.subfontes).forEach(function(subfonte) {
+                    adicionarLinhaCSV('      ' + subfonte.nome, subfonte);
+                });
             });
-        });
+        }
+        
+        // Receitas de Capital - Intra
+        if (dados.receitas_intra.receitas_capital.total.previsao_inicial > 0) {
+            adicionarLinhaCSV('  RECEITAS DE CAPITAL - INTRA-ORÇAMENTÁRIAS', 
+                dados.receitas_intra.receitas_capital.total);
+            
+            Object.values(dados.receitas_intra.receitas_capital.detalhes).forEach(function(fonte) {
+                adicionarLinhaCSV('    ' + fonte.nome, fonte.total);
+                
+                Object.values(fonte.subfontes).forEach(function(subfonte) {
+                    adicionarLinhaCSV('      ' + subfonte.nome, subfonte);
+                });
+            });
+        }
     }
     
     // Totais

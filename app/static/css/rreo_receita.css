@@ -203,3 +203,18 @@
     vertical-align: middle;
     margin-left: 10px;
 }
+
+/* Loading */
+.spinner-border {
+    width: 3rem;
+    height: 3rem;
+}
+
+/* Modal de loading com z-index alto */
+#modalLoading {
+    z-index: 9999;
+}
+
+.modal-backdrop {
+    z-index: 9998;
+}
