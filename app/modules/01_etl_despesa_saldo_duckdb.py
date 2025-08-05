@@ -1,5 +1,6 @@
 """
 Módulo ETL para processar DespesaSaldo no DuckDB
+Versão atualizada com nova estrutura de campos
 """
 import pandas as pd
 import numpy as np
@@ -12,7 +13,7 @@ from app.modules.database_duckdb import db_duckdb
 logger = logging.getLogger(__name__)
 
 class ETLDespesaSaldoDuckDB:
-    """Classe para processar DespesaSaldo no DuckDB"""
+    """Classe para processar DespesaSaldo no DuckDB com nova estrutura"""
     
     def __init__(self, chunk_size=10000):
         self.chunk_size = chunk_size
@@ -44,12 +45,79 @@ class ETLDespesaSaldoDuckDB:
         finally:
             conn.close()
     
+    def drop_table_if_exists(self):
+        """Remove a tabela se existir (para recriação completa)"""
+        conn = self.db_duckdb.get_connection()
+        try:
+            # Verificar se tabela existe
+            check_query = """
+            SELECT COUNT(*) 
+            FROM information_schema.tables 
+            WHERE table_name = 'despesa_saldo'
+            """
+            exists = conn.execute(check_query).fetchone()[0] > 0
+            
+            if exists:
+                logger.info("🗑️ Removendo tabela despesa_saldo existente...")
+                conn.execute("DROP TABLE despesa_saldo")
+                logger.info("✅ Tabela removida com sucesso")
+            
+            return True
+        finally:
+            conn.close()
+    
+    def create_table(self):
+        """Cria a tabela com a nova estrutura"""
+        conn = self.db_duckdb.get_connection()
+        try:
+            logger.info("📝 Criando tabela despesa_saldo com nova estrutura...")
+            
+            create_query = """
+            CREATE TABLE despesa_saldo (
+                coexercicio INTEGER,
+                coug INTEGER,
+                cogestao INTEGER,
+                cocontacontabil BIGINT,
+                cocontacorrente VARCHAR(50),
+                inmes INTEGER,
+                inesfera INTEGER,
+                couo INTEGER,
+                cofuncao INTEGER,
+                cosubfuncao INTEGER,
+                coprograma INTEGER,
+                coprojeto INTEGER,
+                cosubtitulo INTEGER,
+                cofonte BIGINT,
+                conatureza INTEGER,
+                vacredito DECIMAL(18,2),
+                vadebito DECIMAL(18,2),
+                saldo_contabil_despesa DECIMAL(18,2),
+                incategoria VARCHAR(1),
+                cogrupo VARCHAR(1),
+                comodalidade VARCHAR(2),
+                coelemento VARCHAR(2),
+                cosubelemento VARCHAR(2),
+                periodo VARCHAR(7),
+                data_carga TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+            
+            conn.execute(create_query)
+            logger.info("✅ Tabela criada com sucesso")
+            
+            return True
+        finally:
+            conn.close()
+    
     def analisar_arquivo(self, file_path):
         """Analisa o arquivo Excel e retorna informações"""
         logger.info(f"📖 Analisando arquivo: {file_path}")
         
         try:
             df_sample = pd.read_excel(file_path, nrows=1000)
+            
+            # Listar colunas encontradas
+            logger.info(f"Colunas encontradas: {', '.join(df_sample.columns)}")
             
             df_sample['periodo'] = (
                 df_sample['COEXERCICIO'].astype(str) + '-' + 
@@ -68,10 +136,10 @@ class ETLDespesaSaldoDuckDB:
             return [], 0
     
     def transform_data(self, df):
-        """Aplica as transformações necessárias"""
+        """Aplica as transformações necessárias com a nova estrutura"""
         df = df.copy()
         
-        # Converter tipos e limpar dados
+        # Converter tipos e limpar dados - campos obrigatórios
         df['coexercicio'] = df['COEXERCICIO'].astype(int)
         df['coug'] = df['COUG'].astype(int)
         df['cogestao'] = df['COGESTAO'].astype(int)
@@ -87,20 +155,13 @@ class ETLDespesaSaldoDuckDB:
         df['cosubtitulo'] = df['COSUBTITULO'].astype(int)
         df['cofonte'] = df['COFONTE'].astype(int)
         df['conatureza'] = df['CONATUREZA'].astype(int)
-        df['incategoria'] = df['INCATEGORIA'].astype(int)
         df['vacredito'] = pd.to_numeric(df['VACREDITO'], errors='coerce').fillna(0)
         df['vadebito'] = pd.to_numeric(df['VADEBITO'], errors='coerce').fillna(0)
-        df['noug'] = df['NOUG'].astype(str) if 'NOUG' in df.columns else ''
-        df['cogestao_1'] = df['COGESTAO_1'].astype(int)
-        df['nogestao'] = df['NOGESTAO'].astype(str) if 'NOGESTAO' in df.columns else ''
-        df['intipoadm'] = df['INTIPOADM'].astype(int)
-        df['instatus'] = df['INSTATUS'].astype(int)
-        df['ultalteracao'] = df['ULTALTERACAO'].astype(str) if 'ULTALTERACAO' in df.columns else ''
         
         # Criar coluna periodo
         df['periodo'] = df['coexercicio'].astype(str) + '-' + df['inmes'].astype(str).str.zfill(2)
         
-        # Calcular saldo_contabil_despesa
+        # Calcular saldo_contabil_despesa baseado no primeiro dígito da conta
         df['primeiro_digito'] = df['cocontacontabil'].str[0]
         df['saldo_contabil_despesa'] = np.where(
             df['primeiro_digito'] == '5',
@@ -108,11 +169,12 @@ class ETLDespesaSaldoDuckDB:
             df['vacredito'] - df['vadebito']
         )
         
-        # Parse de CONATUREZA
+        # Parse de CONATUREZA (6 dígitos)
         df['conatureza_str'] = df['conatureza'].astype(str).str.zfill(6)
-        df['cogrupo'] = df['conatureza_str'].str[1:2]
-        df['comodalidade'] = df['conatureza_str'].str[2:4]
-        df['coelemento'] = df['conatureza_str'].str[4:6]
+        df['incategoria'] = df['conatureza_str'].str[0:1]    # 1º dígito
+        df['cogrupo'] = df['conatureza_str'].str[1:2]        # 2º dígito
+        df['comodalidade'] = df['conatureza_str'].str[2:4]   # 3º e 4º dígitos
+        df['coelemento'] = df['conatureza_str'].str[4:6]     # 5º e 6º dígitos
         
         # Cosubelemento para contas de 40 chars
         df['tamanho_conta'] = df['cocontacorrente'].str.len()
@@ -121,20 +183,23 @@ class ETLDespesaSaldoDuckDB:
         if mask_40.any():
             df.loc[mask_40, 'cosubelemento'] = df.loc[mask_40, 'cocontacorrente'].str[38:40]
         
-        # Selecionar colunas finais
+        # Log de debug
+        logger.info(f"Transformação concluída: {len(df)} registros")
+        logger.info(f"Períodos no chunk: {df['periodo'].unique()}")
+        
+        # Selecionar colunas finais na ordem correta
         colunas_finais = [
             'coexercicio', 'coug', 'cogestao', 'cocontacontabil', 'cocontacorrente',
             'inmes', 'inesfera', 'couo', 'cofuncao', 'cosubfuncao', 
             'coprograma', 'coprojeto', 'cosubtitulo', 'cofonte', 'conatureza',
-            'incategoria', 'vacredito', 'vadebito', 'noug', 'cogestao_1',
-            'nogestao', 'intipoadm', 'instatus', 'ultalteracao',
-            'saldo_contabil_despesa', 'cogrupo', 'comodalidade', 'coelemento',
+            'vacredito', 'vadebito', 'saldo_contabil_despesa',
+            'incategoria', 'cogrupo', 'comodalidade', 'coelemento',
             'cosubelemento', 'periodo'
         ]
         
         return df[colunas_finais]
     
-    def processar_arquivo(self, file_path, sobrescrever=False):
+    def processar_arquivo(self, file_path, sobrescrever=False, recriar_tabela=False):
         """Processa um arquivo Excel e carrega no DuckDB"""
         logger.info(f"Iniciando processamento: {file_path}")
         inicio = datetime.now()
@@ -142,6 +207,11 @@ class ETLDespesaSaldoDuckDB:
         if not Path(file_path).exists():
             logger.error(f"Arquivo não encontrado: {file_path}")
             return False
+        
+        # Se recriar_tabela, dropar e criar nova
+        if recriar_tabela:
+            self.drop_table_if_exists()
+            self.create_table()
         
         periodos, total_estimado = self.analisar_arquivo(file_path)
         
@@ -152,21 +222,22 @@ class ETLDespesaSaldoDuckDB:
         logger.info(f"Períodos encontrados: {', '.join(periodos)}")
         logger.info(f"Total estimado: {total_estimado:,} registros")
         
-        # Verificar períodos existentes
-        periodos_existentes = []
-        for periodo in periodos:
-            if self.validar_periodo_existente(periodo):
-                periodos_existentes.append(periodo)
-                logger.warning(f"Período {periodo} já existe no banco!")
-        
-        if periodos_existentes and not sobrescrever:
-            logger.error("Existem períodos já carregados. Use sobrescrever=True para substituir.")
-            return False
-        
-        if periodos_existentes and sobrescrever:
-            logger.info("Removendo períodos existentes...")
-            for periodo in periodos_existentes:
-                self.deletar_periodo(periodo)
+        # Verificar períodos existentes (se não for recriação)
+        if not recriar_tabela:
+            periodos_existentes = []
+            for periodo in periodos:
+                if self.validar_periodo_existente(periodo):
+                    periodos_existentes.append(periodo)
+                    logger.warning(f"Período {periodo} já existe no banco!")
+            
+            if periodos_existentes and not sobrescrever:
+                logger.error("Existem períodos já carregados. Use sobrescrever=True para substituir.")
+                return False
+            
+            if periodos_existentes and sobrescrever:
+                logger.info("Removendo períodos existentes...")
+                for periodo in periodos_existentes:
+                    self.deletar_periodo(periodo)
         
         # Ler arquivo completo
         logger.info("Lendo arquivo Excel completo...")
@@ -220,6 +291,9 @@ class ETLDespesaSaldoDuckDB:
             logger.info(f"   - Registros processados: {total_processado:,}")
             logger.info(f"   - Registros com erro: {total_erro:,}")
             
+            # Validar dados carregados
+            self.validar_carga(conn)
+            
             return True
             
         except Exception as e:
@@ -229,3 +303,55 @@ class ETLDespesaSaldoDuckDB:
             return False
         finally:
             conn.close()
+    
+    def validar_carga(self, conn):
+        """Valida os dados carregados"""
+        logger.info("\n📊 VALIDAÇÃO DA CARGA:")
+        
+        try:
+            # Total de registros
+            total = conn.execute(f"SELECT COUNT(*) FROM {self.table_name}").fetchone()[0]
+            logger.info(f"Total de registros: {total:,}")
+            
+            # Períodos
+            periodos = conn.execute(f"""
+                SELECT periodo, COUNT(*) as qtd 
+                FROM {self.table_name} 
+                GROUP BY periodo 
+                ORDER BY periodo
+            """).fetchall()
+            
+            logger.info(f"Períodos carregados:")
+            for periodo, qtd in periodos:
+                logger.info(f"   {periodo}: {qtd:,} registros")
+            
+            # Validar parse de CONATUREZA
+            validacao_natureza = conn.execute(f"""
+                SELECT 
+                    COUNT(DISTINCT incategoria) as categorias,
+                    COUNT(DISTINCT cogrupo) as grupos,
+                    COUNT(DISTINCT comodalidade) as modalidades,
+                    COUNT(DISTINCT coelemento) as elementos
+                FROM {self.table_name}
+                WHERE conatureza IS NOT NULL
+            """).fetchone()
+            
+            logger.info(f"Parse de CONATUREZA:")
+            logger.info(f"   Categorias únicas: {validacao_natureza[0]}")
+            logger.info(f"   Grupos únicos: {validacao_natureza[1]}")
+            logger.info(f"   Modalidades únicas: {validacao_natureza[2]}")
+            logger.info(f"   Elementos únicos: {validacao_natureza[3]}")
+            
+            # Contas de 40 caracteres
+            contas_40 = conn.execute(f"""
+                SELECT COUNT(*) 
+                FROM {self.table_name} 
+                WHERE LENGTH(cocontacorrente) = 40 
+                AND cosubelemento IS NOT NULL
+            """).fetchone()[0]
+            
+            if contas_40 > 0:
+                logger.info(f"   Contas com subelemento (40 chars): {contas_40:,}")
+            
+        except Exception as e:
+            logger.error(f"Erro na validação: {e}")

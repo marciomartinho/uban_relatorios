@@ -2,6 +2,7 @@
 """
 Script para verificar integridade referencial entre tabelas fato e dimensão
 Identifica valores órfãos e problemas de relacionamento
+Versão corrigida: verifica apenas colunas que existem em cada tabela
 """
 import sys
 import os
@@ -18,18 +19,15 @@ class VerificadorIntegridade:
     def __init__(self):
         self.db_path = Path("dados_brutos/fato/db_local/uban.duckdb")
         
-        # Mapeamento de relacionamentos fato -> dimensão
-        self.relacionamentos = {
-            # Relacionamentos comuns a todas as tabelas fato
-            'comum': {
+        # Mapeamento de relacionamentos específicos por tabela
+        self.relacionamentos_por_tabela = {
+            'despesa_lancamento': {
+                # Relacionamentos comuns
                 'coug': 'dim_unidade_gestora',
                 'cogestao': 'dim_gestao',
                 'coevento': 'dim_evento',
                 'cocontacontabil': 'dim_conta_contabil',
-            },
-            
-            # Relacionamentos específicos de despesa
-            'despesa': {
+                # Relacionamentos específicos de despesa
                 'cofuncao': 'dim_funcao',
                 'cosubfuncao': 'dim_subfuncao',
                 'coprograma': 'dim_programa',
@@ -42,8 +40,44 @@ class VerificadorIntegridade:
                 'coelemento': 'dim_elemento',
             },
             
-            # Relacionamentos específicos de receita
-            'receita': {
+            'despesa_saldo': {
+                # Relacionamentos comuns (sem coevento)
+                'coug': 'dim_unidade_gestora',
+                'cogestao': 'dim_gestao',
+                'cocontacontabil': 'dim_conta_contabil',
+                # Relacionamentos específicos de despesa
+                'cofuncao': 'dim_funcao',
+                'cosubfuncao': 'dim_subfuncao',
+                'coprograma': 'dim_programa',
+                'coprojeto': 'dim_projeto',
+                'cosubtitulo': 'dim_subtitulo',
+                'cofonte': 'dim_fonte',
+                'incategoria': 'dim_categoria_despesa',
+                'cogrupo': 'dim_grupo_despesa',
+                'comodalidade': 'dim_modalidade',
+                'coelemento': 'dim_elemento',
+            },
+            
+            'receita_lancamento': {
+                # Relacionamentos comuns
+                'coug': 'dim_unidade_gestora',
+                'cogestao': 'dim_gestao',
+                'coevento': 'dim_evento',
+                'cocontacontabil': 'dim_conta_contabil',
+                # Relacionamentos específicos de receita
+                'coclasseorc': 'dim_classificacao_orcamentaria',
+                'cocategoriareceita': 'dim_receita_categoria',
+                'cofontereceita': 'dim_receita_origem',
+                'cosubfontereceita': 'dim_receita_especie',
+                'corubrica': 'dim_receita_especificacao',
+                'coalinea': 'dim_receita_alinea',
+            },
+            
+            'receita_saldo': {
+                # Relacionamentos comuns (sem coevento e sem cogestao)
+                'coug': 'dim_unidade_gestora',
+                'cocontacontabil': 'dim_conta_contabil',
+                # Relacionamentos específicos de receita
                 'coclasseorc': 'dim_classificacao_orcamentaria',
                 'cocategoriareceita': 'dim_receita_categoria',
                 'cofontereceita': 'dim_receita_origem',
@@ -179,13 +213,11 @@ class VerificadorIntegridade:
                         f.write("❌ TABELA NÃO EXISTE NO BANCO\n")
                         continue
                     
-                    # Determinar tipo da tabela (despesa ou receita)
-                    tipo = 'despesa' if 'despesa' in tabela_fato else 'receita'
+                    # Obter relacionamentos específicos desta tabela
+                    relacionamentos = self.relacionamentos_por_tabela.get(tabela_fato, {})
                     
-                    # Relacionamentos a verificar
-                    relacionamentos = {}
-                    relacionamentos.update(self.relacionamentos['comum'])
-                    relacionamentos.update(self.relacionamentos[tipo])
+                    # Mostrar informação sobre colunas verificadas
+                    f.write(f"Verificando {len(relacionamentos)} relacionamentos específicos desta tabela\n\n")
                     
                     # Verificar cada relacionamento
                     verificacoes_tabela = []
@@ -229,6 +261,12 @@ class VerificadorIntegridade:
                     
                     # Resumo da tabela
                     f.write(f"\nResumo: {len(verificacoes_tabela)} verificações realizadas\n")
+                    
+                    # Mostrar colunas específicas desta tabela que NÃO são verificadas
+                    if tabela_fato == 'despesa_saldo':
+                        f.write("\nNota: Esta tabela não possui a coluna 'coevento' (correto para saldo)\n")
+                    elif tabela_fato == 'receita_saldo':
+                        f.write("\nNota: Esta tabela não possui as colunas 'coevento' e 'cogestao' (correto para receita saldo)\n")
                 
                 # Detalhes dos problemas encontrados
                 if problemas_detalhados:
@@ -339,8 +377,9 @@ def main():
     print("  - Se todos os valores FK nas tabelas fato existem nas dimensões")
     print("  - Identificar valores órfãos")
     print("  - Gerar relatório detalhado dos problemas\n")
+    print("CORREÇÃO: Agora verifica apenas colunas que existem em cada tabela")
     
-    resposta = input("Iniciar verificação? (S/n): ")
+    resposta = input("\nIniciar verificação? (S/n): ")
     if resposta.lower() == 'n':
         print("\n❌ Operação cancelada.")
         return
