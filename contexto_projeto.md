@@ -186,3 +186,36 @@ python scripts/documentar_duckdb.py
 
 ---
 *Última atualização: Agosto 2025*
+
+
+---
+
+Estrutura Pastas Balanço Geral 
+📁 Estrutura Super Organizada:
+app/
+├── routes/
+│   └── balanco_geral/
+│       ├── __init__.py
+│       ├── balanco_geral.py (página principal)
+│       ├── receita_estimada.py
+│       ├── despesa_autorizada.py
+│       └── resultado_orcamentario.py
+│
+├── templates/
+│   └── balanco_geral/
+│       └── balanco_geral.html
+│
+└── static/
+    ├── css/
+    │   └── balanco_geral/
+    │       ├── balanco_geral.css (estilos da página principal)
+    │       ├── receita_estimada.css
+    │       ├── despesa_autorizada.css
+    │       └── resultado_orcamentario.css
+    │
+    └── js/
+        └── balanco_geral/
+            ├── balanco_geral.js (controla a página principal)
+            ├── receita_estimada.js
+            ├── despesa_autorizada.js
+            └── resultado_orcamentario.js

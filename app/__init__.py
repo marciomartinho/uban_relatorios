@@ -1,5 +1,6 @@
 """
 Inicialização da aplicação Flask
+Arquivo: app/__init__.py
 """
 from flask import Flask
 from config import config
@@ -42,6 +43,18 @@ def create_app(config_name='default'):
 
     from app.routes.balanco_receita import balanco_receita
     app.register_blueprint(balanco_receita, url_prefix='/balanco-receita')
+
+    # Registrar blueprints do Balanço Geral GDF
+    from app.routes.balanco_geral.balanco_geral import balanco_geral
+    from app.routes.balanco_geral.receita_estimada import receita_estimada_api
+    from app.routes.balanco_geral.receita_tipo_administracao import receita_tipo_adm_api
+    
+    # Registrar o blueprint principal do balanço geral
+    app.register_blueprint(balanco_geral, url_prefix='/balanco-geral')
+    
+    # Registrar as APIs dentro do contexto do balanço geral
+    app.register_blueprint(receita_estimada_api, url_prefix='/balanco-geral')
+    app.register_blueprint(receita_tipo_adm_api, url_prefix='/balanco-geral')
 
     from app.modules.comparativo_mensal_acumulado import comparativo_mensal
     app.register_blueprint(comparativo_mensal, url_prefix='/comparativo-mensal')

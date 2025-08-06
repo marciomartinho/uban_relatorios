@@ -1,0 +1,104 @@
+/* Estilos gerais para Balanço Geral GDF */
+
+/* Cards de botões */
+.card {
+    transition: transform 0.2s ease;
+}
+
+.card:hover:not(.disabled-card) {
+    transform: translateY(-5px);
+}
+
+.disabled-card {
+    opacity: 0.6;
+}
+
+.disabled-card:hover {
+    transform: none;
+}
+
+/* Container do quadro preview */
+.quadro-preview {
+    background-color: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+    overflow-x: auto;
+    max-height: 600px;
+    overflow-y: auto;
+}
+
+/* Ícones grandes nos cards */
+.display-4 {
+    font-size: 3.5rem;
+}
+
+/* Responsividade geral */
+@media (max-width: 768px) {
+    .display-4 {
+        font-size: 2.5rem;
+    }
+}
+
+/* Animações */
+.quadro-preview {
+    animation: fadeIn 0.5s ease;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Botões customizados */
+.btn-lg {
+    padding: 12px 30px;
+    font-size: 18px;
+}
+
+/* Loading */
+.spinner-border {
+    width: 3rem;
+    height: 3rem;
+}
+
+/* Scrollbar customizada para o preview */
+.quadro-preview::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.quadro-preview::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.quadro-preview::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+.quadro-preview::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+/* Print styles */
+@media print {
+    .btn,
+    .alert,
+    .card-header,
+    .card-body > *:not(.quadro-preview) {
+        display: none !important;
+    }
+    
+    .quadro-preview {
+        background: white;
+        padding: 0;
+        box-shadow: none;
+    }
+}

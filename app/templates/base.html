@@ -128,8 +128,14 @@
                             </li>
                         </ul>
                     </li>
-                    
+
+                    <!-- Menu Balanço Geral GDF -->
                     <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'balanco_geral.index' %}active{% endif %}" 
+                           href="{{ url_for('balanco_geral.index') }}">
+                            <i class="bi bi-building"></i> Balanço Geral GDF
+                        </a>
+                    </li>
                     
                     <li class="nav-item">
                         <a class="nav-link {% if request.endpoint == 'main.sobre' %}active{% endif %}" 

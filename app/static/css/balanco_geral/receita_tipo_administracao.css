@@ -1,0 +1,177 @@
+/* Estilos específicos para Receita Estimada Líquida por Tipo de Administração 
+   Arquivo: app/static/css/balanco_geral/receita_tipo_administracao.css */
+
+/* Tabela de receita por tipo de administração */
+.tabela-receita-tipo-adm {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: Arial, sans-serif;
+    font-size: 14px;
+    background-color: white;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* Células e cabeçalhos */
+.tabela-receita-tipo-adm th,
+.tabela-receita-tipo-adm td {
+    border: 1px solid #000;
+    padding: 8px;
+    text-align: right;
+}
+
+/* Título principal */
+.tabela-receita-tipo-adm .titulo-principal {
+    background-color: #1e3c72;
+    color: white;
+    font-size: 18px;
+    font-weight: bold;
+    text-align: center;
+    padding: 12px !important;
+    letter-spacing: 1px;
+}
+
+/* Cabeçalhos de colunas */
+.tabela-receita-tipo-adm .header-colunas th {
+    background-color: #3468c0;
+    color: white;
+    font-weight: bold;
+    text-align: center;
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+/* Coluna de especificação */
+.tabela-receita-tipo-adm .col-especificacao {
+    text-align: left !important;
+    width: 30%;
+    min-width: 250px;
+}
+
+/* Colunas de tipo de administração */
+.tabela-receita-tipo-adm .col-tipo-adm {
+    width: auto;
+    text-align: center !important;
+    min-width: 120px;
+    font-size: 11px;
+}
+
+/* Colunas de valor */
+.tabela-receita-tipo-adm .col-valor {
+    text-align: right;
+    white-space: nowrap;
+    font-size: 13px;
+}
+
+/* Linhas de categoria (principais) */
+.tabela-receita-tipo-adm .linha-categoria td {
+    font-weight: bold;
+    background-color: #e8f0ff;
+}
+
+.tabela-receita-tipo-adm .linha-categoria .col-especificacao {
+    text-transform: uppercase;
+}
+
+/* Linhas de fonte (filhas) */
+.tabela-receita-tipo-adm .linha-fonte td {
+    background-color: white;
+}
+
+.tabela-receita-tipo-adm .linha-fonte .col-especificacao {
+    padding-left: 30px !important;
+    font-size: 13px;
+}
+
+/* Linha de total */
+.tabela-receita-tipo-adm .linha-total td {
+    font-weight: bold;
+    background-color: #1e3c72;
+    color: white;
+    font-size: 14px;
+}
+
+/* Rodapé da tabela */
+.rodape-tabela {
+    margin-top: 20px;
+    font-size: 11px;
+    color: #666;
+    line-height: 1.4;
+}
+
+.rodape-tabela p {
+    margin: 2px 0;
+}
+
+/* Hover effects */
+.tabela-receita-tipo-adm tbody tr:hover:not(.linha-total) {
+    background-color: #f5f5f5 !important;
+}
+
+.tabela-receita-tipo-adm .linha-fonte:hover td {
+    background-color: #f0f8ff !important;
+}
+
+/* Responsividade */
+@media (max-width: 1200px) {
+    .tabela-receita-tipo-adm {
+        font-size: 12px;
+    }
+    
+    .tabela-receita-tipo-adm .col-tipo-adm {
+        font-size: 10px;
+        min-width: 100px;
+    }
+    
+    .tabela-receita-tipo-adm .col-valor {
+        font-size: 11px;
+    }
+}
+
+@media (max-width: 768px) {
+    .tabela-receita-tipo-adm {
+        font-size: 11px;
+    }
+    
+    .tabela-receita-tipo-adm th,
+    .tabela-receita-tipo-adm td {
+        padding: 4px;
+    }
+    
+    .tabela-receita-tipo-adm .titulo-principal {
+        font-size: 14px;
+    }
+    
+    .tabela-receita-tipo-adm .col-especificacao {
+        width: 25%;
+        min-width: 150px;
+    }
+    
+    .tabela-receita-tipo-adm .col-tipo-adm {
+        min-width: 80px;
+    }
+}
+
+/* Container de overflow para tabelas grandes */
+.tabela-receita-tipo-adm-wrapper {
+    overflow-x: auto;
+    max-width: 100%;
+    margin: 0 auto;
+}
+
+.tabela-receita-tipo-adm-wrapper::-webkit-scrollbar {
+    height: 8px;
+}
+
+.tabela-receita-tipo-adm-wrapper::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.tabela-receita-tipo-adm-wrapper::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+.tabela-receita-tipo-adm-wrapper::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}

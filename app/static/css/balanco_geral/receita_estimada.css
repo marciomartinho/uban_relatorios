@@ -1,0 +1,149 @@
+/* Estilos específicos para Receita Estimada Líquida */
+
+/* Tabela de receita estimada */
+.tabela-receita-estimada {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: Arial, sans-serif;
+    font-size: 14px;
+    background-color: white;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* Células e cabeçalhos */
+.tabela-receita-estimada th,
+.tabela-receita-estimada td {
+    border: 1px solid #000;
+    padding: 8px;
+    text-align: right;
+}
+
+/* Título principal */
+.tabela-receita-estimada .titulo-principal {
+    background-color: #1e3c72;
+    color: white;
+    font-size: 18px;
+    font-weight: bold;
+    text-align: center;
+    padding: 12px !important;
+    letter-spacing: 1px;
+}
+
+/* Cabeçalhos de ano */
+.tabela-receita-estimada .header-anos th {
+    background-color: #2a5298;
+    color: white;
+    font-weight: bold;
+    text-align: center;
+}
+
+.tabela-receita-estimada .ano-header {
+    font-size: 16px;
+}
+
+/* Cabeçalhos de colunas */
+.tabela-receita-estimada .header-colunas th {
+    background-color: #3468c0;
+    color: white;
+    font-weight: bold;
+    text-align: center;
+    font-size: 12px;
+}
+
+/* Coluna de especificação */
+.tabela-receita-estimada .col-especificacao {
+    text-align: left !important;
+    width: 40%;
+}
+
+/* Colunas de valor */
+.tabela-receita-estimada .col-valor {
+    width: 18%;
+    text-align: right;
+}
+
+/* Colunas de percentual */
+.tabela-receita-estimada .col-percentual {
+    width: 8%;
+    text-align: center !important;
+}
+
+/* Coluna de variação */
+.tabela-receita-estimada .col-variacao {
+    width: 8%;
+    text-align: center !important;
+    font-weight: bold;
+}
+
+/* Linhas de categoria (principais) */
+.tabela-receita-estimada .linha-categoria td {
+    font-weight: bold;
+    background-color: #e8f0ff;
+}
+
+.tabela-receita-estimada .linha-categoria .col-especificacao {
+    text-transform: uppercase;
+}
+
+/* Linhas de fonte (filhas) */
+.tabela-receita-estimada .linha-fonte td {
+    background-color: white;
+}
+
+.tabela-receita-estimada .linha-fonte .col-especificacao {
+    padding-left: 30px !important;
+    font-size: 13px;
+}
+
+/* Linha de total */
+.tabela-receita-estimada .linha-total td {
+    font-weight: bold;
+    background-color: #1e3c72;
+    color: white;
+}
+
+/* Cores para variações */
+.tabela-receita-estimada .positiva {
+    color: #28a745;
+}
+
+.tabela-receita-estimada .negativa {
+    color: #dc3545;
+}
+
+.tabela-receita-estimada .linha-total .positiva,
+.tabela-receita-estimada .linha-total .negativa {
+    color: white;
+}
+
+/* Rodapé da tabela */
+.rodape-tabela {
+    margin-top: 20px;
+    font-size: 11px;
+    color: #666;
+    line-height: 1.4;
+}
+
+.rodape-tabela p {
+    margin: 2px 0;
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+    .tabela-receita-estimada {
+        font-size: 12px;
+    }
+    
+    .tabela-receita-estimada th,
+    .tabela-receita-estimada td {
+        padding: 4px;
+    }
+    
+    .tabela-receita-estimada .titulo-principal {
+        font-size: 14px;
+    }
+    
+    .tabela-receita-estimada .col-especificacao {
+        width: 35%;
+    }
+}
