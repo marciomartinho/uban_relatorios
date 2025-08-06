@@ -38,7 +38,7 @@ def get_dados_receita_tipo_administracao():
         ano_atual = ano_result[0]['coexercicio']
 
         # Nova Query SQL Dinâmica para buscar receitas, categorias e fontes
-        # Mantendo tipos originais e fazendo CAST apenas onde necessário
+        # CORREÇÃO: cocategoriareceita é VARCHAR em receita_saldo e BIGINT em DIM_RECEITA_CATEGORIA
         query = """
         WITH dados_agregados AS (
             SELECT
@@ -60,11 +60,11 @@ def get_dados_receita_tipo_administracao():
             da.fonte_principal,
             da.intipoadm,
             da.receita_prevista,
-            COALESCE(drc.nocategoriareceita, CONCAT('Categoria ', CAST(da.cocategoriareceita AS VARCHAR))) as nocategoriareceita,
+            COALESCE(drc.nocategoriareceita, CONCAT('Categoria ', da.cocategoriareceita)) as nocategoriareceita,
             COALESCE(dro.nofontereceita, CONCAT('Fonte ', da.fonte_principal)) as nofontereceita
         FROM dados_agregados da
-        LEFT JOIN DIM_RECEITA_CATEGORIA drc ON da.cocategoriareceita = drc.cocategoriareceita
-        LEFT JOIN DIM_RECEITA_ORIGEM dro ON da.fonte_principal = CAST(dro.cofontereceita AS VARCHAR)
+        LEFT JOIN DIM_RECEITA_CATEGORIA drc ON CAST(da.cocategoriareceita AS BIGINT) = drc.cocategoriareceita
+        LEFT JOIN DIM_RECEITA_ORIGEM dro ON CAST(da.fonte_principal AS BIGINT) = dro.cofontereceita
         WHERE da.receita_prevista != 0
         ORDER BY da.cocategoriareceita, da.fonte_principal, da.intipoadm
         """
