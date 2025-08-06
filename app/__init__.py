@@ -4,6 +4,7 @@ Inicialização da aplicação Flask
 from flask import Flask
 from config import config
 from app.modules.analise_visual_receitas import registrar_modulo
+from .db_manager import db_manager
 
 def create_app(config_name='default'):
     """Factory pattern para criar a aplicação Flask"""
@@ -14,6 +15,8 @@ def create_app(config_name='default'):
     # Carregar configurações
     app.config.from_object(config[config_name])
     config[config_name].init_app(app)
+
+    db_manager.init_app(app)
     
     # Registrar blueprints
     from app.routes.main import main as main_blueprint

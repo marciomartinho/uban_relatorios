@@ -2,8 +2,8 @@
 Blueprint para Balanço Orçamentário da Receita
 Adaptado do sistema original para trabalhar com DuckDB
 """
-from flask import Blueprint, render_template, jsonify, request
-from app.modules.database_duckdb import db_duckdb
+from flask import Blueprint, render_template, jsonify, request, current_app
+from app.db_manager import db_manager # Usando o db_manager central
 from datetime import datetime
 import traceback
 
@@ -32,41 +32,31 @@ CATEGORIA_FONTE_MAP = {
 @balanco_receita.route('/')
 def index():
     """Página principal do Balanço Orçamentário da Receita"""
-    return render_template('balanco_receita/index.html', 
+    return render_template('balanco_receita/index.html',
                          title='Balanço Orçamentário da Receita')
 
 @balanco_receita.route('/api/filtros')
 def get_filtros():
     """Retorna os filtros disponíveis para o relatório"""
     try:
-        conn = db_duckdb.get_connection()
-        
-        # Buscar anos disponíveis
-        anos_query = """
-        SELECT DISTINCT coexercicio 
-        FROM receita_saldo 
-        ORDER BY coexercicio DESC
-        """
-        anos = [row[0] for row in conn.execute(anos_query).fetchall()]
-        
-        # Buscar último mês com dados do ano mais recente
+        anos_query = "SELECT DISTINCT coexercicio FROM receita_saldo ORDER BY coexercicio DESC"
+        anos_result = db_manager.execute_query(anos_query)
+        anos = [row['coexercicio'] for row in anos_result]
+
         ultimo_mes = None
         if anos:
             ano_atual = anos[0]
-            meses_query = f"""
-            SELECT DISTINCT inmes 
-            FROM receita_saldo 
-            WHERE coexercicio = {ano_atual}
-                AND ABS(saldo_contabil_receita) > 0.01
-            ORDER BY inmes DESC
-            LIMIT 1
-            """
-            result = conn.execute(meses_query).fetchone()
-            ultimo_mes = result[0] if result else 12
-        
-        # Buscar UGs (Unidades Gestoras) com movimento
+            
+            # Adaptação para ambos os bancos
+            param_style = "?" if db_manager.is_duckdb else ":ano_atual"
+            meses_query = f"SELECT DISTINCT inmes FROM receita_saldo WHERE coexercicio = {param_style} AND ABS(saldo_contabil_receita) > 0.01 ORDER BY inmes DESC LIMIT 1"
+            params = [ano_atual] if db_manager.is_duckdb else {'ano_atual': ano_atual}
+
+            result = db_manager.execute_query(meses_query, params)
+            ultimo_mes = result[0]['inmes'] if result else 12
+
         ugs_query = """
-        SELECT DISTINCT 
+        SELECT DISTINCT
             rs.coug,
             COALESCE(ug.noug, 'UG ' || rs.coug) as nome_ug
         FROM receita_saldo rs
@@ -75,21 +65,19 @@ def get_filtros():
         ORDER BY rs.coug
         """
         ugs = []
-        for row in conn.execute(ugs_query).fetchall():
+        for row in db_manager.execute_query(ugs_query):
             ugs.append({
-                'codigo': row[0],
-                'descricao': f"{row[0]} - {row[1]}"
+                'codigo': row['coug'],
+                'descricao': f"{row['coug']} - {row['nome_ug']}"
             })
-        
-        conn.close()
-        
+
         return jsonify({
             'anos': anos,
             'ano_atual': anos[0] if anos else None,
             'ultimo_mes': ultimo_mes,
             'ugs': ugs
         })
-        
+
     except Exception as e:
         print(f"Erro em get_filtros: {str(e)}")
         traceback.print_exc()
@@ -99,120 +87,92 @@ def get_filtros():
 def gerar_relatorio():
     """Gera o relatório de Balanço Orçamentário da Receita"""
     try:
-        # Pegar parâmetros
         ano = request.args.get('ano', type=int)
         mes = request.args.get('mes', type=int)
         coug = request.args.get('coug', '')
-        
+
         if not ano or not mes:
             return jsonify({'erro': 'Ano e mês são obrigatórios'}), 400
-        
-        conn = db_duckdb.get_connection()
-        
-        # Construir filtro de UG
-        filtro_ug = f"AND rs.coug = '{coug}'" if coug else ""
-        
-        # Query principal - buscar todas as categorias, fontes, subfontes e alíneas
+
+        # Define o estilo do placeholder para a query ('?' para DuckDB, ':nome' para Psql)
+        param_style = "?" if db_manager.is_duckdb else ":{}"
+
+        filtro_ug_sql = ""
+        if coug:
+            filtro_ug_sql = f"AND rs.coug = {param_style.format('coug') if not db_manager.is_duckdb else '?'}"
+
         query = f"""
         WITH dados_agregados AS (
             SELECT
-                rs.cocategoriareceita,
-                rs.cofontereceita,
-                rs.cosubfontereceita,
-                rs.coalinea,
-                rs.coexercicio,
-                rs.inmes,
-                -- Previsão Inicial (contas 521100000 a 521199999)
-                SUM(CASE 
-                    WHEN rs.cocontacontabil >= '521100000' AND rs.cocontacontabil <= '521199999' 
-                    THEN rs.saldo_contabil_receita 
-                    ELSE 0 
-                END) as previsao_inicial,
-                -- Previsão Atualizada (contas 521100000 a 521299999)
-                SUM(CASE 
-                    WHEN rs.cocontacontabil >= '521100000' AND rs.cocontacontabil <= '521299999' 
-                    THEN rs.saldo_contabil_receita 
-                    ELSE 0 
-                END) as previsao_atualizada,
-                -- Receita Realizada (contas 621200000 a 621399999)
-                SUM(CASE 
-                    WHEN rs.cocontacontabil >= '621200000' AND rs.cocontacontabil <= '621399999' 
-                    THEN rs.saldo_contabil_receita 
-                    ELSE 0 
-                END) as receita_realizada
+                rs.cocategoriareceita, rs.cofontereceita, rs.cosubfontereceita, rs.coalinea,
+                rs.coexercicio, rs.inmes,
+                SUM(CASE WHEN rs.cocontacontabil >= '521100000' AND rs.cocontacontabil <= '521199999' THEN rs.saldo_contabil_receita ELSE 0 END) as previsao_inicial,
+                SUM(CASE WHEN rs.cocontacontabil >= '521100000' AND rs.cocontacontabil <= '521299999' THEN rs.saldo_contabil_receita ELSE 0 END) as previsao_atualizada,
+                SUM(CASE WHEN rs.cocontacontabil >= '621200000' AND rs.cocontacontabil <= '621399999' THEN rs.saldo_contabil_receita ELSE 0 END) as receita_realizada
             FROM receita_saldo rs
-            WHERE rs.cocategoriareceita IN ('1', '2', '7') {filtro_ug}
+            WHERE rs.cocategoriareceita IN ('1', '2', '7') {filtro_ug_sql}
             GROUP BY 1, 2, 3, 4, 5, 6
         ),
         dados_sumarizados AS (
             SELECT
-                cocategoriareceita,
-                cofontereceita,
-                cosubfontereceita,
-                coalinea,
-                -- Valores do ano atual
-                SUM(CASE WHEN coexercicio = {ano} THEN previsao_inicial ELSE 0 END) as previsao_inicial,
-                SUM(CASE WHEN coexercicio = {ano} THEN previsao_atualizada ELSE 0 END) as previsao_atualizada,
-                SUM(CASE WHEN coexercicio = {ano} AND inmes <= {mes} THEN receita_realizada ELSE 0 END) as receita_atual,
-                -- Valores do ano anterior
-                SUM(CASE WHEN coexercicio = {ano-1} AND inmes <= {mes} THEN receita_realizada ELSE 0 END) as receita_anterior
+                cocategoriareceita, cofontereceita, cosubfontereceita, coalinea,
+                SUM(CASE WHEN coexercicio = {param_style.format('ano') if not db_manager.is_duckdb else '?'} THEN previsao_inicial ELSE 0 END) as previsao_inicial,
+                SUM(CASE WHEN coexercicio = {param_style.format('ano') if not db_manager.is_duckdb else '?'} THEN previsao_atualizada ELSE 0 END) as previsao_atualizada,
+                SUM(CASE WHEN coexercicio = {param_style.format('ano') if not db_manager.is_duckdb else '?'} AND inmes <= {param_style.format('mes') if not db_manager.is_duckdb else '?'} THEN receita_realizada ELSE 0 END) as receita_atual,
+                SUM(CASE WHEN coexercicio = {param_style.format('ano_anterior') if not db_manager.is_duckdb else '?'} AND inmes <= {param_style.format('mes') if not db_manager.is_duckdb else '?'} THEN receita_realizada ELSE 0 END) as receita_anterior
             FROM dados_agregados
-            WHERE coexercicio IN ({ano}, {ano-1})
+            WHERE coexercicio IN ({param_style.format('ano') if not db_manager.is_duckdb else '?'}, {param_style.format('ano_anterior') if not db_manager.is_duckdb else '?'})
             GROUP BY 1, 2, 3, 4
         )
-        SELECT 
-            ds.cocategoriareceita,
-            ds.cofontereceita,
+        SELECT
+            ds.cocategoriareceita, ds.cofontereceita,
             COALESCE(ori.nofontereceita, 'Fonte ' || ds.cofontereceita) as nome_fonte,
             ds.cosubfontereceita,
             COALESCE(esp.nosubfontereceita, 'Subfonte ' || ds.cosubfontereceita) as nome_subfonte,
             ds.coalinea,
             COALESCE(ali.noalinea, 'Alínea ' || ds.coalinea) as nome_alinea,
-            ds.previsao_inicial,
-            ds.previsao_atualizada,
-            ds.receita_atual,
-            ds.receita_anterior
+            ds.previsao_inicial, ds.previsao_atualizada, ds.receita_atual, ds.receita_anterior
         FROM dados_sumarizados ds
         LEFT JOIN dim_receita_origem ori ON ds.cofontereceita = CAST(ori.cofontereceita AS VARCHAR)
         LEFT JOIN dim_receita_especie esp ON ds.cosubfontereceita = CAST(esp.cosubfontereceita AS VARCHAR)
         LEFT JOIN dim_receita_alinea ali ON ds.coalinea = CAST(ali.coalinea AS VARCHAR)
-        WHERE ABS(ds.previsao_inicial) + ABS(ds.previsao_atualizada) + 
-              ABS(ds.receita_atual) + ABS(ds.receita_anterior) > 0.01
+        WHERE ABS(ds.previsao_inicial) + ABS(ds.previsao_atualizada) + ABS(ds.receita_atual) + ABS(ds.receita_anterior) > 0.01
         ORDER BY ds.cocategoriareceita, ds.cofontereceita, ds.cosubfontereceita, ds.coalinea
         """
         
+        # Monta os parâmetros na ordem correta que a query espera
+        if db_manager.is_duckdb:
+            params = [ano, ano, ano, mes, ano - 1, mes, ano, ano - 1]
+            if coug:
+                params.insert(0, coug) # Adiciona no início da lista se existir
+        else: # PostgreSQL
+            params = {'ano': ano, 'mes': mes, 'ano_anterior': ano - 1}
+            if coug:
+                params['coug'] = coug
+
         print(f"Executando query para ano={ano}, mes={mes}, coug={coug}")
-        
-        # Executar query
-        cursor = conn.execute(query)
-        resultados = cursor.fetchall()
-        
+        resultados = db_manager.execute_query(query, params=params)
         print(f"Query retornou {len(resultados)} registros")
+
+        resultados_como_tuplas = [tuple(row.values()) for row in resultados]
+        dados_hierarquicos = processar_dados_hierarquicos(resultados_como_tuplas)
         
-        # Processar resultados em estrutura hierárquica
-        dados_hierarquicos = processar_dados_hierarquicos(resultados)
-        
-        # Calcular totais
         totais = calcular_totais(dados_hierarquicos)
         
         resultado = {
             'periodo': {
-                'ano': ano,
-                'mes': mes,
-                'ano_anterior': ano - 1,
+                'ano': ano, 'mes': mes, 'ano_anterior': ano - 1,
                 'nome_mes': obter_nome_mes(mes),
                 'periodo_completo': f"{obter_nome_mes(mes)}/{ano}"
             },
             'filtros': {
                 'coug': coug,
-                'nome_coug': obter_nome_ug(conn, coug) if coug else 'Consolidado'
+                'nome_coug': obter_nome_ug(coug) if coug else 'Consolidado'
             },
             'dados': dados_hierarquicos,
             'totais': totais,
             'data_geracao': datetime.now().strftime('%d/%m/%Y %H:%M')
         }
-        
-        conn.close()
         
         return jsonify(resultado)
         
@@ -221,6 +181,7 @@ def gerar_relatorio():
         traceback.print_exc()
         return jsonify({'erro': str(e)}), 500
 
+# ... (o resto das funções, como processar_dados_hierarquicos, calcular_totais, etc., continua IGUAL) ...
 def processar_dados_hierarquicos(resultados):
     """Processa os resultados em estrutura hierárquica correta com 4 níveis"""
     dados = []
@@ -250,20 +211,15 @@ def processar_dados_hierarquicos(resultados):
     fontes_por_categoria = {'1': {}, '2': {}, '7': {}}
     
     for row in resultados:
-        cat_id = row[0]  # cocategoriareceita
-        fonte_id = row[1]  # cofontereceita
-        nome_fonte = row[2]  # nome_fonte
-        subfonte_id = row[3]  # cosubfontereceita
-        nome_subfonte = row[4]  # nome_subfonte
-        alinea_id = row[5]  # coalinea
-        nome_alinea = row[6]  # nome_alinea
-        previsao_inicial = float(row[7] or 0)
-        previsao_atualizada = float(row[8] or 0)
-        receita_atual = float(row[9] or 0)
-        receita_anterior = float(row[10] or 0)
+        cat_id, fonte_id, nome_fonte, subfonte_id, nome_subfonte, alinea_id, nome_alinea, \
+        previsao_inicial, previsao_atualizada, receita_atual, receita_anterior = row
         
-        # Determinar a qual categoria pertence esta fonte
-        fonte_num = int(fonte_id) if fonte_id.isdigit() else 0
+        previsao_inicial = float(previsao_inicial or 0)
+        previsao_atualizada = float(previsao_atualizada or 0)
+        receita_atual = float(receita_atual or 0)
+        receita_anterior = float(receita_anterior or 0)
+        
+        fonte_num = int(fonte_id) if fonte_id and fonte_id.isdigit() else 0
         categoria_id = None
         
         for cid, cinfo in CATEGORIA_FONTE_MAP.items():
@@ -272,31 +228,18 @@ def processar_dados_hierarquicos(resultados):
                 break
         
         if categoria_id and categoria_id == cat_id:
-            # Adicionar valores à categoria
             categorias[categoria_id]['previsao_inicial'] += previsao_inicial
             categorias[categoria_id]['previsao_atualizada'] += previsao_atualizada
             categorias[categoria_id]['receita_atual'] += receita_atual
             categorias[categoria_id]['receita_anterior'] += receita_anterior
             categorias[categoria_id]['tem_filhos'] = True
             
-            # Criar ou atualizar fonte
             if fonte_id not in fontes_por_categoria[categoria_id]:
                 fontes_por_categoria[categoria_id][fonte_id] = {
-                    'id': f'fonte-{categoria_id}-{fonte_id}',
-                    'codigo': fonte_id,
-                    'descricao': nome_fonte,
-                    'nivel': 1,
-                    'tipo': 'fonte',
-                    'categoria_pai': categoria_id,
-                    'previsao_inicial': 0,
-                    'previsao_atualizada': 0,
-                    'receita_atual': 0,
-                    'receita_anterior': 0,
-                    'variacao_absoluta': 0,
-                    'variacao_percentual': 0,
-                    'expandido': False,
-                    'tem_filhos': False,
-                    'subfontes': {}
+                    'id': f'fonte-{categoria_id}-{fonte_id}', 'codigo': fonte_id, 'descricao': nome_fonte,
+                    'nivel': 1, 'tipo': 'fonte', 'categoria_pai': categoria_id,
+                    'previsao_inicial': 0, 'previsao_atualizada': 0, 'receita_atual': 0, 'receita_anterior': 0,
+                    'variacao_absoluta': 0, 'variacao_percentual': 0, 'expandido': False, 'tem_filhos': False, 'subfontes': {}
                 }
             
             fonte_data = fontes_por_categoria[categoria_id][fonte_id]
@@ -305,29 +248,15 @@ def processar_dados_hierarquicos(resultados):
             fonte_data['receita_atual'] += receita_atual
             fonte_data['receita_anterior'] += receita_anterior
             
-            # Adicionar subfonte se existir
             if subfonte_id and subfonte_id != fonte_id:
                 fonte_data['tem_filhos'] = True
                 
-                # Criar ou atualizar subfonte
                 if subfonte_id not in fonte_data['subfontes']:
                     fonte_data['subfontes'][subfonte_id] = {
-                        'id': f'subfonte-{categoria_id}-{fonte_id}-{subfonte_id}',
-                        'codigo': subfonte_id,
-                        'descricao': nome_subfonte,
-                        'nivel': 2,
-                        'tipo': 'subfonte',
-                        'categoria_pai': categoria_id,
-                        'fonte_pai': fonte_id,
-                        'previsao_inicial': 0,
-                        'previsao_atualizada': 0,
-                        'receita_atual': 0,
-                        'receita_anterior': 0,
-                        'variacao_absoluta': 0,
-                        'variacao_percentual': 0,
-                        'expandido': False,
-                        'tem_filhos': False,
-                        'alineas': {}
+                        'id': f'subfonte-{categoria_id}-{fonte_id}-{subfonte_id}', 'codigo': subfonte_id, 'descricao': nome_subfonte,
+                        'nivel': 2, 'tipo': 'subfonte', 'categoria_pai': categoria_id, 'fonte_pai': fonte_id,
+                        'previsao_inicial': 0, 'previsao_atualizada': 0, 'receita_atual': 0, 'receita_anterior': 0,
+                        'variacao_absoluta': 0, 'variacao_percentual': 0, 'expandido': False, 'tem_filhos': False, 'alineas': {}
                     }
                 
                 subfonte_data = fonte_data['subfontes'][subfonte_id]
@@ -336,97 +265,53 @@ def processar_dados_hierarquicos(resultados):
                 subfonte_data['receita_atual'] += receita_atual
                 subfonte_data['receita_anterior'] += receita_anterior
                 
-                # Adicionar alínea se existir e for diferente da subfonte
                 if alinea_id and alinea_id != subfonte_id:
                     subfonte_data['tem_filhos'] = True
                     
-                    # Calcular variação da alínea
                     variacao_absoluta = receita_atual - receita_anterior
-                    if receita_anterior != 0:
-                        variacao_percentual = (variacao_absoluta / abs(receita_anterior)) * 100
-                    else:
-                        variacao_percentual = 100 if receita_atual != 0 else 0
+                    variacao_percentual = (variacao_absoluta / abs(receita_anterior) * 100) if receita_anterior != 0 else (100 if receita_atual != 0 else 0)
                     
                     subfonte_data['alineas'][alinea_id] = {
-                        'id': f'alinea-{categoria_id}-{fonte_id}-{subfonte_id}-{alinea_id}',
-                        'codigo': alinea_id,
-                        'descricao': nome_alinea,
-                        'nivel': 3,
-                        'tipo': 'alinea',
-                        'categoria_pai': categoria_id,
-                        'fonte_pai': fonte_id,
-                        'subfonte_pai': subfonte_id,
-                        'previsao_inicial': previsao_inicial,
-                        'previsao_atualizada': previsao_atualizada,
-                        'receita_atual': receita_atual,
-                        'receita_anterior': receita_anterior,
-                        'variacao_absoluta': variacao_absoluta,
-                        'variacao_percentual': variacao_percentual,
-                        'expandido': False,
-                        'tem_filhos': False
+                        'id': f'alinea-{categoria_id}-{fonte_id}-{subfonte_id}-{alinea_id}', 'codigo': alinea_id, 'descricao': nome_alinea,
+                        'nivel': 3, 'tipo': 'alinea', 'categoria_pai': categoria_id, 'fonte_pai': fonte_id, 'subfonte_pai': subfonte_id,
+                        'previsao_inicial': previsao_inicial, 'previsao_atualizada': previsao_atualizada, 'receita_atual': receita_atual, 'receita_anterior': receita_anterior,
+                        'variacao_absoluta': variacao_absoluta, 'variacao_percentual': variacao_percentual, 'expandido': False, 'tem_filhos': False
                     }
     
-    # Montar estrutura final
-    for cat_id in ['1', '2', '7']:  # Ordem fixa das categorias
+    for cat_id in ['1', '2', '7']:
         if cat_id in categorias:
             cat_data = categorias[cat_id]
             
-            # Calcular variação da categoria
             cat_data['variacao_absoluta'] = cat_data['receita_atual'] - cat_data['receita_anterior']
-            if cat_data['receita_anterior'] != 0:
-                cat_data['variacao_percentual'] = (cat_data['variacao_absoluta'] / abs(cat_data['receita_anterior'])) * 100
-            else:
-                cat_data['variacao_percentual'] = 100 if cat_data['receita_atual'] != 0 else 0
+            cat_data['variacao_percentual'] = (cat_data['variacao_absoluta'] / abs(cat_data['receita_anterior']) * 100) if cat_data['receita_anterior'] != 0 else (100 if cat_data['receita_atual'] != 0 else 0)
             
-            # Adicionar categoria apenas se tiver valores
-            if (abs(cat_data['previsao_inicial']) + abs(cat_data['previsao_atualizada']) + 
-                abs(cat_data['receita_atual']) + abs(cat_data['receita_anterior'])) > 0.01:
+            if (abs(cat_data['previsao_inicial']) + abs(cat_data['previsao_atualizada']) + abs(cat_data['receita_atual']) + abs(cat_data['receita_anterior'])) > 0.01:
                 dados.append(cat_data)
                 
-                # Adicionar fontes desta categoria
                 for fonte_id in sorted(fontes_por_categoria[cat_id].keys()):
                     fonte_data = fontes_por_categoria[cat_id][fonte_id]
                     
-                    # Calcular variação da fonte
                     fonte_data['variacao_absoluta'] = fonte_data['receita_atual'] - fonte_data['receita_anterior']
-                    if fonte_data['receita_anterior'] != 0:
-                        fonte_data['variacao_percentual'] = (fonte_data['variacao_absoluta'] / abs(fonte_data['receita_anterior'])) * 100
-                    else:
-                        fonte_data['variacao_percentual'] = 100 if fonte_data['receita_atual'] != 0 else 0
-                    
+                    fonte_data['variacao_percentual'] = (fonte_data['variacao_absoluta'] / abs(fonte_data['receita_anterior']) * 100) if fonte_data['receita_anterior'] != 0 else (100 if fonte_data['receita_atual'] != 0 else 0)
                     dados.append(fonte_data)
                     
-                    # Adicionar subfontes desta fonte
                     for subfonte_id in sorted(fonte_data['subfontes'].keys()):
                         subfonte_data = fonte_data['subfontes'][subfonte_id]
                         
-                        # Calcular variação da subfonte
                         subfonte_data['variacao_absoluta'] = subfonte_data['receita_atual'] - subfonte_data['receita_anterior']
-                        if subfonte_data['receita_anterior'] != 0:
-                            subfonte_data['variacao_percentual'] = (subfonte_data['variacao_absoluta'] / abs(subfonte_data['receita_anterior'])) * 100
-                        else:
-                            subfonte_data['variacao_percentual'] = 100 if subfonte_data['receita_atual'] != 0 else 0
-                        
+                        subfonte_data['variacao_percentual'] = (subfonte_data['variacao_absoluta'] / abs(subfonte_data['receita_anterior']) * 100) if subfonte_data['receita_anterior'] != 0 else (100 if subfonte_data['receita_atual'] != 0 else 0)
                         dados.append(subfonte_data)
                         
-                        # Adicionar alíneas desta subfonte
                         for alinea_id in sorted(subfonte_data['alineas'].keys()):
                             dados.append(subfonte_data['alineas'][alinea_id])
-    
     return dados
 
 def calcular_totais(dados):
     """Calcula os totais gerais do relatório"""
     totais = {
-        'previsao_inicial': 0,
-        'previsao_atualizada': 0,
-        'receita_atual': 0,
-        'receita_anterior': 0,
-        'variacao_absoluta': 0,
-        'variacao_percentual': 0
+        'previsao_inicial': 0, 'previsao_atualizada': 0, 'receita_atual': 0,
+        'receita_anterior': 0, 'variacao_absoluta': 0, 'variacao_percentual': 0
     }
-    
-    # Somar apenas categorias (nível 0)
     for item in dados:
         if item['nivel'] == 0:
             totais['previsao_inicial'] += item['previsao_inicial']
@@ -434,34 +319,23 @@ def calcular_totais(dados):
             totais['receita_atual'] += item['receita_atual']
             totais['receita_anterior'] += item['receita_anterior']
     
-    # Calcular variações
     totais['variacao_absoluta'] = totais['receita_atual'] - totais['receita_anterior']
-    if totais['receita_anterior'] != 0:
-        totais['variacao_percentual'] = (totais['variacao_absoluta'] / abs(totais['receita_anterior'])) * 100
-    else:
-        totais['variacao_percentual'] = 100 if totais['receita_atual'] != 0 else 0
-    
+    totais['variacao_percentual'] = (totais['variacao_absoluta'] / abs(totais['receita_anterior']) * 100) if totais['receita_anterior'] != 0 else (100 if totais['receita_atual'] != 0 else 0)
     return totais
 
-# Funções auxiliares
 def obter_nome_mes(mes):
     """Retorna o nome do mês"""
-    meses = {
-        1: 'Janeiro', 2: 'Fevereiro', 3: 'Março', 4: 'Abril',
-        5: 'Maio', 6: 'Junho', 7: 'Julho', 8: 'Agosto',
-        9: 'Setembro', 10: 'Outubro', 11: 'Novembro', 12: 'Dezembro'
-    }
+    meses = {1: 'Janeiro', 2: 'Fevereiro', 3: 'Março', 4: 'Abril', 5: 'Maio', 6: 'Junho', 7: 'Julho', 8: 'Agosto', 9: 'Setembro', 10: 'Outubro', 11: 'Novembro', 12: 'Dezembro'}
     return meses.get(mes, str(mes))
 
-def obter_nome_ug(conn, coug):
+def obter_nome_ug(coug):
     """Obtém o nome da UG"""
     try:
-        query = """
-        SELECT noug 
-        FROM dim_unidade_gestora 
-        WHERE coug = ?
-        """
-        result = conn.execute(query, [coug]).fetchone()
-        return result[0] if result else f"UG {coug}"
+        param_style = "?" if db_manager.is_duckdb else ":coug"
+        query = f"SELECT noug FROM dim_unidade_gestora WHERE coug = {param_style}"
+        params = [int(coug)] if db_manager.is_duckdb else {'coug': int(coug)}
+        
+        result = db_manager.execute_query(query, params=params)
+        return result[0]['noug'] if result else f"UG {coug}"
     except:
         return f"UG {coug}"

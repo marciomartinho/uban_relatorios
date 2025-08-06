@@ -1,9 +1,11 @@
 """
-Blueprint para detalhamento de conta contábil de receita - Versão DuckDB com Filtros em Cascata
+Blueprint para detalhamento de conta contábil de receita
+Adaptado para trabalhar com db_manager (DuckDB/PostgreSQL)
 """
 from flask import Blueprint, render_template, jsonify, request
-from app.modules.database_duckdb import db_duckdb
-import pandas as pd
+from app.db_manager import db_manager
+from datetime import datetime
+import traceback
 
 # Criar blueprint
 detalha_receita = Blueprint('detalha_receita', __name__)
@@ -11,33 +13,32 @@ detalha_receita = Blueprint('detalha_receita', __name__)
 @detalha_receita.route('/consulta')
 def consulta():
     """Página de consulta de detalhamento de conta contábil receita"""
-    return render_template('detalha_receita/consulta_detalha_receita.html', 
+    return render_template('detalha_receita/consulta_detalha_receita.html',
                          title='Detalha Conta Contábil Receita')
 
 @detalha_receita.route('/api/filtros')
 def get_filtros():
     """Retorna apenas os anos únicos - filtros iniciais"""
     try:
-        conn = db_duckdb.get_connection()
-        
-        # Buscar apenas anos únicos inicialmente
+        # Query para buscar anos distintos
         anos_query = """
         SELECT DISTINCT YEAR(dalancamento) as ano
-        FROM receita_lancamento 
+        FROM receita_lancamento
         WHERE dalancamento IS NOT NULL
         ORDER BY ano DESC
         """
-        anos = [row[0] for row in conn.execute(anos_query).fetchall()]
         
-        conn.close()
+        anos_result = db_manager.execute_query(anos_query)
+        anos = [row['ano'] for row in anos_result]
         
         return jsonify({
             'anos': anos,
-            'fonte': 'DuckDB Local'
+            'fonte': 'DuckDB Local' if db_manager.is_duckdb else 'PostgreSQL'
         })
         
     except Exception as e:
         print(f"Erro em get_filtros: {str(e)}")
+        traceback.print_exc()
         return jsonify({'erro': str(e)}), 500
 
 @detalha_receita.route('/api/contas-por-ano')
@@ -55,20 +56,28 @@ def get_contas_por_ano():
         except ValueError:
             return jsonify({'erro': 'Ano deve ser numérico'}), 400
         
-        conn = db_duckdb.get_connection()
+        # Adaptar query para ambos os bancos
+        if db_manager.is_duckdb:
+            contas_query = """
+            SELECT DISTINCT cocontacontabil
+            FROM receita_lancamento
+            WHERE YEAR(dalancamento) = ?
+                AND cocontacontabil IS NOT NULL
+            ORDER BY cocontacontabil
+            """
+            params = [int(ano)]
+        else:
+            contas_query = """
+            SELECT DISTINCT cocontacontabil
+            FROM receita_lancamento
+            WHERE EXTRACT(YEAR FROM dalancamento) = :ano
+                AND cocontacontabil IS NOT NULL
+            ORDER BY cocontacontabil
+            """
+            params = {'ano': int(ano)}
         
-        # Buscar contas contábeis que possuem dados no ano selecionado
-        contas_query = """
-        SELECT DISTINCT cocontacontabil 
-        FROM receita_lancamento 
-        WHERE YEAR(dalancamento) = ?
-            AND cocontacontabil IS NOT NULL
-        ORDER BY cocontacontabil
-        """
-        
-        contas = [row[0] for row in conn.execute(contas_query, [int(ano)]).fetchall()]
-        
-        conn.close()
+        contas_result = db_manager.execute_query(contas_query, params)
+        contas = [row['cocontacontabil'] for row in contas_result]
         
         return jsonify({
             'contas': contas
@@ -76,6 +85,7 @@ def get_contas_por_ano():
         
     except Exception as e:
         print(f"Erro em get_contas_por_ano: {str(e)}")
+        traceback.print_exc()
         return jsonify({'erro': str(e)}), 500
 
 @detalha_receita.route('/api/ugs-por-ano-conta')
@@ -94,21 +104,30 @@ def get_ugs_por_ano_conta():
         except ValueError:
             return jsonify({'erro': 'Ano deve ser numérico'}), 400
         
-        conn = db_duckdb.get_connection()
+        # Adaptar query para ambos os bancos
+        if db_manager.is_duckdb:
+            ugs_query = """
+            SELECT DISTINCT cougcontab
+            FROM receita_lancamento
+            WHERE YEAR(dalancamento) = ?
+                AND cocontacontabil = ?
+                AND cougcontab IS NOT NULL
+            ORDER BY cougcontab
+            """
+            params = [int(ano), conta]
+        else:
+            ugs_query = """
+            SELECT DISTINCT cougcontab
+            FROM receita_lancamento
+            WHERE EXTRACT(YEAR FROM dalancamento) = :ano
+                AND cocontacontabil = :conta
+                AND cougcontab IS NOT NULL
+            ORDER BY cougcontab
+            """
+            params = {'ano': int(ano), 'conta': conta}
         
-        # Buscar UGs contábeis que possuem dados no ano e conta selecionados
-        ugs_query = """
-        SELECT DISTINCT cougcontab 
-        FROM receita_lancamento 
-        WHERE YEAR(dalancamento) = ? 
-            AND cocontacontabil = ?
-            AND cougcontab IS NOT NULL
-        ORDER BY cougcontab
-        """
-        
-        ugs = [row[0] for row in conn.execute(ugs_query, [int(ano), conta]).fetchall()]
-        
-        conn.close()
+        ugs_result = db_manager.execute_query(ugs_query, params)
+        ugs = [row['cougcontab'] for row in ugs_result]
         
         return jsonify({
             'ugs': ugs
@@ -116,6 +135,7 @@ def get_ugs_por_ano_conta():
         
     except Exception as e:
         print(f"Erro em get_ugs_por_ano_conta: {str(e)}")
+        traceback.print_exc()
         return jsonify({'erro': str(e)}), 500
 
 @detalha_receita.route('/api/dados')
@@ -126,101 +146,142 @@ def get_dados():
         ano = request.args.get('ano')
         conta = request.args.get('conta')
         ug = request.args.get('ug')
-        limite = request.args.get('limite', 10000)  # Limite maior no DuckDB
+        limite = request.args.get('limite', 10000)  # Limite maior
         
         # Validar parâmetros obrigatórios
         if not all([ano, conta, ug]):
             return jsonify({'erro': 'Parâmetros obrigatórios: ano, conta, ug'}), 400
         
-        conn = db_duckdb.get_connection()
-        
-        # Montar query base
-        if ug == 'CONSOLIDADO':
-            query = """
-            SELECT 
-                MONTH(dalancamento) as mes,
-                nudocumento,
-                coevento,
-                cocontacorrente,
-                valancamento,
-                indebitocredito,
-                coug,
-                strftime('%d/%m/%Y', dalancamento) as dalancamento,
-                tipo_lancamento,
-                cofonte,
-                coclasseorc
-            FROM receita_lancamento
-            WHERE YEAR(dalancamento) = ? 
-                AND cocontacontabil = ?
-            ORDER BY MONTH(dalancamento), dalancamento, nudocumento
-            LIMIT ?
-            """
-            params = [int(ano), conta, int(limite)]
-        else:
-            query = """
-            SELECT 
-                MONTH(dalancamento) as mes,
-                nudocumento,
-                coevento,
-                cocontacorrente,
-                valancamento,
-                indebitocredito,
-                coug,
-                strftime('%d/%m/%Y', dalancamento) as dalancamento,
-                tipo_lancamento,
-                cofonte,
-                coclasseorc
-            FROM receita_lancamento
-            WHERE YEAR(dalancamento) = ? 
-                AND cocontacontabil = ? 
-                AND cougcontab = ?
-            ORDER BY MONTH(dalancamento), dalancamento, nudocumento
-            LIMIT ?
-            """
-            params = [int(ano), conta, ug, int(limite)]
+        # Montar query base adaptada para ambos os bancos
+        if db_manager.is_duckdb:
+            if ug == 'CONSOLIDADO':
+                query = """
+                SELECT 
+                    MONTH(dalancamento) as mes,
+                    nudocumento,
+                    coevento,
+                    cocontacorrente,
+                    valancamento,
+                    indebitocredito,
+                    coug,
+                    strftime('%d/%m/%Y', dalancamento) as dalancamento,
+                    tipo_lancamento,
+                    cofonte,
+                    coclasseorc
+                FROM receita_lancamento
+                WHERE YEAR(dalancamento) = ? 
+                    AND cocontacontabil = ?
+                ORDER BY MONTH(dalancamento), dalancamento, nudocumento
+                LIMIT ?
+                """
+                params = [int(ano), conta, int(limite)]
+            else:
+                query = """
+                SELECT 
+                    MONTH(dalancamento) as mes,
+                    nudocumento,
+                    coevento,
+                    cocontacorrente,
+                    valancamento,
+                    indebitocredito,
+                    coug,
+                    strftime('%d/%m/%Y', dalancamento) as dalancamento,
+                    tipo_lancamento,
+                    cofonte,
+                    coclasseorc
+                FROM receita_lancamento
+                WHERE YEAR(dalancamento) = ? 
+                    AND cocontacontabil = ? 
+                    AND cougcontab = ?
+                ORDER BY MONTH(dalancamento), dalancamento, nudocumento
+                LIMIT ?
+                """
+                params = [int(ano), conta, ug, int(limite)]
+        else:  # PostgreSQL
+            if ug == 'CONSOLIDADO':
+                query = """
+                SELECT 
+                    EXTRACT(MONTH FROM dalancamento)::integer as mes,
+                    nudocumento,
+                    coevento,
+                    cocontacorrente,
+                    valancamento,
+                    indebitocredito,
+                    coug,
+                    TO_CHAR(dalancamento, 'DD/MM/YYYY') as dalancamento,
+                    tipo_lancamento,
+                    cofonte,
+                    coclasseorc
+                FROM receita_lancamento
+                WHERE EXTRACT(YEAR FROM dalancamento) = :ano 
+                    AND cocontacontabil = :conta
+                ORDER BY EXTRACT(MONTH FROM dalancamento), dalancamento, nudocumento
+                LIMIT :limite
+                """
+                params = {'ano': int(ano), 'conta': conta, 'limite': int(limite)}
+            else:
+                query = """
+                SELECT 
+                    EXTRACT(MONTH FROM dalancamento)::integer as mes,
+                    nudocumento,
+                    coevento,
+                    cocontacorrente,
+                    valancamento,
+                    indebitocredito,
+                    coug,
+                    TO_CHAR(dalancamento, 'DD/MM/YYYY') as dalancamento,
+                    tipo_lancamento,
+                    cofonte,
+                    coclasseorc
+                FROM receita_lancamento
+                WHERE EXTRACT(YEAR FROM dalancamento) = :ano 
+                    AND cocontacontabil = :conta 
+                    AND cougcontab = :ug
+                ORDER BY EXTRACT(MONTH FROM dalancamento), dalancamento, nudocumento
+                LIMIT :limite
+                """
+                params = {'ano': int(ano), 'conta': conta, 'ug': ug, 'limite': int(limite)}
         
         # Executar query
-        result = conn.execute(query, params).fetchall()
+        dados = db_manager.execute_query(query, params)
         
-        # Converter para lista de dicionários
-        dados = []
-        colunas = ['mes', 'nudocumento', 'coevento', 'cocontacorrente',
-                   'valancamento', 'indebitocredito', 'coug', 'dalancamento',
-                   'tipo_lancamento', 'cofonte', 'coclasseorc']
-        
-        for row in result:
-            # Criar dicionário garantindo conversão de tipos
-            dado = {}
-            for i, col in enumerate(colunas):
-                valor = row[i]
-                
-                # Converter valores numéricos
-                if col == 'valancamento' and valor is not None:
-                    dado[col] = float(valor)
-                elif col == 'mes' and valor is not None:
-                    dado[col] = int(valor)
-                else:
-                    dado[col] = valor
-                    
-            dados.append(dado)
+        # Processar dados para garantir tipos corretos
+        for dado in dados:
+            if 'valancamento' in dado and dado['valancamento'] is not None:
+                dado['valancamento'] = float(dado['valancamento'])
+            if 'mes' in dado and dado['mes'] is not None:
+                dado['mes'] = int(dado['mes'])
         
         # Verificar se tem mais registros
-        if ug == 'CONSOLIDADO':
-            count_query = """
-            SELECT COUNT(*) FROM receita_lancamento
-            WHERE YEAR(dalancamento) = ? AND cocontacontabil = ?
-            """
-            count_params = [int(ano), conta]
-        else:
-            count_query = """
-            SELECT COUNT(*) FROM receita_lancamento
-            WHERE YEAR(dalancamento) = ? AND cocontacontabil = ? AND cougcontab = ?
-            """
-            count_params = [int(ano), conta, ug]
+        if db_manager.is_duckdb:
+            if ug == 'CONSOLIDADO':
+                count_query = """
+                SELECT COUNT(*) as total FROM receita_lancamento
+                WHERE YEAR(dalancamento) = ? AND cocontacontabil = ?
+                """
+                count_params = [int(ano), conta]
+            else:
+                count_query = """
+                SELECT COUNT(*) as total FROM receita_lancamento
+                WHERE YEAR(dalancamento) = ? AND cocontacontabil = ? AND cougcontab = ?
+                """
+                count_params = [int(ano), conta, ug]
+        else:  # PostgreSQL
+            if ug == 'CONSOLIDADO':
+                count_query = """
+                SELECT COUNT(*) as total FROM receita_lancamento
+                WHERE EXTRACT(YEAR FROM dalancamento) = :ano AND cocontacontabil = :conta
+                """
+                count_params = {'ano': int(ano), 'conta': conta}
+            else:
+                count_query = """
+                SELECT COUNT(*) as total FROM receita_lancamento
+                WHERE EXTRACT(YEAR FROM dalancamento) = :ano AND cocontacontabil = :conta AND cougcontab = :ug
+                """
+                count_params = {'ano': int(ano), 'conta': conta, 'ug': ug}
         
-        total_registros = conn.execute(count_query, count_params).fetchone()[0]
-        
-        conn.close()
+        count_result = db_manager.execute_query(count_query, count_params)
+        total_registros = count_result[0]['total'] if count_result else 0
         
         # Log temporário para debug
         print(f"🔍 Consulta retornou {len(dados)} registros")
@@ -232,12 +293,11 @@ def get_dados():
             'total_registros': total_registros,
             'tem_mais': total_registros > len(dados),
             'limite_aplicado': int(limite),
-            'fonte': 'DuckDB Local'
+            'fonte': 'DuckDB Local' if db_manager.is_duckdb else 'PostgreSQL'
         })
         
     except Exception as e:
         print(f"Erro em get_dados: {str(e)}")
-        import traceback
         traceback.print_exc()
         return jsonify({'erro': str(e)}), 500
 
@@ -254,37 +314,62 @@ def get_totais():
         if not all([ano, conta, ug]):
             return jsonify({'erro': 'Parâmetros obrigatórios: ano, conta, ug'}), 400
         
-        conn = db_duckdb.get_connection()
-        
-        # Montar query para totais
-        if ug == 'CONSOLIDADO':
-            query = """
-            SELECT 
-                tipo_lancamento,
-                COUNT(*) as quantidade,
-                SUM(valancamento) as total
-            FROM receita_lancamento
-            WHERE YEAR(dalancamento) = ? 
-                AND cocontacontabil = ?
-            GROUP BY tipo_lancamento
-            """
-            params = [int(ano), conta]
-        else:
-            query = """
-            SELECT 
-                tipo_lancamento,
-                COUNT(*) as quantidade,
-                SUM(valancamento) as total
-            FROM receita_lancamento
-            WHERE YEAR(dalancamento) = ? 
-                AND cocontacontabil = ? 
-                AND cougcontab = ?
-            GROUP BY tipo_lancamento
-            """
-            params = [int(ano), conta, ug]
+        # Montar query para totais adaptada para ambos os bancos
+        if db_manager.is_duckdb:
+            if ug == 'CONSOLIDADO':
+                query = """
+                SELECT 
+                    tipo_lancamento,
+                    COUNT(*) as quantidade,
+                    SUM(valancamento) as total
+                FROM receita_lancamento
+                WHERE YEAR(dalancamento) = ? 
+                    AND cocontacontabil = ?
+                GROUP BY tipo_lancamento
+                """
+                params = [int(ano), conta]
+            else:
+                query = """
+                SELECT 
+                    tipo_lancamento,
+                    COUNT(*) as quantidade,
+                    SUM(valancamento) as total
+                FROM receita_lancamento
+                WHERE YEAR(dalancamento) = ? 
+                    AND cocontacontabil = ? 
+                    AND cougcontab = ?
+                GROUP BY tipo_lancamento
+                """
+                params = [int(ano), conta, ug]
+        else:  # PostgreSQL
+            if ug == 'CONSOLIDADO':
+                query = """
+                SELECT 
+                    tipo_lancamento,
+                    COUNT(*) as quantidade,
+                    SUM(valancamento) as total
+                FROM receita_lancamento
+                WHERE EXTRACT(YEAR FROM dalancamento) = :ano 
+                    AND cocontacontabil = :conta
+                GROUP BY tipo_lancamento
+                """
+                params = {'ano': int(ano), 'conta': conta}
+            else:
+                query = """
+                SELECT 
+                    tipo_lancamento,
+                    COUNT(*) as quantidade,
+                    SUM(valancamento) as total
+                FROM receita_lancamento
+                WHERE EXTRACT(YEAR FROM dalancamento) = :ano 
+                    AND cocontacontabil = :conta 
+                    AND cougcontab = :ug
+                GROUP BY tipo_lancamento
+                """
+                params = {'ano': int(ano), 'conta': conta, 'ug': ug}
         
         # Executar query
-        result = conn.execute(query, params).fetchall()
+        result = db_manager.execute_query(query, params)
         
         # Formatar resultado
         totais = {
@@ -294,12 +379,12 @@ def get_totais():
         }
         
         for row in result:
-            if row[0] == 'DEBITO':
-                totais['debito']['quantidade'] = row[1]
-                totais['debito']['total'] = float(row[2] or 0)
-            elif row[0] == 'CREDITO':
-                totais['credito']['quantidade'] = row[1]
-                totais['credito']['total'] = float(row[2] or 0)
+            if row['tipo_lancamento'] == 'DEBITO':
+                totais['debito']['quantidade'] = row['quantidade']
+                totais['debito']['total'] = float(row['total'] or 0)
+            elif row['tipo_lancamento'] == 'CREDITO':
+                totais['credito']['quantidade'] = row['quantidade']
+                totais['credito']['total'] = float(row['total'] or 0)
         
         # Calcular saldo baseado no primeiro dígito da conta contábil
         if str(conta).startswith('5'):
@@ -307,9 +392,9 @@ def get_totais():
         else:
             totais['saldo'] = totais['credito']['total'] - totais['debito']['total']
         
-        conn.close()
-        
         return jsonify(totais)
         
     except Exception as e:
+        print(f"Erro em get_totais: {str(e)}")
+        traceback.print_exc()
         return jsonify({'erro': str(e)}), 500
