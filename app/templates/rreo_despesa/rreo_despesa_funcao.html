@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/rreo_despesa_funcao.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <h2 class="text-center mb-4">
+                <i class="bi bi-diagram-3"></i> RREO - Despesa por Função
+            </h2>
+            
+            <!-- Filtros -->
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-funnel"></i> Filtros do Relatório</h5>
+                </div>
+                <div class="card-body">
+                    <form id="formFiltros">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="selectAno" class="form-label">Ano</label>
+                                    <select class="form-select" id="selectAno" required>
+                                        <option value="">Selecione o ano...</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="selectBimestre" class="form-label">Bimestre</label>
+                                    <select class="form-select" id="selectBimestre" required>
+                                        <option value="">Selecione o bimestre...</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-12 text-center">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="bi bi-search"></i> Gerar Relatório
+                                </button>
+                                <button type="button" class="btn btn-secondary" id="btnLimpar">
+                                    <i class="bi bi-x-circle"></i> Limpar
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                    <div class="alert alert-info mt-3 mb-0">
+                        <i class="bi bi-info-circle"></i> Este demonstrativo apresenta as despesas organizadas por Função e Subfunção
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Área do Relatório -->
+            <div id="areaRelatorio" style="display: none;">
+                <!-- Cabeçalho do Relatório -->
+                <div class="relatorio-cabecalho text-center mb-4">
+                    <h4>DISTRITO FEDERAL</h4>
+                    <h5>RELATÓRIO RESUMIDO DA EXECUÇÃO ORÇAMENTÁRIA</h5>
+                    <h5>DEMONSTRATIVO DE DESPESAS POR FUNÇÃO/SUBFUNÇÃO</h5>
+                    <h6>ORÇAMENTO FISCAL E DA SEGURIDADE SOCIAL</h6>
+                    <h6 id="tituloPeriodo">ATÉ O 1º BIMESTRE DE 2025</h6>
+                </div>
+                
+                <!-- Container com scroll para a tabela -->
+                <div class="table-container">
+                    <table class="table table-bordered table-sm relatorio-tabela" id="tabelaRREO">
+                        <thead>
+                            <tr>
+                                <th rowspan="3" class="align-middle text-center coluna-funcao">FUNÇÃO / SUBFUNÇÃO</th>
+                                <th rowspan="3" class="align-middle text-center coluna-valor">DOTAÇÃO<br/>INICIAL<br/>(d)</th>
+                                <th rowspan="3" class="align-middle text-center coluna-valor">DOTAÇÃO<br/>AUTORIZADA<br/>(e)</th>
+                                <th colspan="2" class="text-center">DESPESAS EMPENHADAS</th>
+                                <th rowspan="3" class="align-middle text-center coluna-valor">SALDO<br/>(g = e - f)</th>
+                                <th colspan="2" class="text-center">DESPESAS LIQUIDADAS</th>
+                                <th rowspan="3" class="align-middle text-center coluna-valor">SALDO<br/>(i = e - h)</th>
+                                <th rowspan="3" class="align-middle text-center coluna-valor">DESPESAS PAGAS<br/>ATÉ O BIMESTRE<br/>(j)</th>
+                            </tr>
+                            <tr>
+                                <th class="text-center coluna-valor">NO BIMESTRE</th>
+                                <th class="text-center coluna-valor">ATÉ O BIMESTRE<br/>(f)</th>
+                                <th class="text-center coluna-valor">NO BIMESTRE</th>
+                                <th class="text-center coluna-valor">ATÉ O BIMESTRE<br/>(h)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="corpoRelatorio">
+                            <!-- Conteúdo será inserido dinamicamente -->
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Rodapé do Relatório -->
+                <div class="relatorio-rodape mt-4">
+                    <div class="row">
+                        <div class="col-6">
+                            <small class="text-muted">
+                                Fonte: SIGGO - Sistema Integrado de Gestão Governamental<br/>
+                                Dados extraídos do DuckDB Local
+                            </small>
+                        </div>
+                        <div class="col-6 text-end">
+                            <small class="text-muted">
+                                Gerado em: <span id="dataGeracao"></span>
+                            </small>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Botões de Ação -->
+                <div class="text-center mt-4 mb-5">
+                    <button type="button" class="btn btn-success" id="btnExportar">
+                        <i class="bi bi-file-earmark-excel"></i> Exportar Excel
+                    </button>
+                    <button type="button" class="btn btn-info" id="btnImprimir">
+                        <i class="bi bi-printer"></i> Imprimir
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Mensagem Inicial -->
+            <div id="mensagemInicial" class="alert alert-info text-center">
+                <i class="bi bi-info-circle"></i> Selecione os filtros acima para gerar o relatório RREO de Despesas por Função
+            </div>
+        </div>
+    </div>
+</div>
+
+
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/rreo_despesa_funcao.js') }}"></script>
+{% endblock %}

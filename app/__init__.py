@@ -41,6 +41,9 @@ def create_app(config_name='default'):
     from app.routes.rreo_despesa import rreo_despesa
     app.register_blueprint(rreo_despesa, url_prefix='/rreo-despesa')
 
+    from app.routes.rreo_despesa_funcao import rreo_despesa_funcao
+    app.register_blueprint(rreo_despesa_funcao, url_prefix='/rreo-despesa-funcao')
+
     from app.routes.balanco_receita import balanco_receita
     app.register_blueprint(balanco_receita, url_prefix='/balanco-receita')
 
