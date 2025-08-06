@@ -1,0 +1,131 @@
+/* Estilos específicos para Previsão Atualizada */
+
+/* Tabela de previsão atualizada */
+.tabela-previsao-atualizada {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: Arial, sans-serif;
+    font-size: 14px;
+    background-color: white;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* Células e cabeçalhos */
+.tabela-previsao-atualizada th,
+.tabela-previsao-atualizada td {
+    border: 1px solid #000;
+    padding: 8px;
+    text-align: right;
+}
+
+/* Título principal */
+.tabela-previsao-atualizada .titulo-principal {
+    background-color: #1e3c72;
+    color: white;
+    font-size: 18px;
+    font-weight: bold;
+    text-align: center;
+    padding: 12px !important;
+    letter-spacing: 1px;
+}
+
+/* Cabeçalhos de colunas */
+.tabela-previsao-atualizada .header-colunas th {
+    background-color: #3468c0;
+    color: white;
+    font-weight: bold;
+    text-align: center;
+    font-size: 12px;
+}
+
+/* Coluna de especificação */
+.tabela-previsao-atualizada .col-especificacao {
+    text-align: left !important;
+    width: 40%;
+}
+
+/* Colunas de valor */
+.tabela-previsao-atualizada .col-valor {
+    width: 25%;
+    text-align: right;
+}
+
+/* Coluna de variação */
+.tabela-previsao-atualizada .col-variacao {
+    width: 10%;
+    text-align: center !important;
+    font-weight: bold;
+}
+
+/* Linhas de categoria (principais) - igual ao receita_estimada */
+.tabela-previsao-atualizada .linha-categoria td {
+    font-weight: bold;
+    background-color: #e8f0ff;
+}
+
+.tabela-previsao-atualizada .linha-categoria .col-especificacao {
+    text-transform: uppercase;
+}
+
+/* Linhas de fonte (filhas) - igual ao receita_estimada */
+.tabela-previsao-atualizada .linha-fonte td {
+    background-color: white;
+}
+
+.tabela-previsao-atualizada .linha-fonte .col-especificacao {
+    padding-left: 30px !important;
+    font-size: 13px;
+}
+
+/* Linha de total - igual ao receita_estimada */
+.tabela-previsao-atualizada .linha-total td {
+    font-weight: bold;
+    background-color: #1e3c72;
+    color: white;
+}
+
+/* Cores para variações */
+.tabela-previsao-atualizada .positiva {
+    color: #28a745;
+}
+
+.tabela-previsao-atualizada .negativa {
+    color: #dc3545;
+}
+
+.tabela-previsao-atualizada .linha-total .positiva,
+.tabela-previsao-atualizada .linha-total .negativa {
+    color: white;
+}
+
+/* Rodapé da tabela */
+.rodape-tabela {
+    margin-top: 20px;
+    font-size: 11px;
+    color: #666;
+    line-height: 1.4;
+}
+
+.rodape-tabela p {
+    margin: 2px 0;
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+    .tabela-previsao-atualizada {
+        font-size: 12px;
+    }
+    
+    .tabela-previsao-atualizada th,
+    .tabela-previsao-atualizada td {
+        padding: 4px;
+    }
+    
+    .tabela-previsao-atualizada .titulo-principal {
+        font-size: 14px;
+    }
+    
+    .tabela-previsao-atualizada .col-especificacao {
+        width: 35%;
+    }
+}

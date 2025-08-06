@@ -51,6 +51,8 @@ def create_app(config_name='default'):
     from app.routes.balanco_geral.balanco_geral import balanco_geral
     from app.routes.balanco_geral.receita_estimada import receita_estimada_api
     from app.routes.balanco_geral.receita_tipo_administracao import receita_tipo_adm_api
+    from app.routes.balanco_geral.previsao_atualizada import previsao_atualizada_api
+    from app.routes.balanco_geral.receita_realizada import receita_realizada_api
     
     # Registrar o blueprint principal do balanço geral
     app.register_blueprint(balanco_geral, url_prefix='/balanco-geral')
@@ -58,6 +60,8 @@ def create_app(config_name='default'):
     # Registrar as APIs dentro do contexto do balanço geral
     app.register_blueprint(receita_estimada_api, url_prefix='/balanco-geral')
     app.register_blueprint(receita_tipo_adm_api, url_prefix='/balanco-geral')
+    app.register_blueprint(previsao_atualizada_api, url_prefix='/balanco-geral')
+    app.register_blueprint(receita_realizada_api, url_prefix='/balanco-geral')
 
     from app.modules.comparativo_mensal_acumulado import comparativo_mensal
     app.register_blueprint(comparativo_mensal, url_prefix='/comparativo-mensal')

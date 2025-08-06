@@ -6,6 +6,8 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/balanco_geral/balanco_geral.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/balanco_geral/receita_estimada.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/balanco_geral/receita_tipo_administracao.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/balanco_geral/previsao_atualizada.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/balanco_geral/receita_realizada.css') }}">
 {% endblock %}
 
 {% block content %}
@@ -64,17 +66,33 @@
                             </div>
                         </div>
                         
-                        <!-- Despesa Autorizada Líquida (Em breve) -->
+                        <!-- Previsão Atualizada -->
                         <div class="col-md-6 col-lg-4 mb-4">
-                            <div class="card h-100 shadow-sm disabled-card">
+                            <div class="card h-100 shadow-sm">
                                 <div class="card-body text-center">
-                                    <i class="bi bi-graph-down-arrow display-4 text-danger mb-3"></i>
-                                    <h5 class="card-title">Despesa Autorizada Líquida</h5>
+                                    <i class="bi bi-arrow-repeat display-4 text-warning mb-3"></i>
+                                    <h5 class="card-title">Previsão Atualizada</h5>
                                     <p class="card-text text-muted">
-                                        Comparativo entre exercícios da despesa autorizada por categoria
+                                        Comparativo entre previsão inicial e atualizada da receita
                                     </p>
-                                    <button class="btn btn-secondary" disabled>
-                                        <i class="bi bi-clock"></i> Em breve
+                                    <button class="btn btn-warning text-white" onclick="gerarQuadroPrevisaoAtualizada()">
+                                        <i class="bi bi-download"></i> Gerar Quadro
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Receita Líquida Realizada -->
+                        <div class="col-md-6 col-lg-4 mb-4">
+                            <div class="card h-100 shadow-sm">
+                                <div class="card-body text-center">
+                                    <i class="bi bi-check-circle display-4 text-success mb-3"></i>
+                                    <h5 class="card-title">Receita Líquida Realizada</h5>
+                                    <p class="card-text text-muted">
+                                        Comparativo entre previsão atualizada e receita realizada
+                                    </p>
+                                    <button class="btn btn-success" onclick="gerarQuadroReceitaRealizada()">
+                                        <i class="bi bi-download"></i> Gerar Quadro
                                     </button>
                                 </div>
                             </div>
@@ -144,4 +162,6 @@
 <!-- JavaScript específico de cada quadro -->
 <script src="{{ url_for('static', filename='js/balanco_geral/receita_estimada.js') }}"></script>
 <script src="{{ url_for('static', filename='js/balanco_geral/receita_tipo_administracao.js') }}"></script>
+<script src="{{ url_for('static', filename='js/balanco_geral/previsao_atualizada.js') }}"></script>
+<script src="{{ url_for('static', filename='js/balanco_geral/receita_realizada.js') }}"></script>
 {% endblock %}

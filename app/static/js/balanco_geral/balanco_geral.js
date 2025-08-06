@@ -7,6 +7,8 @@
 let quadroAtual = null;
 let dadosReceitaEstimada = null;
 let dadosReceitaTipoAdm = null;
+let dadosPrevisaoAtualizada = null;
+let dadosReceitaRealizada = null;
 
 /**
  * Função para chamar o gerador de cada quadro
@@ -28,6 +30,27 @@ function gerarQuadroReceitaTipoAdm() {
         gerarReceitaTipoAdministracao();
     } else {
         mostrarErro('Módulo de Receita por Tipo de Administração não carregado');
+    }
+}
+
+// ADICIONAR ESTA NOVA FUNÇÃO
+function gerarQuadroPrevisaoAtualizada() {
+    // Chama a função do arquivo previsao_atualizada.js
+    if (typeof gerarPrevisaoAtualizada === 'function') {
+        quadroAtual = 'previsao_atualizada';
+        gerarPrevisaoAtualizada();
+    } else {
+        mostrarErro('Módulo de Previsão Atualizada não carregado');
+    }
+}
+
+function gerarQuadroReceitaRealizada() {
+    // Chama a função do arquivo receita_realizada.js
+    if (typeof gerarReceitaRealizada === 'function') {
+        quadroAtual = 'receita_realizada';
+        gerarReceitaRealizada();
+    } else {
+        mostrarErro('Módulo de Receita Realizada não carregado');
     }
 }
 
@@ -124,7 +147,7 @@ function formatarPercentual(valor) {
 }
 
 /**
- * Baixa a imagem do quadro ativo
+ * Baixa a imagem do quadro ativo - ATUALIZAR ESTA FUNÇÃO
  */
 async function baixarImagem() {
     // Verifica qual quadro está ativo e chama a função apropriada
@@ -132,6 +155,10 @@ async function baixarImagem() {
         await baixarImagemReceitaEstimada();
     } else if (quadroAtual === 'receita_tipo_administracao' && dadosReceitaTipoAdm) {
         await baixarImagemTipoAdm();
+    } else if (quadroAtual === 'previsao_atualizada' && dadosPrevisaoAtualizada) {
+        await baixarImagemPrevisaoAtualizada();
+    } else if (quadroAtual === 'receita_realizada' && dadosReceitaRealizada) {
+        await baixarImagemReceitaRealizada();
     } else {
         mostrarErro('Nenhum quadro disponível para download');
     }
