@@ -1,0 +1,259 @@
+/* Estilos para o Módulo de Comparativo Mensal Acumulado */
+
+/* Container principal */
+#comparativoMensalContainer {
+    animation: slideIn 0.5s ease;
+}
+
+/* Card principal */
+#comparativoMensalContainer .card {
+    border: none;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    transition: box-shadow 0.3s ease;
+}
+
+#comparativoMensalContainer .card:hover {
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+/* Cabeçalho do card */
+#comparativoMensalContainer .card-header {
+    background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
+    border: none;
+    padding: 1.25rem;
+}
+
+#comparativoMensalContainer .card-header h5 {
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+/* Tabs de navegação */
+#comparativoTab {
+    border-bottom: 2px solid #e9ecef;
+}
+
+#comparativoTab .nav-link {
+    color: #6c757d;
+    border: none;
+    border-bottom: 3px solid transparent;
+    padding: 0.75rem 1.5rem;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    background: transparent;
+}
+
+#comparativoTab .nav-link:hover {
+    color: #17a2b8;
+    border-bottom-color: rgba(23, 162, 184, 0.3);
+    background-color: rgba(23, 162, 184, 0.05);
+}
+
+#comparativoTab .nav-link.active {
+    color: #17a2b8;
+    background-color: transparent;
+    border-bottom-color: #17a2b8;
+}
+
+#comparativoTab .nav-link i {
+    margin-right: 0.5rem;
+}
+
+/* Canvas dos gráficos */
+#comparativoMensalContainer canvas {
+    max-height: 400px;
+}
+
+/* Tabela comparativa */
+#tabelaComparativo {
+    margin-bottom: 0;
+}
+
+#tabelaComparativo thead th {
+    background-color: #f8f9fa;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.875rem;
+    letter-spacing: 0.5px;
+    border-bottom: 2px solid #dee2e6;
+}
+
+#tabelaComparativo tbody tr {
+    transition: background-color 0.2s ease;
+}
+
+#tabelaComparativo tbody tr:hover {
+    background-color: rgba(23, 162, 184, 0.05);
+}
+
+#tabelaComparativo tfoot {
+    border-top: 2px solid #dee2e6;
+}
+
+/* Células de variação */
+.text-success {
+    color: #28a745 !important;
+    font-weight: 600;
+}
+
+.text-danger {
+    color: #dc3545 !important;
+    font-weight: 600;
+}
+
+.text-muted {
+    color: #6c757d !important;
+}
+
+/* Cards informativos */
+#legendaComparativo .card {
+    border: 1px solid rgba(0, 0, 0, 0.125);
+    transition: transform 0.2s ease;
+}
+
+#legendaComparativo .card:hover {
+    transform: translateY(-2px);
+}
+
+#legendaComparativo .card h6 {
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #6c757d;
+}
+
+#legendaComparativo .card p {
+    font-size: 1.25rem;
+    margin: 0;
+}
+
+/* Análise detalhada */
+#analiseDetalhada .card {
+    border: 1px solid #e9ecef;
+}
+
+#analiseDetalhada .card-header {
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #e9ecef;
+}
+
+#analiseDetalhada .progress {
+    background-color: #e9ecef;
+}
+
+#analiseDetalhada .progress-bar {
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+/* Botões */
+#comparativoMensalContainer .btn-light {
+    background-color: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    transition: all 0.3s ease;
+}
+
+#comparativoMensalContainer .btn-light:hover {
+    background-color: white;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Loading */
+#graficoLoading {
+    min-height: 300px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.spinner-border.text-info {
+    width: 3rem;
+    height: 3rem;
+    border-width: 0.3em;
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+    #comparativoTab .nav-link {
+        padding: 0.5rem 1rem;
+        font-size: 0.875rem;
+    }
+    
+    #comparativoTab .nav-link i {
+        display: none;
+    }
+    
+    #legendaComparativo .col-md-4 {
+        margin-bottom: 1rem;
+    }
+    
+    #analiseDetalhada {
+        margin-top: 2rem;
+    }
+    
+    #tabelaComparativo {
+        font-size: 0.875rem;
+    }
+    
+    .table-responsive {
+        max-height: 400px;
+        overflow-y: auto;
+    }
+}
+
+/* Animações */
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Efeito de highlight nas linhas da tabela */
+#tabelaComparativo tbody tr.highlight {
+    animation: highlightRow 0.5s ease;
+}
+
+@keyframes highlightRow {
+    0% {
+        background-color: rgba(23, 162, 184, 0.3);
+    }
+    100% {
+        background-color: transparent;
+    }
+}
+
+/* Tooltips customizados */
+.chartjs-tooltip {
+    background: rgba(0, 0, 0, 0.8) !important;
+    border-radius: 4px !important;
+    color: white !important;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif !important;
+    padding: 12px !important;
+    pointer-events: none !important;
+    position: absolute !important;
+    transform: translate(-50%, 0) !important;
+    transition: all 0.1s ease !important;
+}
+
+/* Print styles */
+@media print {
+    #comparativoMensalContainer .btn-group,
+    #comparativoMensalContainer .btn {
+        display: none !important;
+    }
+    
+    #comparativoTab {
+        display: none !important;
+    }
+    
+    .tab-content > .tab-pane {
+        display: block !important;
+        opacity: 1 !important;
+    }
+}

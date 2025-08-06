@@ -5,6 +5,7 @@
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/balanco_receita.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/analise_visual.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/comparativo_mensal.css') }}">
 {% endblock %}
 
 {% block content %}
@@ -113,4 +114,6 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
 <!-- Módulo de Análise Visual -->
 <script src="{{ url_for('static', filename='js/analise_visual.js') }}"></script>
+<!-- JavaScript -->
+<script src="{{ url_for('static', filename='js/comparativo_mensal.js') }}"></script>
 {% endblock %}

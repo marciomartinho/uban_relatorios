@@ -43,6 +43,9 @@ def create_app(config_name='default'):
     from app.routes.balanco_receita import balanco_receita
     app.register_blueprint(balanco_receita, url_prefix='/balanco-receita')
 
+    from app.modules.comparativo_mensal_acumulado import comparativo_mensal
+    app.register_blueprint(comparativo_mensal, url_prefix='/comparativo-mensal')
+
     registrar_modulo(app)
 
     # Registrar filtros customizados para o Jinja2

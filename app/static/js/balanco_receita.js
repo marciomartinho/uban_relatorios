@@ -6,6 +6,7 @@ console.log('Balanço Receita JS carregado');
 let dadosRelatorio = null;
 let filtrosCarregados = false;
 let dadosOriginais = null; // Para armazenar os dados originais sem filtro
+window.ultimoRelatorioGerado = null; // Para integração com módulos
 
 // Inicialização
 $(document).ready(function() {
@@ -103,15 +104,26 @@ function configurarEventos() {
     $(document).on('click', '#btnImprimir', function() {
         window.print();
     });
+    $(document).on('click', '#btnExportarCompleto', exportarRelatorioCompleto);
     
-    // Mudança no filtro de tipo de receita - NOVO
+    // Mudança no filtro de tipo de receita
     $(document).on('change', '#selectTipoReceita', function() {
-        if (dadosRelatorio && typeof analiseVisual !== 'undefined') {
+        if (dadosRelatorio) {
             // Aplicar filtro na tabela
             aplicarFiltroReceita($(this).val());
             
-            // Atualizar gráficos
-            analiseVisual.atualizarGraficos(dadosRelatorio);
+            // Atualizar módulos se disponíveis
+            if (window.ultimoRelatorioGerado) {
+                // Atualizar Análise Visual
+                if (typeof analiseVisual !== 'undefined') {
+                    analiseVisual.atualizarGraficos(window.ultimoRelatorioGerado);
+                }
+                
+                // Atualizar Comparativo Mensal
+                if (typeof comparativoMensal !== 'undefined') {
+                    comparativoMensal.atualizar(window.ultimoRelatorioGerado);
+                }
+            }
         }
     });
     
@@ -237,6 +249,7 @@ function gerarRelatorio() {
             // Armazenar dados globalmente
             dadosRelatorio = response;
             dadosOriginais = JSON.parse(JSON.stringify(response)); // Clonar dados originais
+            window.ultimoRelatorioGerado = response; // Para integração com módulos
             
             // Renderizar relatório completo
             renderizarRelatorio(response);
@@ -245,6 +258,11 @@ function gerarRelatorio() {
             if (tipoReceita !== 'todas') {
                 aplicarFiltroReceita(tipoReceita);
             }
+            
+            // Integrar módulos adicionais após um pequeno delay
+            setTimeout(() => {
+                integrarModulosAdicionais(response);
+            }, 100);
         },
         error: function(xhr) {
             console.error('❌ Erro ao gerar relatório:', xhr);
@@ -280,10 +298,13 @@ function renderizarRelatorio(dados) {
                         <button id="btnExportar" class="btn btn-success btn-sm">
                             <i class="bi bi-file-earmark-excel"></i> Excel
                         </button>
+                        <button id="btnExportarCompleto" class="btn btn-primary btn-sm">
+                            <i class="bi bi-file-earmark-spreadsheet"></i> Completo
+                        </button>
                         <button id="btnDownloadImagem" class="btn btn-warning btn-sm">
                             <i class="bi bi-image"></i> Imagem HD
                         </button>
-                        <button id="btnImprimir" class="btn btn-primary btn-sm">
+                        <button id="btnImprimir" class="btn btn-secondary btn-sm">
                             <i class="bi bi-printer"></i> Imprimir
                         </button>
                     </div>
@@ -413,10 +434,20 @@ function renderizarRelatorio(dados) {
     `;
     
     $('#relatorioContainer').html(html);
-    
-    // NOVO: Verificar se o módulo de análise visual está disponível e inicializar
+}
+
+// Integração com módulos adicionais
+function integrarModulosAdicionais(dadosRelatorio) {
+    // Integrar Análise Visual se disponível
     if (typeof analiseVisual !== 'undefined') {
-        analiseVisual.inicializar(dados);
+        console.log('🎨 Integrando módulo de Análise Visual');
+        analiseVisual.inicializar(dadosRelatorio);
+    }
+    
+    // Integrar Comparativo Mensal Acumulado
+    if (typeof comparativoMensal !== 'undefined') {
+        console.log('📊 Integrando módulo de Comparativo Mensal');
+        comparativoMensal.inicializar(dadosRelatorio);
     }
 }
 
@@ -705,11 +736,6 @@ function aplicarFiltroReceita(tipoFiltro) {
     
     // Recalcular totais baseado nas linhas visíveis
     recalcularTotais();
-    
-    // NOVO: Atualizar gráficos se o módulo estiver disponível
-    if (dadosRelatorio && typeof analiseVisual !== 'undefined') {
-        analiseVisual.atualizarGraficos(dadosRelatorio);
-    }
 }
 
 // Recalcular totais baseado no filtro selecionado
@@ -813,10 +839,15 @@ function recalcularTotais() {
 
 // Limpar filtros
 function limparFiltros() {
-    // NOVO: Destruir gráficos se existirem
+    // Destruir módulos se existirem
     if (typeof analiseVisual !== 'undefined') {
         analiseVisual.destruir();
         $('#analiseVisualContainer').remove();
+    }
+    
+    if (typeof comparativoMensal !== 'undefined') {
+        comparativoMensal.destruir();
+        $('#comparativoMensalContainer').remove();
     }
     
     $('#formFiltros')[0].reset();
@@ -826,6 +857,80 @@ function limparFiltros() {
     $('#mensagemInicial').show();
     dadosRelatorio = null;
     dadosOriginais = null;
+    window.ultimoRelatorioGerado = null;
+}
+
+// Exportar relatório completo com todos os módulos
+async function exportarRelatorioCompleto() {
+    try {
+        mostrarAlerta('Preparando exportação completa...', 'info');
+        
+        // Criar workbook
+        const wb = XLSX.utils.book_new();
+        
+        // 1. Adicionar dados do relatório principal
+        if (window.ultimoRelatorioGerado) {
+            const dadosPrincipais = prepararDadosExportacao(window.ultimoRelatorioGerado);
+            const wsPrincipal = XLSX.utils.json_to_sheet(dadosPrincipais);
+            XLSX.utils.book_append_sheet(wb, wsPrincipal, 'Balanço Orçamentário');
+        }
+        
+        // 2. Adicionar dados do comparativo mensal se disponível
+        if (typeof comparativoMensal !== 'undefined' && comparativoMensal.dadosOriginais) {
+            const dadosComparativo = comparativoMensal.dadosOriginais.dados_brutos.map(item => ({
+                'Mês': item.nome_mes,
+                [`Receita ${item.ano_anterior}`]: item.receita_anterior,
+                [`Receita ${item.ano_atual}`]: item.receita_atual,
+                'Variação R$': item.variacao_absoluta,
+                'Variação %': item.variacao_percentual.toFixed(2) + '%'
+            }));
+            const wsComparativo = XLSX.utils.json_to_sheet(dadosComparativo);
+            XLSX.utils.book_append_sheet(wb, wsComparativo, 'Comparativo Mensal');
+        }
+        
+        // 3. Gerar nome do arquivo
+        const timestamp = new Date().getTime();
+        const nomeArquivo = `relatorio_completo_receitas_${timestamp}.xlsx`;
+        
+        // 4. Baixar arquivo
+        XLSX.writeFile(wb, nomeArquivo);
+        
+        mostrarAlerta('Relatório completo exportado com sucesso!', 'success');
+        
+    } catch (error) {
+        console.error('Erro ao exportar relatório completo:', error);
+        mostrarAlerta('Erro ao exportar relatório completo', 'danger');
+    }
+}
+
+// Preparar dados para exportação
+function prepararDadosExportacao(relatorio) {
+    const dados = [];
+    
+    relatorio.dados.forEach(item => {
+        dados.push({
+            'Código': item.codigo,
+            'Especificação': '  '.repeat(item.nivel) + item.descricao,
+            'Previsão Inicial': item.previsao_inicial,
+            'Previsão Atualizada': item.previsao_atualizada,
+            [`Realizado ${relatorio.periodo.ano_anterior}`]: item.receita_anterior,
+            [`Realizado ${relatorio.periodo.ano}`]: item.receita_atual,
+            'Variação %': item.variacao_percentual.toFixed(2)
+        });
+    });
+    
+    // Adicionar total
+    dados.push({
+        'Código': '',
+        'Especificação': 'TOTAL GERAL',
+        'Previsão Inicial': relatorio.totais.previsao_inicial,
+        'Previsão Atualizada': relatorio.totais.previsao_atualizada,
+        [`Realizado ${relatorio.periodo.ano_anterior}`]: relatorio.totais.receita_anterior,
+        [`Realizado ${relatorio.periodo.ano}`]: relatorio.totais.receita_atual,
+        'Variação %': relatorio.totais.variacao_percentual.toFixed(2)
+    });
+    
+    return dados;
 }
 
 // Exportar para Excel
