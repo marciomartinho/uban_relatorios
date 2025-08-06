@@ -1,9 +1,10 @@
 """
 Blueprint para Balanço Orçamentário da Receita
 Adaptado do sistema original para trabalhar com DuckDB
+Agora com suporte para exibir UGs por alínea
 """
 from flask import Blueprint, render_template, jsonify, request, current_app
-from app.db_manager import db_manager # Usando o db_manager central
+from app.db_manager import db_manager
 from datetime import datetime
 import traceback
 
@@ -12,17 +13,17 @@ balanco_receita = Blueprint('balanco_receita', __name__)
 
 # Mapeamento das categorias e suas fontes
 CATEGORIA_FONTE_MAP = {
-    '1': {  # Receitas Correntes
+    '1': {
         'nome': 'Receitas Correntes',
         'fontes_inicio': 11,
         'fontes_fim': 19
     },
-    '2': {  # Receitas de Capital
+    '2': {
         'nome': 'Receitas de Capital',
         'fontes_inicio': 21,
         'fontes_fim': 29
     },
-    '7': {  # Receitas Correntes Intra-Orçamentárias
+    '7': {
         'nome': 'Receitas Correntes Intra-Orçamentárias',
         'fontes_inicio': 71,
         'fontes_fim': 79
@@ -47,7 +48,6 @@ def get_filtros():
         if anos:
             ano_atual = anos[0]
             
-            # Adaptação para ambos os bancos
             param_style = "?" if db_manager.is_duckdb else ":ano_atual"
             meses_query = f"SELECT DISTINCT inmes FROM receita_saldo WHERE coexercicio = {param_style} AND ABS(saldo_contabil_receita) > 0.01 ORDER BY inmes DESC LIMIT 1"
             params = [ano_atual] if db_manager.is_duckdb else {'ano_atual': ano_atual}
@@ -94,35 +94,35 @@ def gerar_relatorio():
         if not ano or not mes:
             return jsonify({'erro': 'Ano e mês são obrigatórios'}), 400
 
-        # Define o estilo do placeholder para a query ('?' para DuckDB, ':nome' para Psql)
         param_style = "?" if db_manager.is_duckdb else ":{}"
 
         filtro_ug_sql = ""
         if coug:
             filtro_ug_sql = f"AND rs.coug = {param_style.format('coug') if not db_manager.is_duckdb else '?'}"
 
+        # Query principal agora inclui dados por UG
         query = f"""
         WITH dados_agregados AS (
             SELECT
                 rs.cocategoriareceita, rs.cofontereceita, rs.cosubfontereceita, rs.coalinea,
-                rs.coexercicio, rs.inmes,
+                rs.coexercicio, rs.inmes, rs.coug,
                 SUM(CASE WHEN rs.cocontacontabil >= '521100000' AND rs.cocontacontabil <= '521199999' THEN rs.saldo_contabil_receita ELSE 0 END) as previsao_inicial,
                 SUM(CASE WHEN rs.cocontacontabil >= '521100000' AND rs.cocontacontabil <= '521299999' THEN rs.saldo_contabil_receita ELSE 0 END) as previsao_atualizada,
                 SUM(CASE WHEN rs.cocontacontabil >= '621200000' AND rs.cocontacontabil <= '621399999' THEN rs.saldo_contabil_receita ELSE 0 END) as receita_realizada
             FROM receita_saldo rs
             WHERE rs.cocategoriareceita IN ('1', '2', '7') {filtro_ug_sql}
-            GROUP BY 1, 2, 3, 4, 5, 6
+            GROUP BY 1, 2, 3, 4, 5, 6, 7
         ),
         dados_sumarizados AS (
             SELECT
-                cocategoriareceita, cofontereceita, cosubfontereceita, coalinea,
+                cocategoriareceita, cofontereceita, cosubfontereceita, coalinea, coug,
                 SUM(CASE WHEN coexercicio = {param_style.format('ano') if not db_manager.is_duckdb else '?'} THEN previsao_inicial ELSE 0 END) as previsao_inicial,
                 SUM(CASE WHEN coexercicio = {param_style.format('ano') if not db_manager.is_duckdb else '?'} THEN previsao_atualizada ELSE 0 END) as previsao_atualizada,
                 SUM(CASE WHEN coexercicio = {param_style.format('ano') if not db_manager.is_duckdb else '?'} AND inmes <= {param_style.format('mes') if not db_manager.is_duckdb else '?'} THEN receita_realizada ELSE 0 END) as receita_atual,
                 SUM(CASE WHEN coexercicio = {param_style.format('ano_anterior') if not db_manager.is_duckdb else '?'} AND inmes <= {param_style.format('mes') if not db_manager.is_duckdb else '?'} THEN receita_realizada ELSE 0 END) as receita_anterior
             FROM dados_agregados
             WHERE coexercicio IN ({param_style.format('ano') if not db_manager.is_duckdb else '?'}, {param_style.format('ano_anterior') if not db_manager.is_duckdb else '?'})
-            GROUP BY 1, 2, 3, 4
+            GROUP BY 1, 2, 3, 4, 5
         )
         SELECT
             ds.cocategoriareceita, ds.cofontereceita,
@@ -131,21 +131,23 @@ def gerar_relatorio():
             COALESCE(esp.nosubfontereceita, 'Subfonte ' || ds.cosubfontereceita) as nome_subfonte,
             ds.coalinea,
             COALESCE(ali.noalinea, 'Alínea ' || ds.coalinea) as nome_alinea,
+            ds.coug,
+            COALESCE(ug.noug, 'UG ' || ds.coug) as nome_ug,
             ds.previsao_inicial, ds.previsao_atualizada, ds.receita_atual, ds.receita_anterior
         FROM dados_sumarizados ds
         LEFT JOIN dim_receita_origem ori ON ds.cofontereceita = CAST(ori.cofontereceita AS VARCHAR)
         LEFT JOIN dim_receita_especie esp ON ds.cosubfontereceita = CAST(esp.cosubfontereceita AS VARCHAR)
         LEFT JOIN dim_receita_alinea ali ON ds.coalinea = CAST(ali.coalinea AS VARCHAR)
+        LEFT JOIN dim_unidade_gestora ug ON ds.coug = CAST(ug.coug AS VARCHAR)
         WHERE ABS(ds.previsao_inicial) + ABS(ds.previsao_atualizada) + ABS(ds.receita_atual) + ABS(ds.receita_anterior) > 0.01
-        ORDER BY ds.cocategoriareceita, ds.cofontereceita, ds.cosubfontereceita, ds.coalinea
+        ORDER BY ds.cocategoriareceita, ds.cofontereceita, ds.cosubfontereceita, ds.coalinea, ds.coug
         """
         
-        # Monta os parâmetros na ordem correta que a query espera
         if db_manager.is_duckdb:
             params = [ano, ano, ano, mes, ano - 1, mes, ano, ano - 1]
             if coug:
-                params.insert(0, coug) # Adiciona no início da lista se existir
-        else: # PostgreSQL
+                params.insert(0, coug)
+        else:
             params = {'ano': ano, 'mes': mes, 'ano_anterior': ano - 1}
             if coug:
                 params['coug'] = coug
@@ -181,12 +183,11 @@ def gerar_relatorio():
         traceback.print_exc()
         return jsonify({'erro': str(e)}), 500
 
-# ... (o resto das funções, como processar_dados_hierarquicos, calcular_totais, etc., continua IGUAL) ...
 def processar_dados_hierarquicos(resultados):
-    """Processa os resultados em estrutura hierárquica correta com 4 níveis"""
+    """Processa os resultados em estrutura hierárquica com 5 níveis (incluindo UGs)"""
     dados = []
     
-    # Primeiro, criar a estrutura de categorias
+    # Criar estrutura de categorias
     categorias = {}
     for cat_id, cat_info in CATEGORIA_FONTE_MAP.items():
         categorias[cat_id] = {
@@ -201,18 +202,19 @@ def processar_dados_hierarquicos(resultados):
             'receita_anterior': 0,
             'variacao_absoluta': 0,
             'variacao_percentual': 0,
-            'expandido': False,  # Sem botão de expansão
+            'expandido': False,
             'tem_filhos': False,
             'fontes_inicio': cat_info['fontes_inicio'],
             'fontes_fim': cat_info['fontes_fim']
         }
     
-    # Processar resultados por fonte, subfonte e alínea
+    # Estrutura hierárquica completa
     fontes_por_categoria = {'1': {}, '2': {}, '7': {}}
     
     for row in resultados:
+        # Agora temos 12 campos incluindo UG
         cat_id, fonte_id, nome_fonte, subfonte_id, nome_subfonte, alinea_id, nome_alinea, \
-        previsao_inicial, previsao_atualizada, receita_atual, receita_anterior = row
+        coug, nome_ug, previsao_inicial, previsao_atualizada, receita_atual, receita_anterior = row
         
         previsao_inicial = float(previsao_inicial or 0)
         previsao_atualizada = float(previsao_atualizada or 0)
@@ -228,18 +230,31 @@ def processar_dados_hierarquicos(resultados):
                 break
         
         if categoria_id and categoria_id == cat_id:
+            # Atualizar totais da categoria
             categorias[categoria_id]['previsao_inicial'] += previsao_inicial
             categorias[categoria_id]['previsao_atualizada'] += previsao_atualizada
             categorias[categoria_id]['receita_atual'] += receita_atual
             categorias[categoria_id]['receita_anterior'] += receita_anterior
             categorias[categoria_id]['tem_filhos'] = True
             
+            # Nível 1: Fontes
             if fonte_id not in fontes_por_categoria[categoria_id]:
                 fontes_por_categoria[categoria_id][fonte_id] = {
-                    'id': f'fonte-{categoria_id}-{fonte_id}', 'codigo': fonte_id, 'descricao': nome_fonte,
-                    'nivel': 1, 'tipo': 'fonte', 'categoria_pai': categoria_id,
-                    'previsao_inicial': 0, 'previsao_atualizada': 0, 'receita_atual': 0, 'receita_anterior': 0,
-                    'variacao_absoluta': 0, 'variacao_percentual': 0, 'expandido': False, 'tem_filhos': False, 'subfontes': {}
+                    'id': f'fonte-{categoria_id}-{fonte_id}',
+                    'codigo': fonte_id,
+                    'descricao': nome_fonte,
+                    'nivel': 1,
+                    'tipo': 'fonte',
+                    'categoria_pai': categoria_id,
+                    'previsao_inicial': 0,
+                    'previsao_atualizada': 0,
+                    'receita_atual': 0,
+                    'receita_anterior': 0,
+                    'variacao_absoluta': 0,
+                    'variacao_percentual': 0,
+                    'expandido': False,
+                    'tem_filhos': False,
+                    'subfontes': {}
                 }
             
             fonte_data = fontes_por_categoria[categoria_id][fonte_id]
@@ -248,15 +263,28 @@ def processar_dados_hierarquicos(resultados):
             fonte_data['receita_atual'] += receita_atual
             fonte_data['receita_anterior'] += receita_anterior
             
+            # Nível 2: Subfontes
             if subfonte_id and subfonte_id != fonte_id:
                 fonte_data['tem_filhos'] = True
                 
                 if subfonte_id not in fonte_data['subfontes']:
                     fonte_data['subfontes'][subfonte_id] = {
-                        'id': f'subfonte-{categoria_id}-{fonte_id}-{subfonte_id}', 'codigo': subfonte_id, 'descricao': nome_subfonte,
-                        'nivel': 2, 'tipo': 'subfonte', 'categoria_pai': categoria_id, 'fonte_pai': fonte_id,
-                        'previsao_inicial': 0, 'previsao_atualizada': 0, 'receita_atual': 0, 'receita_anterior': 0,
-                        'variacao_absoluta': 0, 'variacao_percentual': 0, 'expandido': False, 'tem_filhos': False, 'alineas': {}
+                        'id': f'subfonte-{categoria_id}-{fonte_id}-{subfonte_id}',
+                        'codigo': subfonte_id,
+                        'descricao': nome_subfonte,
+                        'nivel': 2,
+                        'tipo': 'subfonte',
+                        'categoria_pai': categoria_id,
+                        'fonte_pai': fonte_id,
+                        'previsao_inicial': 0,
+                        'previsao_atualizada': 0,
+                        'receita_atual': 0,
+                        'receita_anterior': 0,
+                        'variacao_absoluta': 0,
+                        'variacao_percentual': 0,
+                        'expandido': False,
+                        'tem_filhos': False,
+                        'alineas': {}
                     }
                 
                 subfonte_data = fonte_data['subfontes'][subfonte_id]
@@ -265,29 +293,77 @@ def processar_dados_hierarquicos(resultados):
                 subfonte_data['receita_atual'] += receita_atual
                 subfonte_data['receita_anterior'] += receita_anterior
                 
+                # Nível 3: Alíneas
                 if alinea_id and alinea_id != subfonte_id:
                     subfonte_data['tem_filhos'] = True
                     
-                    variacao_absoluta = receita_atual - receita_anterior
-                    variacao_percentual = (variacao_absoluta / abs(receita_anterior) * 100) if receita_anterior != 0 else (100 if receita_atual != 0 else 0)
+                    if alinea_id not in subfonte_data['alineas']:
+                        subfonte_data['alineas'][alinea_id] = {
+                            'id': f'alinea-{categoria_id}-{fonte_id}-{subfonte_id}-{alinea_id}',
+                            'codigo': alinea_id,
+                            'descricao': nome_alinea,
+                            'nivel': 3,
+                            'tipo': 'alinea',
+                            'categoria_pai': categoria_id,
+                            'fonte_pai': fonte_id,
+                            'subfonte_pai': subfonte_id,
+                            'previsao_inicial': 0,
+                            'previsao_atualizada': 0,
+                            'receita_atual': 0,
+                            'receita_anterior': 0,
+                            'variacao_absoluta': 0,
+                            'variacao_percentual': 0,
+                            'expandido': False,
+                            'tem_filhos': False,
+                            'ugs': {}
+                        }
                     
-                    subfonte_data['alineas'][alinea_id] = {
-                        'id': f'alinea-{categoria_id}-{fonte_id}-{subfonte_id}-{alinea_id}', 'codigo': alinea_id, 'descricao': nome_alinea,
-                        'nivel': 3, 'tipo': 'alinea', 'categoria_pai': categoria_id, 'fonte_pai': fonte_id, 'subfonte_pai': subfonte_id,
-                        'previsao_inicial': previsao_inicial, 'previsao_atualizada': previsao_atualizada, 'receita_atual': receita_atual, 'receita_anterior': receita_anterior,
-                        'variacao_absoluta': variacao_absoluta, 'variacao_percentual': variacao_percentual, 'expandido': False, 'tem_filhos': False
-                    }
+                    alinea_data = subfonte_data['alineas'][alinea_id]
+                    alinea_data['previsao_inicial'] += previsao_inicial
+                    alinea_data['previsao_atualizada'] += previsao_atualizada
+                    alinea_data['receita_atual'] += receita_atual
+                    alinea_data['receita_anterior'] += receita_anterior
+                    
+                    # Nível 4: UGs
+                    if coug:
+                        alinea_data['tem_filhos'] = True
+                        
+                        variacao_absoluta = receita_atual - receita_anterior
+                        variacao_percentual = (variacao_absoluta / abs(receita_anterior) * 100) if receita_anterior != 0 else (100 if receita_atual != 0 else 0)
+                        
+                        alinea_data['ugs'][coug] = {
+                            'id': f'ug-{categoria_id}-{fonte_id}-{subfonte_id}-{alinea_id}-{coug}',
+                            'codigo': coug,
+                            'descricao': f"{coug} - {nome_ug}",
+                            'nivel': 4,
+                            'tipo': 'ug',
+                            'categoria_pai': categoria_id,
+                            'fonte_pai': fonte_id,
+                            'subfonte_pai': subfonte_id,
+                            'alinea_pai': alinea_id,
+                            'previsao_inicial': previsao_inicial,
+                            'previsao_atualizada': previsao_atualizada,
+                            'receita_atual': receita_atual,
+                            'receita_anterior': receita_anterior,
+                            'variacao_absoluta': variacao_absoluta,
+                            'variacao_percentual': variacao_percentual,
+                            'expandido': False,
+                            'tem_filhos': False
+                        }
     
+    # Montar a estrutura final
     for cat_id in ['1', '2', '7']:
         if cat_id in categorias:
             cat_data = categorias[cat_id]
             
+            # Calcular variações da categoria
             cat_data['variacao_absoluta'] = cat_data['receita_atual'] - cat_data['receita_anterior']
             cat_data['variacao_percentual'] = (cat_data['variacao_absoluta'] / abs(cat_data['receita_anterior']) * 100) if cat_data['receita_anterior'] != 0 else (100 if cat_data['receita_atual'] != 0 else 0)
             
             if (abs(cat_data['previsao_inicial']) + abs(cat_data['previsao_atualizada']) + abs(cat_data['receita_atual']) + abs(cat_data['receita_anterior'])) > 0.01:
                 dados.append(cat_data)
                 
+                # Adicionar fontes
                 for fonte_id in sorted(fontes_por_categoria[cat_id].keys()):
                     fonte_data = fontes_por_categoria[cat_id][fonte_id]
                     
@@ -295,6 +371,7 @@ def processar_dados_hierarquicos(resultados):
                     fonte_data['variacao_percentual'] = (fonte_data['variacao_absoluta'] / abs(fonte_data['receita_anterior']) * 100) if fonte_data['receita_anterior'] != 0 else (100 if fonte_data['receita_atual'] != 0 else 0)
                     dados.append(fonte_data)
                     
+                    # Adicionar subfontes
                     for subfonte_id in sorted(fonte_data['subfontes'].keys()):
                         subfonte_data = fonte_data['subfontes'][subfonte_id]
                         
@@ -302,18 +379,33 @@ def processar_dados_hierarquicos(resultados):
                         subfonte_data['variacao_percentual'] = (subfonte_data['variacao_absoluta'] / abs(subfonte_data['receita_anterior']) * 100) if subfonte_data['receita_anterior'] != 0 else (100 if subfonte_data['receita_atual'] != 0 else 0)
                         dados.append(subfonte_data)
                         
+                        # Adicionar alíneas
                         for alinea_id in sorted(subfonte_data['alineas'].keys()):
-                            dados.append(subfonte_data['alineas'][alinea_id])
+                            alinea_data = subfonte_data['alineas'][alinea_id]
+                            
+                            alinea_data['variacao_absoluta'] = alinea_data['receita_atual'] - alinea_data['receita_anterior']
+                            alinea_data['variacao_percentual'] = (alinea_data['variacao_absoluta'] / abs(alinea_data['receita_anterior']) * 100) if alinea_data['receita_anterior'] != 0 else (100 if alinea_data['receita_atual'] != 0 else 0)
+                            dados.append(alinea_data)
+                            
+                            # Adicionar UGs
+                            for coug in sorted(alinea_data['ugs'].keys()):
+                                dados.append(alinea_data['ugs'][coug])
+    
     return dados
 
 def calcular_totais(dados):
     """Calcula os totais gerais do relatório"""
     totais = {
-        'previsao_inicial': 0, 'previsao_atualizada': 0, 'receita_atual': 0,
-        'receita_anterior': 0, 'variacao_absoluta': 0, 'variacao_percentual': 0
+        'previsao_inicial': 0,
+        'previsao_atualizada': 0,
+        'receita_atual': 0,
+        'receita_anterior': 0,
+        'variacao_absoluta': 0,
+        'variacao_percentual': 0
     }
+    
     for item in dados:
-        if item['nivel'] == 0:
+        if item['nivel'] == 0:  # Apenas categorias
             totais['previsao_inicial'] += item['previsao_inicial']
             totais['previsao_atualizada'] += item['previsao_atualizada']
             totais['receita_atual'] += item['receita_atual']
@@ -321,11 +413,16 @@ def calcular_totais(dados):
     
     totais['variacao_absoluta'] = totais['receita_atual'] - totais['receita_anterior']
     totais['variacao_percentual'] = (totais['variacao_absoluta'] / abs(totais['receita_anterior']) * 100) if totais['receita_anterior'] != 0 else (100 if totais['receita_atual'] != 0 else 0)
+    
     return totais
 
 def obter_nome_mes(mes):
     """Retorna o nome do mês"""
-    meses = {1: 'Janeiro', 2: 'Fevereiro', 3: 'Março', 4: 'Abril', 5: 'Maio', 6: 'Junho', 7: 'Julho', 8: 'Agosto', 9: 'Setembro', 10: 'Outubro', 11: 'Novembro', 12: 'Dezembro'}
+    meses = {
+        1: 'Janeiro', 2: 'Fevereiro', 3: 'Março', 4: 'Abril',
+        5: 'Maio', 6: 'Junho', 7: 'Julho', 8: 'Agosto',
+        9: 'Setembro', 10: 'Outubro', 11: 'Novembro', 12: 'Dezembro'
+    }
     return meses.get(mes, str(mes))
 
 def obter_nome_ug(coug):

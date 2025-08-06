@@ -1,12 +1,12 @@
-// JavaScript para Balanço Orçamentário da Receita
+// JavaScript para Balanço Orçamentário da Receita com suporte a UGs
 
 console.log('Balanço Receita JS carregado');
 
 // Variáveis globais
 let dadosRelatorio = null;
 let filtrosCarregados = false;
-let dadosOriginais = null; // Para armazenar os dados originais sem filtro
-window.ultimoRelatorioGerado = null; // Para integração com módulos
+let dadosOriginais = null;
+window.ultimoRelatorioGerado = null;
 
 // Inicialização
 $(document).ready(function() {
@@ -32,7 +32,6 @@ function carregarFiltros() {
                     $('#selectAno').append(`<option value="${ano}">${ano}</option>`);
                 });
                 
-                // Selecionar o ano atual automaticamente
                 if (data.ano_atual) {
                     $('#selectAno').val(data.ano_atual);
                 }
@@ -42,13 +41,11 @@ function carregarFiltros() {
             if (data.ano_atual) {
                 carregarMeses(data.ano_atual);
                 
-                // Após carregar os meses, selecionar o último mês com dados
                 setTimeout(function() {
                     if (data.ultimo_mes) {
                         $('#selectMes').val(data.ultimo_mes);
                     }
                     
-                    // Gerar relatório automaticamente após carregar filtros
                     gerarRelatorioAutomatico();
                 }, 100);
             }
@@ -109,17 +106,13 @@ function configurarEventos() {
     // Mudança no filtro de tipo de receita
     $(document).on('change', '#selectTipoReceita', function() {
         if (dadosRelatorio) {
-            // Aplicar filtro na tabela
             aplicarFiltroReceita($(this).val());
             
-            // Atualizar módulos se disponíveis
             if (window.ultimoRelatorioGerado) {
-                // Atualizar Análise Visual
                 if (typeof analiseVisual !== 'undefined') {
                     analiseVisual.atualizarGraficos(window.ultimoRelatorioGerado);
                 }
                 
-                // Atualizar Comparativo Mensal
                 if (typeof comparativoMensal !== 'undefined') {
                     comparativoMensal.atualizar(window.ultimoRelatorioGerado);
                 }
@@ -127,7 +120,7 @@ function configurarEventos() {
         }
     });
     
-    // Toggle de expansão/colapso
+    // Toggle de expansão/colapso - ATUALIZADO PARA SUPORTAR UGs
     $(document).on('click', '.toggle-btn', function() {
         const $btn = $(this);
         const nivel = parseInt($btn.data('nivel'));
@@ -144,7 +137,7 @@ function configurarEventos() {
                 // Colapsar
                 $btn.removeClass('expanded').text('+');
                 $(`.filho-de-fonte-${catId}-${fonteId}`).hide();
-                // Também colapsar as alíneas das subfontes
+                // Também colapsar as alíneas e UGs
                 $(`.filho-de-fonte-${catId}-${fonteId}`).each(function() {
                     const $subfonte = $(this);
                     const subfonteId = $subfonte.data('id');
@@ -153,7 +146,18 @@ function configurarEventos() {
                         if (subPartes.length >= 4) {
                             const subId = subPartes[3];
                             $(`.filho-de-subfonte-${catId}-${fonteId}-${subId}`).hide();
-                            // Resetar botão da subfonte
+                            // Também ocultar UGs das alíneas
+                            $(`.filho-de-subfonte-${catId}-${fonteId}-${subId}`).each(function() {
+                                const $alinea = $(this);
+                                const alineaId = $alinea.data('id');
+                                if (alineaId) {
+                                    const alineaPartes = alineaId.split('-');
+                                    if (alineaPartes.length >= 5) {
+                                        const aliId = alineaPartes[4];
+                                        $(`.filho-de-alinea-${catId}-${fonteId}-${subId}-${aliId}`).hide();
+                                    }
+                                }
+                            });
                             $subfonte.find('.toggle-btn').removeClass('expanded').text('+');
                         }
                     }
@@ -174,10 +178,40 @@ function configurarEventos() {
                 // Colapsar
                 $btn.removeClass('expanded').text('+');
                 $(`.filho-de-subfonte-${catId}-${fonteId}-${subfonteId}`).hide();
+                // Também colapsar UGs das alíneas
+                $(`.filho-de-subfonte-${catId}-${fonteId}-${subfonteId}`).each(function() {
+                    const $alinea = $(this);
+                    const alineaId = $alinea.data('id');
+                    if (alineaId) {
+                        const alineaPartes = alineaId.split('-');
+                        if (alineaPartes.length >= 5) {
+                            const aliId = alineaPartes[4];
+                            $(`.filho-de-alinea-${catId}-${fonteId}-${subfonteId}-${aliId}`).hide();
+                            $alinea.find('.toggle-btn').removeClass('expanded').text('+');
+                        }
+                    }
+                });
             } else {
                 // Expandir
                 $btn.addClass('expanded').text('−');
                 $(`.filho-de-subfonte-${catId}-${fonteId}-${subfonteId}`).show();
+            }
+        } else if (nivel === 3) {
+            // NOVO: Expandir/colapsar UGs de uma alínea
+            const partes = id.split('-');
+            const catId = partes[1];
+            const fonteId = partes[2];
+            const subfonteId = partes[3];
+            const alineaId = partes[4];
+            
+            if (isExpanded) {
+                // Colapsar
+                $btn.removeClass('expanded').text('+');
+                $(`.filho-de-alinea-${catId}-${fonteId}-${subfonteId}-${alineaId}`).hide();
+            } else {
+                // Expandir
+                $btn.addClass('expanded').text('−');
+                $(`.filho-de-alinea-${catId}-${fonteId}-${subfonteId}-${alineaId}`).show();
             }
         }
     });
@@ -190,7 +224,6 @@ function carregarMeses(ano) {
         return;
     }
     
-    // Por enquanto, vamos usar todos os meses
     $('#selectMes').empty().append('<option value="">Selecione...</option>');
     for (let i = 1; i <= 12; i++) {
         const nomeMes = obterNomeMes(i);
@@ -215,7 +248,6 @@ function gerarRelatorio() {
     const coug = $('#selectUG').val();
     const tipoReceita = $('#selectTipoReceita').val();
     
-    // Validação
     if (!ano || !mes) {
         mostrarAlerta('Por favor, selecione ano e mês!', 'warning');
         return;
@@ -223,7 +255,6 @@ function gerarRelatorio() {
     
     console.log('🦆 Gerando relatório:', {ano, mes, coug, tipoReceita});
     
-    // Esconder mensagem inicial e mostrar loading
     $('#mensagemInicial').hide();
     $('#relatorioContainer').html(`
         <div class="loading-container">
@@ -233,7 +264,6 @@ function gerarRelatorio() {
         </div>
     `).show();
     
-    // Fazer requisição
     $.ajax({
         url: '/balanco-receita/api/gerar-relatorio',
         method: 'GET',
@@ -246,20 +276,16 @@ function gerarRelatorio() {
         success: function(response) {
             console.log('✅ Relatório gerado:', response);
             
-            // Armazenar dados globalmente
             dadosRelatorio = response;
-            dadosOriginais = JSON.parse(JSON.stringify(response)); // Clonar dados originais
-            window.ultimoRelatorioGerado = response; // Para integração com módulos
+            dadosOriginais = JSON.parse(JSON.stringify(response));
+            window.ultimoRelatorioGerado = response;
             
-            // Renderizar relatório completo
             renderizarRelatorio(response);
             
-            // Aplicar filtro se não for "todas"
             if (tipoReceita !== 'todas') {
                 aplicarFiltroReceita(tipoReceita);
             }
             
-            // Integrar módulos adicionais após um pequeno delay
             setTimeout(() => {
                 integrarModulosAdicionais(response);
             }, 100);
@@ -281,7 +307,7 @@ function gerarRelatorio() {
     });
 }
 
-// Renderizar relatório completo
+// Renderizar relatório completo - ATUALIZADO PARA UGs
 function renderizarRelatorio(dados) {
     let html = `
         <div class="card">
@@ -313,7 +339,6 @@ function renderizarRelatorio(dados) {
             <div class="card-body">
     `;
     
-    // Verificar se há dados
     if (!dados.dados || dados.dados.length === 0) {
         html += `
             <div class="alert alert-warning">
@@ -322,13 +347,12 @@ function renderizarRelatorio(dados) {
             </div>
         `;
     } else {
-        // Criar tabela
         html += `
             <div class="table-responsive">
                 <table class="table table-bordered table-hover" id="tabelaBalanco">
                     <thead class="table-primary">
                         <tr>
-                            <th class="text-center align-middle" style="min-width: 350px;">RECEITAS</th>
+                            <th class="text-center align-middle" style="min-width: 400px;">RECEITAS</th>
                             <th class="text-center">PREVISÃO INICIAL<br>${dados.periodo.ano}</th>
                             <th class="text-center">PREVISÃO ATUALIZADA<br>${dados.periodo.ano}</th>
                             <th class="text-center">REALIZADA<br>${dados.periodo.mes}/${dados.periodo.ano}</th>
@@ -343,19 +367,31 @@ function renderizarRelatorio(dados) {
         // Adicionar linhas de dados
         dados.dados.forEach(function(item) {
             const classeNivel = `nivel-${item.nivel}`;
-            const classeLinha = item.nivel === 0 ? 'table-light fw-bold' : '';
-            const paddingLeft = item.nivel * 30;
+            let classeLinha = '';
+            let paddingLeft = item.nivel * 30;
             
-            // Para linhas filhas, verificar se devem estar visíveis
+            // Estilos especiais por nível
+            if (item.nivel === 0) {
+                classeLinha = 'table-light fw-bold';
+            } else if (item.nivel === 4) {
+                // UGs com estilo diferenciado
+                classeLinha = 'table-info';
+                paddingLeft += 10; // Padding extra para UGs
+            }
+            
+            // Definir visibilidade inicial
             let estiloLinha = '';
             if (item.nivel === 1) {
-                // Fontes devem estar visíveis
+                // Fontes visíveis
                 estiloLinha = '';
             } else if (item.nivel === 2) {
-                // Subfontes devem estar ocultas por padrão
+                // Subfontes ocultas
                 estiloLinha = 'style="display: none;"';
             } else if (item.nivel === 3) {
-                // Alíneas devem estar ocultas por padrão
+                // Alíneas ocultas
+                estiloLinha = 'style="display: none;"';
+            } else if (item.nivel === 4) {
+                // UGs ocultas
                 estiloLinha = 'style="display: none;"';
             }
             
@@ -367,6 +403,9 @@ function renderizarRelatorio(dados) {
                 classesHierarquia += ` filho-de-fonte-${item.categoria_pai}-${item.fonte_pai}`;
             } else if (item.nivel === 3) {
                 classesHierarquia += ` filho-de-subfonte-${item.categoria_pai}-${item.fonte_pai}-${item.subfonte_pai}`;
+            } else if (item.nivel === 4) {
+                // NOVO: Classes para UGs
+                classesHierarquia += ` filho-de-alinea-${item.categoria_pai}-${item.fonte_pai}-${item.subfonte_pai}-${item.alinea_pai}`;
             }
             
             html += `
@@ -377,14 +416,18 @@ function renderizarRelatorio(dados) {
                     <td style="padding-left: ${paddingLeft}px;">
             `;
             
-            // Adicionar botão de expansão para itens que têm filhos (níveis 1 e 2)
-            if ((item.nivel === 1 || item.nivel === 2) && item.tem_filhos) {
+            // Adicionar botão de expansão (níveis 1, 2 e 3 agora)
+            if ((item.nivel === 1 || item.nivel === 2 || item.nivel === 3) && item.tem_filhos) {
                 const btnTexto = item.expandido ? '−' : '+';
                 const btnClasse = item.expandido ? 'expanded' : '';
                 html += `<button class="btn btn-sm btn-link toggle-btn ${btnClasse}" data-nivel="${item.nivel}" data-id="${item.id}">+</button> `;
             } else if (item.nivel > 0) {
-                // Adicionar espaço para alinhar
                 html += `<span style="display: inline-block; width: 30px;"></span>`;
+            }
+            
+            // Ícone especial para UGs
+            if (item.nivel === 4) {
+                html += `<i class="bi bi-building text-primary me-2"></i>`;
             }
             
             html += `
@@ -438,13 +481,11 @@ function renderizarRelatorio(dados) {
 
 // Integração com módulos adicionais
 function integrarModulosAdicionais(dadosRelatorio) {
-    // Integrar Análise Visual se disponível
     if (typeof analiseVisual !== 'undefined') {
         console.log('🎨 Integrando módulo de Análise Visual');
         analiseVisual.inicializar(dadosRelatorio);
     }
     
-    // Integrar Comparativo Mensal Acumulado
     if (typeof comparativoMensal !== 'undefined') {
         console.log('📊 Integrando módulo de Comparativo Mensal');
         comparativoMensal.inicializar(dadosRelatorio);
@@ -475,21 +516,20 @@ function formatarPercentual(valor) {
     }).format(valor) + '%';
 }
 
-// Aplicar filtro de receita dinamicamente na tabela
+// Aplicar filtro de receita - ATUALIZADO PARA CONSIDERAR UGs
 function aplicarFiltroReceita(tipoFiltro) {
-    // Se não for passado o tipo, pegar do select
     const filtroAtivo = tipoFiltro || $('#selectTipoReceita').val();
     console.log('Aplicando filtro:', filtroAtivo);
     
-    // Primeiro, resetar todas as linhas
+    // Resetar todas as linhas
     $('tr[data-nivel]').hide();
     
     if (filtroAtivo === 'todas') {
-        // Mostrar todas as categorias e fontes (nível 0 e 1)
+        // Mostrar todas as categorias e fontes
         $('tr[data-nivel="0"]').show();
         $('tr[data-nivel="1"]').show();
         
-        // Restaurar valores originais das categorias
+        // Restaurar valores originais
         if (dadosOriginais) {
             dadosOriginais.dados.forEach(function(item) {
                 if (item.nivel === 0) {
@@ -522,14 +562,13 @@ function aplicarFiltroReceita(tipoFiltro) {
             });
         }
         
-        // Para subfontes e alíneas, respeitar o estado de expansão
-        $('tr[data-nivel="2"], tr[data-nivel="3"]').each(function() {
+        // Respeitar estado de expansão para subfontes, alíneas e UGs
+        $('tr[data-nivel="2"], tr[data-nivel="3"], tr[data-nivel="4"]').each(function() {
             const $row = $(this);
-            const id = $row.data('id');
             const nivel = parseInt($row.data('nivel'));
             
             if (nivel === 2) {
-                // Verificar se a fonte pai está expandida
+                // Verificar se fonte pai está expandida
                 const $tr = $row.closest('tr');
                 const classes = $tr.attr('class') || '';
                 const match = classes.match(/filho-de-fonte-(\d+)-(\d+)/);
@@ -543,7 +582,7 @@ function aplicarFiltroReceita(tipoFiltro) {
                     }
                 }
             } else if (nivel === 3) {
-                // Verificar se a subfonte pai está expandida
+                // Verificar se subfonte pai está expandida
                 const $tr = $row.closest('tr');
                 const classes = $tr.attr('class') || '';
                 const match = classes.match(/filho-de-subfonte-(\d+)-(\d+)-(\d+)/);
@@ -554,9 +593,28 @@ function aplicarFiltroReceita(tipoFiltro) {
                     const subfonteId = match[3];
                     const subfonteBtn = $(`.toggle-btn[data-id="subfonte-${catId}-${fonteId}-${subfonteId}"]`);
                     if (subfonteBtn.hasClass('expanded')) {
-                        // Também verificar se a fonte pai está expandida
                         const fonteBtn = $(`.toggle-btn[data-id="fonte-${catId}-${fonteId}"]`);
                         if (fonteBtn.hasClass('expanded')) {
+                            $row.show();
+                        }
+                    }
+                }
+            } else if (nivel === 4) {
+                // NOVO: Verificar se alínea pai está expandida
+                const $tr = $row.closest('tr');
+                const classes = $tr.attr('class') || '';
+                const match = classes.match(/filho-de-alinea-(\d+)-(\d+)-(\d+)-(\d+)/);
+                
+                if (match) {
+                    const catId = match[1];
+                    const fonteId = match[2];
+                    const subfonteId = match[3];
+                    const alineaId = match[4];
+                    const alineaBtn = $(`.toggle-btn[data-id="alinea-${catId}-${fonteId}-${subfonteId}-${alineaId}"]`);
+                    if (alineaBtn.hasClass('expanded')) {
+                        const subfonteBtn = $(`.toggle-btn[data-id="subfonte-${catId}-${fonteId}-${subfonteId}"]`);
+                        const fonteBtn = $(`.toggle-btn[data-id="fonte-${catId}-${fonteId}"]`);
+                        if (fonteBtn.hasClass('expanded') && subfonteBtn.hasClass('expanded')) {
                             $row.show();
                         }
                     }
@@ -564,10 +622,10 @@ function aplicarFiltroReceita(tipoFiltro) {
             }
         });
     } else {
-        // Definir quais fontes mostrar baseado no filtro
+        // Aplicar filtro específico
         let fontesParaMostrar = [];
-        let categoriasComDados = new Set(); // Para rastrear categorias que têm dados
-        let totaisPorCategoria = {}; // Para armazenar os totais recalculados por categoria
+        let categoriasComDados = new Set();
+        let totaisPorCategoria = {};
         
         // Determinar fontes baseado no filtro
         switch(filtroAtivo) {
@@ -587,7 +645,7 @@ function aplicarFiltroReceita(tipoFiltro) {
         
         console.log('Fontes para mostrar:', fontesParaMostrar);
         
-        // Primeiro, verificar quais categorias têm fontes com dados e calcular totais
+        // Calcular totais por categoria considerando o filtro
         dadosOriginais.dados.forEach(function(item) {
             if (item.nivel === 1 && item.id) {
                 const match = item.id.match(/fonte-(\d+)-(\d+)/);
@@ -595,11 +653,9 @@ function aplicarFiltroReceita(tipoFiltro) {
                     const catId = match[1];
                     const fonteId = match[2];
                     
-                    // Se a fonte está na lista para mostrar
                     if (fontesParaMostrar.includes(fonteId)) {
                         categoriasComDados.add(catId);
                         
-                        // Inicializar totais da categoria se não existir
                         if (!totaisPorCategoria[catId]) {
                             totaisPorCategoria[catId] = {
                                 previsao_inicial: 0,
@@ -611,7 +667,6 @@ function aplicarFiltroReceita(tipoFiltro) {
                             };
                         }
                         
-                        // Somar valores desta fonte aos totais da categoria
                         totaisPorCategoria[catId].previsao_inicial += item.previsao_inicial;
                         totaisPorCategoria[catId].previsao_atualizada += item.previsao_atualizada;
                         totaisPorCategoria[catId].receita_atual += item.receita_atual;
@@ -621,7 +676,7 @@ function aplicarFiltroReceita(tipoFiltro) {
             }
         });
         
-        // Calcular variações para cada categoria
+        // Calcular variações
         Object.keys(totaisPorCategoria).forEach(function(catId) {
             const totais = totaisPorCategoria[catId];
             totais.variacao_absoluta = totais.receita_atual - totais.receita_anterior;
@@ -632,22 +687,18 @@ function aplicarFiltroReceita(tipoFiltro) {
             }
         });
         
-        console.log('Categorias com dados:', Array.from(categoriasComDados));
-        console.log('Totais por categoria:', totaisPorCategoria);
-        
-        // Mostrar apenas categorias que têm dados e atualizar seus valores
+        // Mostrar categorias com dados
         $('tr[data-nivel="0"]').each(function() {
             const $row = $(this);
             const id = $row.data('id');
             
-            // Extrair o ID da categoria
             const match = id.match(/cat-(\d+)/);
             if (match) {
                 const catId = match[1];
                 if (categoriasComDados.has(catId)) {
                     $row.show();
                     
-                    // Atualizar valores da categoria com os totais filtrados
+                    // Atualizar valores
                     if (totaisPorCategoria[catId]) {
                         const totais = totaisPorCategoria[catId];
                         $row.find('td:eq(1)').text(formatarValor(totais.previsao_inicial));
@@ -677,14 +728,14 @@ function aplicarFiltroReceita(tipoFiltro) {
             }
         });
         
-        // Mostrar apenas as fontes filtradas e seus filhos
+        // Mostrar fontes filtradas e seus filhos (incluindo UGs)
         $('tr[data-nivel]').each(function() {
             const $row = $(this);
             const nivel = parseInt($row.data('nivel'));
             const id = $row.data('id') || '';
             
             if (nivel === 1) {
-                // Para fontes, verificar o ID
+                // Fontes
                 const match = id.match(/fonte-(\d+)-(\d+)/);
                 if (match) {
                     const catId = match[1];
@@ -694,7 +745,7 @@ function aplicarFiltroReceita(tipoFiltro) {
                     }
                 }
             } else if (nivel === 2) {
-                // Para subfontes, verificar se pertencem a uma fonte filtrada
+                // Subfontes
                 const $tr = $row.closest('tr');
                 const classes = $tr.attr('class') || '';
                 const match = classes.match(/filho-de-fonte-(\d+)-(\d+)/);
@@ -703,7 +754,6 @@ function aplicarFiltroReceita(tipoFiltro) {
                     const catId = match[1];
                     const fonteId = match[2];
                     if (fontesParaMostrar.includes(fonteId) && categoriasComDados.has(catId)) {
-                        // Verificar se a fonte pai está expandida
                         const fonteBtn = $(`.toggle-btn[data-id="fonte-${catId}-${fonteId}"]`);
                         if (fonteBtn.hasClass('expanded')) {
                             $row.show();
@@ -711,7 +761,7 @@ function aplicarFiltroReceita(tipoFiltro) {
                     }
                 }
             } else if (nivel === 3) {
-                // Para alíneas, verificar se pertencem a uma fonte filtrada
+                // Alíneas
                 const $tr = $row.closest('tr');
                 const classes = $tr.attr('class') || '';
                 const match = classes.match(/filho-de-subfonte-(\d+)-(\d+)-(\d+)/);
@@ -721,11 +771,31 @@ function aplicarFiltroReceita(tipoFiltro) {
                     const fonteId = match[2];
                     const subfonteId = match[3];
                     if (fontesParaMostrar.includes(fonteId) && categoriasComDados.has(catId)) {
-                        // Verificar se tanto a fonte quanto a subfonte estão expandidas
                         const fonteBtn = $(`.toggle-btn[data-id="fonte-${catId}-${fonteId}"]`);
                         const subfonteBtn = $(`.toggle-btn[data-id="subfonte-${catId}-${fonteId}-${subfonteId}"]`);
                         
                         if (fonteBtn.hasClass('expanded') && subfonteBtn.hasClass('expanded')) {
+                            $row.show();
+                        }
+                    }
+                }
+            } else if (nivel === 4) {
+                // UGs
+                const $tr = $row.closest('tr');
+                const classes = $tr.attr('class') || '';
+                const match = classes.match(/filho-de-alinea-(\d+)-(\d+)-(\d+)-(\d+)/);
+                
+                if (match) {
+                    const catId = match[1];
+                    const fonteId = match[2];
+                    const subfonteId = match[3];
+                    const alineaId = match[4];
+                    if (fontesParaMostrar.includes(fonteId) && categoriasComDados.has(catId)) {
+                        const fonteBtn = $(`.toggle-btn[data-id="fonte-${catId}-${fonteId}"]`);
+                        const subfonteBtn = $(`.toggle-btn[data-id="subfonte-${catId}-${fonteId}-${subfonteId}"]`);
+                        const alineaBtn = $(`.toggle-btn[data-id="alinea-${catId}-${fonteId}-${subfonteId}-${alineaId}"]`);
+                        
+                        if (fonteBtn.hasClass('expanded') && subfonteBtn.hasClass('expanded') && alineaBtn.hasClass('expanded')) {
                             $row.show();
                         }
                     }
@@ -908,9 +978,18 @@ function prepararDadosExportacao(relatorio) {
     const dados = [];
     
     relatorio.dados.forEach(item => {
+        let prefixo = '  '.repeat(item.nivel);
+        let descricao = item.descricao;
+        
+        // Adicionar indicador para UGs
+        if (item.nivel === 4) {
+            prefixo += '► ';
+            descricao = `UG ${descricao}`;
+        }
+        
         dados.push({
             'Código': item.codigo,
-            'Especificação': '  '.repeat(item.nivel) + item.descricao,
+            'Especificação': prefixo + descricao,
             'Previsão Inicial': item.previsao_inicial,
             'Previsão Atualizada': item.previsao_atualizada,
             [`Realizado ${relatorio.periodo.ano_anterior}`]: item.receita_anterior,
@@ -933,7 +1012,7 @@ function prepararDadosExportacao(relatorio) {
     return dados;
 }
 
-// Exportar para Excel
+// Exportar para Excel - ATUALIZADO com UGs
 function exportarExcel() {
     if (!dadosRelatorio) {
         mostrarAlerta('Nenhum relatório para exportar!', 'warning');
@@ -964,11 +1043,19 @@ function exportarExcel() {
         ]
     ];
     
-    // Dados do relatório
+    // Dados do relatório com indicação especial para UGs
     dadosRelatorio.dados.forEach(function(item) {
-        const prefixo = item.nivel > 0 ? '  '.repeat(item.nivel) : '';
+        let prefixo = item.nivel > 0 ? '  '.repeat(item.nivel) : '';
+        let descricao = item.descricao;
+        
+        // Adicionar indicador para UGs
+        if (item.nivel === 4) {
+            prefixo += '► ';
+            descricao = `UG ${descricao}`;
+        }
+        
         wsData.push([
-            prefixo + item.descricao,
+            prefixo + descricao,
             item.previsao_inicial,
             item.previsao_atualizada,
             item.receita_atual,
@@ -994,7 +1081,7 @@ function exportarExcel() {
     
     // Adicionar formatação de largura de coluna
     worksheet['!cols'] = [
-        { wch: 50 }, // Receitas
+        { wch: 60 }, // Receitas (maior para acomodar UGs)
         { wch: 20 }, // Previsão Inicial
         { wch: 20 }, // Previsão Atualizada
         { wch: 20 }, // Realizada Atual
@@ -1052,7 +1139,7 @@ function downloadImagem() {
         <table style="width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 20px;">
             <thead>
                 <tr style="background-color: #1e3c72; color: white;">
-                    <th style="border: 1px solid #ddd; padding: 8px; text-align: left; width: 30%;">RECEITAS</th>
+                    <th style="border: 1px solid #ddd; padding: 8px; text-align: left; width: 35%;">RECEITAS</th>
                     <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">PREVISÃO INICIAL<br>${dadosRelatorio.periodo.ano}</th>
                     <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">PREVISÃO ATUALIZADA<br>${dadosRelatorio.periodo.ano}</th>
                     <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">REALIZADA<br>${dadosRelatorio.periodo.mes}/${dadosRelatorio.periodo.ano}</th>
@@ -1068,13 +1155,25 @@ function downloadImagem() {
     dadosRelatorio.dados.forEach(function(item) {
         const paddingLeft = 10 + (item.nivel * 20);
         const fontWeight = item.nivel === 0 ? 'bold' : 'normal';
-        const backgroundColor = item.nivel === 0 ? '#f5f5f5' : 'white';
+        let backgroundColor = 'white';
+        
+        if (item.nivel === 0) {
+            backgroundColor = '#f5f5f5';
+        } else if (item.nivel === 4) {
+            backgroundColor = '#e3f2fd';
+        }
+        
         const corVariacao = item.variacao_absoluta >= 0 ? '#28a745' : '#dc3545';
+        
+        let descricao = item.descricao;
+        if (item.nivel === 4) {
+            descricao = `► UG ${descricao}`;
+        }
         
         tabelaHTML += `
             <tr style="background-color: ${backgroundColor};">
                 <td style="border: 1px solid #ddd; padding: 6px 8px; padding-left: ${paddingLeft}px; font-weight: ${fontWeight};">
-                    ${item.descricao}
+                    ${descricao}
                 </td>
                 <td style="border: 1px solid #ddd; padding: 6px 8px; text-align: right; font-weight: ${fontWeight};">
                     ${formatarValor(item.previsao_inicial)}
