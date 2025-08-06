@@ -3,6 +3,7 @@ Inicialização da aplicação Flask
 """
 from flask import Flask
 from config import config
+from app.modules.analise_visual_receitas import registrar_modulo
 
 def create_app(config_name='default'):
     """Factory pattern para criar a aplicação Flask"""
@@ -38,6 +39,8 @@ def create_app(config_name='default'):
 
     from app.routes.balanco_receita import balanco_receita
     app.register_blueprint(balanco_receita, url_prefix='/balanco-receita')
+
+    registrar_modulo(app)
 
     # Registrar filtros customizados para o Jinja2
     @app.template_filter('formato_moeda')

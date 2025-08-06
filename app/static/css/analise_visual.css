@@ -1,0 +1,167 @@
+/* Estilos para o Módulo de Análise Visual */
+
+/* Container principal */
+#analiseVisualContainer {
+    animation: fadeIn 0.5s ease;
+}
+
+/* Card de análise visual */
+#analiseVisualContainer .card {
+    border: none;
+    transition: transform 0.2s ease;
+}
+
+#analiseVisualContainer .card:hover {
+    transform: translateY(-2px);
+}
+
+/* Cabeçalho do card */
+#analiseVisualContainer .card-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+    padding: 1.25rem;
+}
+
+#analiseVisualContainer .card-header h5 {
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+/* Tabs de navegação */
+#graficosTab {
+    border-bottom: 2px solid #e9ecef;
+}
+
+#graficosTab .nav-link {
+    color: #6c757d;
+    border: none;
+    border-bottom: 3px solid transparent;
+    padding: 0.75rem 1.5rem;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+#graficosTab .nav-link:hover {
+    color: #667eea;
+    border-bottom-color: #667eea;
+}
+
+#graficosTab .nav-link.active {
+    color: #667eea;
+    background-color: transparent;
+    border-bottom-color: #667eea;
+}
+
+/* Canvas dos gráficos */
+canvas {
+    max-height: 400px;
+}
+
+/* Legenda customizada */
+.custom-legend {
+    max-height: 400px;
+    overflow-y: auto;
+    padding: 10px;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+}
+
+.legend-item {
+    padding: 8px;
+    border-radius: 4px;
+    transition: background-color 0.2s ease;
+}
+
+.legend-item:hover {
+    background-color: #e9ecef;
+}
+
+.legend-color {
+    display: inline-block;
+    border: 1px solid rgba(0,0,0,0.1);
+}
+
+/* Botão de exportar */
+#analiseVisualContainer .btn-light {
+    background-color: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    transition: all 0.3s ease;
+}
+
+#analiseVisualContainer .btn-light:hover {
+    background-color: white;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+    #graficosTab .nav-link {
+        padding: 0.5rem 1rem;
+        font-size: 0.875rem;
+    }
+    
+    .custom-legend {
+        margin-top: 1rem;
+    }
+    
+    canvas {
+        max-height: 300px;
+    }
+}
+
+/* Animação de entrada */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Scrollbar customizada para a legenda */
+.custom-legend::-webkit-scrollbar {
+    width: 6px;
+}
+
+.custom-legend::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
+}
+
+.custom-legend::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 3px;
+}
+
+.custom-legend::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+/* Tooltip dos gráficos */
+.chartjs-tooltip {
+    opacity: 1 !important;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
+}
+
+/* Loading dos gráficos */
+.chart-loading {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 400px;
+    color: #667eea;
+}
+
+.chart-loading i {
+    font-size: 3rem;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}

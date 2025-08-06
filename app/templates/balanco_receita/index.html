@@ -4,6 +4,7 @@
 
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/balanco_receita.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/analise_visual.css') }}">
 {% endblock %}
 
 {% block content %}
@@ -108,4 +109,8 @@
 <!-- Biblioteca para gerar Excel -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="{{ url_for('static', filename='js/balanco_receita.js') }}"></script>
+<!-- Chart.js para os gráficos -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+<!-- Módulo de Análise Visual -->
+<script src="{{ url_for('static', filename='js/analise_visual.js') }}"></script>
 {% endblock %}

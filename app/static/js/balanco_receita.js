@@ -104,6 +104,17 @@ function configurarEventos() {
         window.print();
     });
     
+    // Mudança no filtro de tipo de receita - NOVO
+    $(document).on('change', '#selectTipoReceita', function() {
+        if (dadosRelatorio && typeof analiseVisual !== 'undefined') {
+            // Aplicar filtro na tabela
+            aplicarFiltroReceita($(this).val());
+            
+            // Atualizar gráficos
+            analiseVisual.atualizarGraficos(dadosRelatorio);
+        }
+    });
+    
     // Toggle de expansão/colapso
     $(document).on('click', '.toggle-btn', function() {
         const $btn = $(this);
@@ -402,6 +413,11 @@ function renderizarRelatorio(dados) {
     `;
     
     $('#relatorioContainer').html(html);
+    
+    // NOVO: Verificar se o módulo de análise visual está disponível e inicializar
+    if (typeof analiseVisual !== 'undefined') {
+        analiseVisual.inicializar(dados);
+    }
 }
 
 // Formatar valor monetário
@@ -689,6 +705,11 @@ function aplicarFiltroReceita(tipoFiltro) {
     
     // Recalcular totais baseado nas linhas visíveis
     recalcularTotais();
+    
+    // NOVO: Atualizar gráficos se o módulo estiver disponível
+    if (dadosRelatorio && typeof analiseVisual !== 'undefined') {
+        analiseVisual.atualizarGraficos(dadosRelatorio);
+    }
 }
 
 // Recalcular totais baseado no filtro selecionado
@@ -792,6 +813,12 @@ function recalcularTotais() {
 
 // Limpar filtros
 function limparFiltros() {
+    // NOVO: Destruir gráficos se existirem
+    if (typeof analiseVisual !== 'undefined') {
+        analiseVisual.destruir();
+        $('#analiseVisualContainer').remove();
+    }
+    
     $('#formFiltros')[0].reset();
     $('#selectMes').empty().append('<option value="">Selecione o ano primeiro</option>');
     $('#selectTipoReceita').val('todas');
