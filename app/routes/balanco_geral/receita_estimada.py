@@ -74,6 +74,7 @@ def get_dados_receita_estimada():
             da.cocategoriareceita, da.fonte_principal
         """
         
+        # Passar parâmetros como lista para db_manager (ele vai converter para o formato correto)
         params = [ano_atual, ano_anterior]
         resultados = db_manager.execute_query(query, params)
         

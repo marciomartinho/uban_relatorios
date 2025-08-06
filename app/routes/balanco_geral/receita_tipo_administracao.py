@@ -68,6 +68,7 @@ def get_dados_receita_tipo_administracao():
         ORDER BY da.cocategoriareceita, da.fonte_principal, da.intipoadm
         """
 
+        # Passar parâmetros como lista para db_manager (ele vai converter para o formato correto)
         params = [ano_atual]
         resultados = db_manager.execute_query(query, params)
 

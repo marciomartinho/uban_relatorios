@@ -41,13 +41,26 @@ class DBManager:
             finally:
                 conn.close()
         else:
-            # Para o PostgreSQL, precisamos usar sqlalchemy.text() para queries com parâmetros
-            # Isso permite que os placeholders :nome funcionem corretamente
-            if params is None:
-                params = {}
+            # PostgreSQL com SQLAlchemy
+            # Converter placeholders ? para :param1, :param2, etc e criar dicionário
+            if params and isinstance(params, list):
+                # Substituir ? por placeholders nomeados
+                param_dict = {}
+                query_converted = query
+                for i, param in enumerate(params, 1):
+                    param_name = f'param{i}'
+                    # Substituir apenas o primeiro ? encontrado
+                    query_converted = query_converted.replace('?', f':{param_name}', 1)
+                    param_dict[param_name] = param
+                
+                # Usar o query convertido e o dicionário de parâmetros
+                df = pd.read_sql(text(query_converted), self.db_engine, params=param_dict)
+            else:
+                # Se params já for um dicionário ou None, usar diretamente
+                if params is None:
+                    params = {}
+                df = pd.read_sql(text(query), self.db_engine, params=params)
             
-            # Usar text() do SQLAlchemy para queries parametrizadas
-            df = pd.read_sql(text(query), self.db_engine, params=params)
             return df.to_dict(orient='records')
 
 # Instância global do nosso gerente
