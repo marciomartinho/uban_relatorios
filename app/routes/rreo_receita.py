@@ -227,8 +227,8 @@ def buscar_receitas_por_categoria(ano, meses_bimestre, meses_ate_bimestre, codig
                 COALESCE(f.nofontereceita, 'Fonte ' || d.cofontereceita) as nome_fonte,
                 COALESCE(sf.nosubfontereceita, 'Subfonte ' || d.cosubfontereceita) as nome_subfonte
             FROM dados_agrupados d
-            LEFT JOIN dim_receita_origem f ON d.cofontereceita = f.cofontereceita
-            LEFT JOIN dim_receita_especie sf ON d.cosubfontereceita = sf.cosubfontereceita
+            LEFT JOIN dim_receita_origem f ON d.cofontereceita = CAST(f.cofontereceita AS VARCHAR)
+            LEFT JOIN dim_receita_especie sf ON d.cosubfontereceita = CAST(sf.cosubfontereceita AS VARCHAR)
         )
         SELECT * FROM dados_com_nomes
         WHERE previsao_inicial != 0 OR previsao_atualizada != 0 
