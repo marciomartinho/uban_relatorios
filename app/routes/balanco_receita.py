@@ -436,3 +436,55 @@ def obter_nome_ug(coug):
         return result[0]['noug'] if result else f"UG {coug}"
     except:
         return f"UG {coug}"
+    
+@balanco_receita.route('/api/relatorio-receita-fonte')
+def gerar_relatorio_receita_fonte():
+    """Gera o relatório de receitas por fonte ou alínea"""
+    try:
+        from app.modules.relatorio_receita_fonte import RelatorioReceitaFonte
+        
+        # Obter parâmetros
+        tipo = request.args.get('tipo', 'fonte')  # 'fonte' ou 'receita'
+        ano = request.args.get('ano', type=int)
+        mes = request.args.get('mes', type=int)
+        coug = request.args.get('coug', '')
+        
+        # Validar parâmetros
+        if not ano or not mes:
+            return jsonify({'erro': 'Ano e mês são obrigatórios'}), 400
+        
+        if tipo not in ['fonte', 'receita']:
+            return jsonify({'erro': 'Tipo deve ser "fonte" ou "receita"'}), 400
+        
+        print(f"DEBUG - Gerando relatório receita/fonte: tipo={tipo}, ano={ano}, mes={mes}, coug={coug}")
+        
+        # Gerar relatório
+        relatorio = RelatorioReceitaFonte()
+        resultado = relatorio.gerar_relatorio(
+            tipo=tipo,
+            ano=ano,
+            mes=mes,
+            coug=coug if coug else None
+        )
+        
+        # Adicionar informações extras
+        resultado['periodo_formatado'] = f"{mes:02d}/{ano}"
+        resultado['data_geracao'] = datetime.now().strftime('%d/%m/%Y %H:%M')
+        
+        # Obter nome da UG se especificada
+        if coug:
+            try:
+                query = "SELECT noug FROM dim_unidade_gestora WHERE coug = ?"
+                result = db_manager.execute_query(query, [int(coug)])
+                resultado['nome_ug'] = result[0]['noug'] if result else f"UG {coug}"
+            except:
+                resultado['nome_ug'] = f"UG {coug}"
+        else:
+            resultado['nome_ug'] = 'Consolidado'
+        
+        return jsonify(resultado)
+        
+    except Exception as e:
+        print(f"Erro em gerar_relatorio_receita_fonte: {str(e)}")
+        traceback.print_exc()
+        return jsonify({'erro': str(e)}), 500

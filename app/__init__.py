@@ -47,6 +47,9 @@ def create_app(config_name='default'):
     from app.routes.balanco_receita import balanco_receita
     app.register_blueprint(balanco_receita, url_prefix='/balanco-receita')
 
+    from app.routes.relatorio_receita_fonte import relatorio_receita_fonte
+    app.register_blueprint(relatorio_receita_fonte, url_prefix='/relatorio-receita-fonte')
+
     # Registrar blueprints do Balanço Geral GDF
     from app.routes.balanco_geral.balanco_geral import balanco_geral
     from app.routes.balanco_geral.receita_estimada import receita_estimada_api

@@ -1,0 +1,210 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/relatorio_receita_fonte.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <h2 class="text-center mb-4">
+                <i class="bi bi-table"></i> Relatório Detalhado por Fonte/Receita
+            </h2>
+            
+            <!-- Card de Filtros -->
+            <div class="card filtros-card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-funnel"></i> Filtros do Relatório
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form id="formFiltros">
+                        <div class="row">
+                            <!-- Tipo de Relatório -->
+                            <div class="col-md-3">
+                                <div class="mb-3">
+                                    <label for="selectTipo" class="form-label">Tipo de Agrupamento</label>
+                                    <select class="form-select" id="selectTipo" required>
+                                        <option value="fonte" selected>Por Fonte de Receita</option>
+                                        <option value="receita">Por Código de Receita (Alínea)</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <!-- Ano -->
+                            <div class="col-md-2">
+                                <div class="mb-3">
+                                    <label for="selectAno" class="form-label">Ano</label>
+                                    <select class="form-select" id="selectAno" required>
+                                        <option value="">Selecione...</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <!-- Mês -->
+                            <div class="col-md-2">
+                                <div class="mb-3">
+                                    <label for="selectMes" class="form-label">Mês</label>
+                                    <select class="form-select" id="selectMes" required>
+                                        <option value="">Selecione o ano primeiro</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <!-- Unidade Gestora -->
+                            <div class="col-md-5">
+                                <div class="mb-3">
+                                    <label for="selectUG" class="form-label">Unidade Gestora</label>
+                                    <select class="form-select" id="selectUG">
+                                        <option value="">📊 Dados Consolidados</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Botões de Ação -->
+                        <div class="row mt-3">
+                            <div class="col-12 text-center">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="bi bi-search"></i> Gerar Relatório
+                                </button>
+                                <button type="button" class="btn btn-secondary" id="btnLimpar">
+                                    <i class="bi bi-x-circle"></i> Limpar
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                    
+                    <!-- Informação adicional -->
+                    <div class="alert alert-info mt-3 mb-0">
+                        <i class="bi bi-info-circle"></i> 
+                        Este relatório apresenta as receitas agrupadas por <strong>Fonte</strong> ou <strong>Alínea</strong>, 
+                        permitindo análise hierárquica com expansão/colapso dos níveis. 
+                        Inclui comparativo entre exercícios e cálculo de variações.
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Container do Relatório -->
+            <div id="relatorioContainer" class="relatorio-container" style="display: none;">
+                <!-- Card do Relatório -->
+                <div class="card">
+                    <div class="card-header bg-light">
+                        <div class="row align-items-center">
+                            <div class="col-md-8">
+                                <h5 class="mb-0">
+                                    <i class="bi bi-file-earmark-text"></i> 
+                                    <span id="tituloRelatorio">Relatório por Fonte de Receita</span>
+                                </h5>
+                                <small class="text-muted">
+                                    <span id="periodoRelatorio">-</span> | 
+                                    UG: <span id="ugRelatorio">-</span>
+                                </small>
+                            </div>
+                            <div class="col-md-4 text-end">
+                                <button id="btnExpandirTodos" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-arrows-expand"></i> Expandir
+                                </button>
+                                <button id="btnRecolherTodos" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-arrows-collapse"></i> Recolher
+                                </button>
+                                <button id="btnExportar" class="btn btn-sm btn-success">
+                                    <i class="bi bi-file-earmark-excel"></i> Excel
+                                </button>
+                                <button id="btnImprimir" class="btn btn-sm btn-secondary">
+                                    <i class="bi bi-printer"></i> Imprimir
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="card-body">
+                        <!-- Tabela do Relatório -->
+                        <div class="table-responsive">
+                            <table class="table table-bordered table-hover" id="tabelaRelatorio">
+                                <thead class="table-primary">
+                                    <tr>
+                                        <th class="col-descricao">
+                                            <span id="headerTipo">FONTE DE RECEITA</span>
+                                        </th>
+                                        <th class="text-center">PREVISÃO INICIAL</th>
+                                        <th class="text-center">PREVISÃO ATUALIZADA</th>
+                                        <th class="text-center">
+                                            REALIZADA<br>
+                                            <span id="headerAnoAtual">-</span>
+                                        </th>
+                                        <th class="text-center">
+                                            REALIZADA<br>
+                                            <span id="headerAnoAnterior">-</span>
+                                        </th>
+                                        <th class="text-center">VARIAÇÃO<br>ABSOLUTA</th>
+                                        <th class="text-center">VARIAÇÃO<br>%</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbody-relatorio">
+                                    <!-- Conteúdo gerado dinamicamente -->
+                                </tbody>
+                                <tfoot>
+                                    <tr class="table-dark fw-bold">
+                                        <td>TOTAL GERAL</td>
+                                        <td class="text-end" id="totalPrevisaoInicial">0,00</td>
+                                        <td class="text-end" id="totalPrevisaoAtualizada">0,00</td>
+                                        <td class="text-end" id="totalReceitaAtual">0,00</td>
+                                        <td class="text-end" id="totalReceitaAnterior">0,00</td>
+                                        <td class="text-end" id="totalVariacaoAbsoluta">0,00</td>
+                                        <td class="text-center" id="totalVariacaoPercentual">0,00%</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                        
+                        <!-- Estado vazio -->
+                        <div id="emptyState" class="text-center py-5" style="display: none;">
+                            <i class="bi bi-inbox display-1 text-muted"></i>
+                            <h4 class="mt-3 text-muted">Nenhum dado encontrado</h4>
+                            <p class="text-muted">Não há dados para os filtros selecionados.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="card-footer text-muted text-center">
+                        <small>Gerado em: <span id="dataGeracao">-</span></small>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Loading -->
+            <div id="loadingContainer" class="text-center py-5" style="display: none;">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+                <h4 class="mt-3">Processando dados...</h4>
+                <p class="text-muted">Consultando banco de dados DuckDB</p>
+            </div>
+            
+            <!-- Mensagem Inicial -->
+            <div id="mensagemInicial" class="alert alert-info text-center mt-4">
+                <i class="bi bi-info-circle"></i> 
+                Selecione os filtros acima e clique em "Gerar Relatório" para visualizar os dados.
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- Bibliotecas externas -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<!-- Módulos do Relatório Receita/Fonte -->
+<script src="{{ url_for('static', filename='js/relatorio_receita_fonte/configuracoes.js') }}"></script>
+<script src="{{ url_for('static', filename='js/relatorio_receita_fonte/api.js') }}"></script>
+<script src="{{ url_for('static', filename='js/relatorio_receita_fonte/renderizador.js') }}"></script>
+<script src="{{ url_for('static', filename='js/relatorio_receita_fonte/filtros.js') }}"></script>
+<script src="{{ url_for('static', filename='js/relatorio_receita_fonte/eventos.js') }}"></script>
+<script src="{{ url_for('static', filename='js/relatorio_receita_fonte/exportador.js') }}"></script>
+<script src="{{ url_for('static', filename='js/relatorio_receita_fonte/principal.js') }}"></script>
+{% endblock %}
