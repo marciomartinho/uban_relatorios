@@ -39,6 +39,7 @@
                         </a>
                     </li>
                     
+                    {% if config['FLASK_ENV'] == 'development' %}
                     <!-- Menu Consulta Saldo com submenu -->
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" role="button" 
@@ -82,6 +83,7 @@
                             </li>
                         </ul>
                     </li>
+                    {% endif %}
                     
                     <!-- Menu RREO com submenu -->
                     <li class="nav-item dropdown">
