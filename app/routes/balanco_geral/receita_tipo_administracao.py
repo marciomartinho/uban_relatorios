@@ -38,11 +38,11 @@ def get_dados_receita_tipo_administracao():
         ano_atual = ano_result[0]['coexercicio']
 
         # Nova Query SQL Dinâmica para buscar receitas, categorias e fontes
-        # Adicionado CAST para compatibilidade entre DuckDB e PostgreSQL
+        # Mantendo tipos originais e fazendo CAST apenas onde necessário
         query = """
         WITH dados_agregados AS (
             SELECT
-                CAST(rs.cocategoriareceita AS VARCHAR) as cocategoriareceita,
+                rs.cocategoriareceita,
                 SUBSTRING(rs.cofontereceita, 1, 2) as fonte_principal,
                 rs.intipoadm,
                 SUM(CASE
@@ -53,18 +53,18 @@ def get_dados_receita_tipo_administracao():
             FROM receita_saldo rs
             WHERE
                 rs.coexercicio = ?
-            GROUP BY CAST(rs.cocategoriareceita AS VARCHAR), SUBSTRING(rs.cofontereceita, 1, 2), rs.intipoadm
+            GROUP BY rs.cocategoriareceita, SUBSTRING(rs.cofontereceita, 1, 2), rs.intipoadm
         )
         SELECT
             da.cocategoriareceita,
             da.fonte_principal,
             da.intipoadm,
             da.receita_prevista,
-            COALESCE(drc.nocategoriareceita, CONCAT('Categoria ', da.cocategoriareceita)) as nocategoriareceita,
+            COALESCE(drc.nocategoriareceita, CONCAT('Categoria ', CAST(da.cocategoriareceita AS VARCHAR))) as nocategoriareceita,
             COALESCE(dro.nofontereceita, CONCAT('Fonte ', da.fonte_principal)) as nofontereceita
         FROM dados_agregados da
         LEFT JOIN DIM_RECEITA_CATEGORIA drc ON da.cocategoriareceita = drc.cocategoriareceita
-        LEFT JOIN dim_receita_origem dro ON da.fonte_principal = CAST(dro.cofontereceita AS VARCHAR)
+        LEFT JOIN DIM_RECEITA_ORIGEM dro ON da.fonte_principal = CAST(dro.cofontereceita AS VARCHAR)
         WHERE da.receita_prevista != 0
         ORDER BY da.cocategoriareceita, da.fonte_principal, da.intipoadm
         """

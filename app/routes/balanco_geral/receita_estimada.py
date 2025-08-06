@@ -36,12 +36,12 @@ def get_dados_receita_estimada():
         # 2. Nova Query SQL 100% Dinâmica
         # Esta query busca os valores e já os associa com os nomes das categorias
         # e fontes diretamente das tabelas de dimensão, sem filtros estáticos.
-        # Adicionado CAST para compatibilidade entre DuckDB e PostgreSQL
+        # Mantendo tipos originais e fazendo CAST apenas onde necessário nos JOINs
         query = """
         WITH dados_agregados AS (
             SELECT
                 rs.coexercicio,
-                CAST(rs.cocategoriareceita AS VARCHAR) as cocategoriareceita,
+                rs.cocategoriareceita,
                 SUBSTRING(rs.cofontereceita, 1, 2) as fonte_principal,
                 SUM(CASE
                     WHEN rs.cocontacontabil >= '521100000' AND rs.cocontacontabil <= '521199999'
@@ -53,13 +53,13 @@ def get_dados_receita_estimada():
                 rs.coexercicio IN (?, ?)
             GROUP BY
                 rs.coexercicio,
-                CAST(rs.cocategoriareceita AS VARCHAR),
+                rs.cocategoriareceita,
                 SUBSTRING(rs.cofontereceita, 1, 2)
         )
         SELECT
             da.coexercicio,
             da.cocategoriareceita,
-            COALESCE(drc.nocategoriareceita, CONCAT('Categoria ', da.cocategoriareceita)) as nocategoriareceita,
+            COALESCE(drc.nocategoriareceita, CONCAT('Categoria ', CAST(da.cocategoriareceita AS VARCHAR))) as nocategoriareceita,
             da.fonte_principal,
             COALESCE(dro.nofontereceita, CONCAT('Fonte ', da.fonte_principal)) as nofontereceita,
             da.receita_prevista
