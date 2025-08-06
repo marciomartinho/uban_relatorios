@@ -225,8 +225,8 @@ def buscar_despesas_por_funcao(ano, meses_bimestre, meses_ate_bimestre, excluir_
             COALESCE(f.nofuncao, 'Função ' || d.cofuncao) as nome_funcao,
             COALESCE(s.nosubfuncao, 'Subfunção ' || d.cosubfuncao) as nome_subfuncao
         FROM dados_agrupados d
-        LEFT JOIN dim_funcao f ON d.cofuncao = CAST(f.cofuncao AS VARCHAR)
-        LEFT JOIN dim_subfuncao s ON d.cosubfuncao = CAST(s.cosubfuncao AS VARCHAR)
+        LEFT JOIN dim_funcao f ON CAST(d.cofuncao AS INTEGER) = f.cofuncao
+        LEFT JOIN dim_subfuncao s ON CAST(d.cosubfuncao AS INTEGER) = s.cosubfuncao
         WHERE d.dotacao_inicial != 0 OR d.dotacao_autorizada != 0 
               OR d.empenhado_bimestre != 0 OR d.empenhado_ate_bimestre != 0
               OR d.liquidado_bimestre != 0 OR d.liquidado_ate_bimestre != 0
@@ -311,8 +311,8 @@ def buscar_despesas_por_funcao(ano, meses_bimestre, meses_ate_bimestre, excluir_
             COALESCE(f.nofuncao, 'Função ' || d.cofuncao) as nome_funcao,
             COALESCE(s.nosubfuncao, 'Subfunção ' || d.cosubfuncao) as nome_subfuncao
         FROM dados_agrupados d
-        LEFT JOIN dim_funcao f ON d.cofuncao = CAST(f.cofuncao AS VARCHAR)
-        LEFT JOIN dim_subfuncao s ON d.cosubfuncao = CAST(s.cosubfuncao AS VARCHAR)
+        LEFT JOIN dim_funcao f ON CAST(d.cofuncao AS INTEGER) = f.cofuncao
+        LEFT JOIN dim_subfuncao s ON CAST(d.cosubfuncao AS INTEGER) = s.cosubfuncao
         WHERE d.dotacao_inicial != 0 OR d.dotacao_autorizada != 0 
               OR d.empenhado_bimestre != 0 OR d.empenhado_ate_bimestre != 0
               OR d.liquidado_bimestre != 0 OR d.liquidado_ate_bimestre != 0
