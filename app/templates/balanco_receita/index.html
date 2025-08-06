@@ -85,7 +85,8 @@
                     <div class="alert alert-info mt-3 mb-0">
                         <i class="bi bi-info-circle"></i> 
                         Este relatório apresenta o comparativo entre a previsão e a realização das receitas, 
-                        com análise de variações entre exercícios. As categorias de receita são exibidas com suas respectivas fontes.
+                        com análise de variações entre exercícios. As categorias de receita são exibidas com suas respectivas fontes,
+                        subfontes, alíneas e Unidades Gestoras.
                     </div>
                 </div>
             </div>
@@ -105,15 +106,39 @@
 {% endblock %}
 
 {% block scripts %}
-<!-- Biblioteca para gerar imagens -->
+<!-- Bibliotecas externas -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<!-- Biblioteca para gerar Excel -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="{{ url_for('static', filename='js/balanco_receita.js') }}"></script>
-<!-- Chart.js para os gráficos -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
-<!-- Módulo de Análise Visual -->
+
+<!-- =================================================================== -->
+<!-- MÓDULOS DO SISTEMA DE BALANÇO DE RECEITAS (ARQUITETURA MODULAR)   -->
+<!-- =================================================================== -->
+
+<!-- 1. Configurações (deve ser carregado primeiro) -->
+<script src="{{ url_for('static', filename='js/balanco_receita/configuracoes.js') }}"></script>
+
+<!-- 2. Módulos de Suporte -->
+<script src="{{ url_for('static', filename='js/balanco_receita/formatadores.js') }}"></script>
+<script src="{{ url_for('static', filename='js/balanco_receita/api.js') }}"></script>
+
+<!-- 3. Módulos de Interface -->
+<script src="{{ url_for('static', filename='js/balanco_receita/renderizador.js') }}"></script>
+<script src="{{ url_for('static', filename='js/balanco_receita/filtros.js') }}"></script>
+<script src="{{ url_for('static', filename='js/balanco_receita/eventos.js') }}"></script>
+<script src="{{ url_for('static', filename='js/balanco_receita/exportador.js') }}"></script>
+
+<!-- 4. Controlador Principal (carregado por último) -->
+<script src="{{ url_for('static', filename='js/balanco_receita/principal.js') }}"></script>
+
+<!-- =================================================================== -->
+<!-- MÓDULOS ADICIONAIS (Opcionais)                                     -->
+<!-- =================================================================== -->
+
+<!-- Módulo de Análise Visual (se disponível) -->
 <script src="{{ url_for('static', filename='js/analise_visual.js') }}"></script>
-<!-- JavaScript -->
+
+<!-- Módulo de Comparativo Mensal (se disponível) -->
 <script src="{{ url_for('static', filename='js/comparativo_mensal.js') }}"></script>
+
 {% endblock %}
