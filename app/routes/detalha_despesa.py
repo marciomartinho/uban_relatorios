@@ -21,12 +21,20 @@ def get_filtros():
     """Retorna apenas os anos únicos - filtros iniciais"""
     try:
         # Query para buscar anos distintos
-        anos_query = """
-        SELECT DISTINCT YEAR(dalancamento) as ano
-        FROM despesa_lancamento
-        WHERE dalancamento IS NOT NULL
-        ORDER BY ano DESC
-        """
+        if db_manager.is_duckdb:
+            anos_query = """
+            SELECT DISTINCT YEAR(dalancamento) as ano
+            FROM despesa_lancamento
+            WHERE dalancamento IS NOT NULL
+            ORDER BY ano DESC
+            """
+        else:  # PostgreSQL
+            anos_query = """
+            SELECT DISTINCT EXTRACT(YEAR FROM dalancamento)::integer as ano
+            FROM despesa_lancamento
+            WHERE dalancamento IS NOT NULL
+            ORDER BY ano DESC
+            """
         
         anos_result = db_manager.execute_query(anos_query)
         anos = [row['ano'] for row in anos_result]
