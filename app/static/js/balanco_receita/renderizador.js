@@ -197,9 +197,23 @@ class RenderizadorBalancoReceita {
             html += `<i class="bi bi-building text-primary me-2"></i>`;
         }
         
-        html += `
-                    <span>${item.descricao}</span>
-                </td>
+        html += `<span>${item.descricao}</span>`;
+        
+        // Adicionar botão de lançamentos para UGs (nível 4)
+        if (item.nivel === 4) {
+            html += `
+                <button class="btn btn-sm btn-outline-primary ms-2 btn-lancamentos" 
+                        data-ug="${item.codigo}"
+                        data-fonte="${item.fonte_pai}"
+                        data-subfonte="${item.subfonte_pai}"
+                        data-alinea="${item.alinea_pai}"
+                        title="Ver lançamentos">
+                    <i class="bi bi-list-ul"></i> Lançamentos
+                </button>
+            `;
+        }
+        
+        html += `</td>
                 <td class="text-end">${this.formatadores.formatarValor(item.previsao_inicial)}</td>
                 <td class="text-end">${this.formatadores.formatarValor(item.previsao_atualizada)}</td>
                 <td class="text-end">${this.formatadores.formatarValor(item.receita_atual)}</td>

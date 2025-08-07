@@ -1,7 +1,7 @@
 """
 Blueprint para Balanço Orçamentário da Receita
 Adaptado do sistema original para trabalhar com DuckDB
-Agora com suporte para exibir UGs por alínea
+Agora com suporte para exibir UGs por alínea e lançamentos
 """
 from flask import Blueprint, render_template, jsonify, request, current_app
 from app.db_manager import db_manager
@@ -180,6 +180,106 @@ def gerar_relatorio():
         
     except Exception as e:
         print(f"Erro em gerar_relatorio: {str(e)}")
+        traceback.print_exc()
+        return jsonify({'erro': str(e)}), 500
+
+@balanco_receita.route('/api/lancamentos')
+def get_lancamentos():
+    """Retorna os lançamentos de uma UG específica"""
+    try:
+        # Obter parâmetros
+        ano = request.args.get('ano', type=int)
+        mes = request.args.get('mes', type=int)
+        coug = request.args.get('coug')
+        cofontereceita = request.args.get('cofontereceita')
+        cosubfontereceita = request.args.get('cosubfontereceita')
+        coalinea = request.args.get('coalinea')
+        
+        if not all([ano, mes, coug, cofontereceita, cosubfontereceita, coalinea]):
+            return jsonify({'erro': 'Todos os parâmetros são obrigatórios'}), 400
+        
+        # Query para buscar lançamentos
+        # IMPORTANTE: coug da linha = cougcontab na tabela de lançamentos
+        # Filtrar apenas contas contábeis entre 621200000 e 621399999
+        param_style = "?" if db_manager.is_duckdb else ":param{}"
+        
+        query = f"""
+        SELECT
+            rl.cocontacontabil,
+            rl.coug as ug_emitente,
+            rl.nudocumento,
+            rl.coevento,
+            COALESCE(ev.noevento, 'Evento ' || rl.coevento) as nome_evento,
+            rl.indebitocredito,
+            rl.valancamento,
+            rl.dalancamento,
+            rl.inmes
+        FROM receita_lancamento rl
+        LEFT JOIN dim_evento ev ON rl.coevento = CAST(ev.coevento AS VARCHAR)
+        WHERE rl.coexercicio = {param_style.format(1) if not db_manager.is_duckdb else '?'}
+            AND rl.inmes <= {param_style.format(2) if not db_manager.is_duckdb else '?'}
+            AND rl.cougcontab = {param_style.format(3) if not db_manager.is_duckdb else '?'}
+            AND rl.cofontereceita = {param_style.format(4) if not db_manager.is_duckdb else '?'}
+            AND rl.cosubfontereceita = {param_style.format(5) if not db_manager.is_duckdb else '?'}
+            AND rl.coalinea = {param_style.format(6) if not db_manager.is_duckdb else '?'}
+            AND rl.cocontacontabil >= '621200000'
+            AND rl.cocontacontabil <= '621399999'
+        ORDER BY rl.dalancamento DESC, rl.nulancamento DESC
+        LIMIT 1001
+        """
+        
+        if db_manager.is_duckdb:
+            params = [ano, mes, int(coug), cofontereceita, cosubfontereceita, coalinea]
+        else:
+            params = {
+                'param1': ano,
+                'param2': mes,
+                'param3': int(coug),
+                'param4': cofontereceita,
+                'param5': cosubfontereceita,
+                'param6': coalinea
+            }
+        
+        print(f"Buscando lançamentos: ano={ano}, mes={mes}, coug={coug}, fonte={cofontereceita}, subfonte={cosubfontereceita}, alinea={coalinea}")
+        
+        resultados = db_manager.execute_query(query, params=params)
+        
+        # Verificar se há mais de 1000 registros
+        tem_mais_registros = len(resultados) > 1000
+        if tem_mais_registros:
+            resultados = resultados[:1000]  # Limitar a 1000 registros para exibição
+        
+        # Formatar resultados
+        lancamentos = []
+        for row in resultados:
+            lancamentos.append({
+                'conta_contabil': row['cocontacontabil'],
+                'ug_emitente': row['ug_emitente'],
+                'documento': row['nudocumento'],
+                'evento': f"{row['coevento']} - {row['nome_evento']}",
+                'dc': row['indebitocredito'],  # Usar o valor direto do banco
+                'valor': float(row['valancamento']),
+                'data': row['dalancamento'].strftime('%d/%m/%Y') if row['dalancamento'] else '',
+                'mes': row['inmes']
+            })
+        
+        # Calcular totais (C - D)
+        total_debito = sum(l['valor'] for l in lancamentos if l['dc'] == 'D')
+        total_credito = sum(l['valor'] for l in lancamentos if l['dc'] == 'C')
+        
+        return jsonify({
+            'lancamentos': lancamentos,
+            'total_registros': len(lancamentos),
+            'tem_mais_registros': tem_mais_registros,
+            'totais': {
+                'debito': total_debito,
+                'credito': total_credito,
+                'saldo': total_credito - total_debito
+            }
+        })
+        
+    except Exception as e:
+        print(f"Erro em get_lancamentos: {str(e)}")
         traceback.print_exc()
         return jsonify({'erro': str(e)}), 500
 
@@ -436,8 +536,96 @@ def obter_nome_ug(coug):
         return result[0]['noug'] if result else f"UG {coug}"
     except:
         return f"UG {coug}"
-    
-@balanco_receita.route('/api/relatorio-receita-fonte')
+@balanco_receita.route('/api/lancamentos-excel')
+def get_lancamentos_excel():
+    """Retorna TODOS os lançamentos para exportação Excel"""
+    try:
+        # Obter parâmetros
+        ano = request.args.get('ano', type=int)
+        mes = request.args.get('mes', type=int)
+        coug = request.args.get('coug')
+        cofontereceita = request.args.get('cofontereceita')
+        cosubfontereceita = request.args.get('cosubfontereceita')
+        coalinea = request.args.get('coalinea')
+        
+        if not all([ano, mes, coug, cofontereceita, cosubfontereceita, coalinea]):
+            return jsonify({'erro': 'Todos os parâmetros são obrigatórios'}), 400
+        
+        # Query SEM LIMIT para pegar TODOS os registros
+        param_style = "?" if db_manager.is_duckdb else ":param{}"
+        
+        query = f"""
+        SELECT
+            rl.cocontacontabil,
+            rl.coug as ug_emitente,
+            rl.nudocumento,
+            rl.coevento,
+            COALESCE(ev.noevento, 'Evento ' || rl.coevento) as nome_evento,
+            rl.indebitocredito,
+            rl.valancamento,
+            rl.dalancamento,
+            rl.inmes
+        FROM receita_lancamento rl
+        LEFT JOIN dim_evento ev ON rl.coevento = CAST(ev.coevento AS VARCHAR)
+        WHERE rl.coexercicio = {param_style.format(1) if not db_manager.is_duckdb else '?'}
+            AND rl.inmes <= {param_style.format(2) if not db_manager.is_duckdb else '?'}
+            AND rl.cougcontab = {param_style.format(3) if not db_manager.is_duckdb else '?'}
+            AND rl.cofontereceita = {param_style.format(4) if not db_manager.is_duckdb else '?'}
+            AND rl.cosubfontereceita = {param_style.format(5) if not db_manager.is_duckdb else '?'}
+            AND rl.coalinea = {param_style.format(6) if not db_manager.is_duckdb else '?'}
+            AND rl.cocontacontabil >= '621200000'
+            AND rl.cocontacontabil <= '621399999'
+        ORDER BY rl.dalancamento DESC, rl.nulancamento DESC
+        """
+        
+        if db_manager.is_duckdb:
+            params = [ano, mes, int(coug), cofontereceita, cosubfontereceita, coalinea]
+        else:
+            params = {
+                'param1': ano,
+                'param2': mes,
+                'param3': int(coug),
+                'param4': cofontereceita,
+                'param5': cosubfontereceita,
+                'param6': coalinea
+            }
+        
+        print(f"Buscando TODOS os lançamentos para Excel: ano={ano}, mes={mes}, coug={coug}")
+        
+        resultados = db_manager.execute_query(query, params=params)
+        
+        # Formatar resultados
+        lancamentos = []
+        for row in resultados:
+            lancamentos.append({
+                'conta_contabil': row['cocontacontabil'],
+                'ug_emitente': row['ug_emitente'],
+                'documento': row['nudocumento'],
+                'evento': f"{row['coevento']} - {row['nome_evento']}",
+                'dc': row['indebitocredito'],
+                'valor': float(row['valancamento']),
+                'data': row['dalancamento'].strftime('%d/%m/%Y') if row['dalancamento'] else '',
+                'mes': row['inmes']
+            })
+        
+        # Calcular totais
+        total_debito = sum(l['valor'] for l in lancamentos if l['dc'] == 'D')
+        total_credito = sum(l['valor'] for l in lancamentos if l['dc'] == 'C')
+        
+        return jsonify({
+            'lancamentos': lancamentos,
+            'total_registros': len(lancamentos),
+            'totais': {
+                'debito': total_debito,
+                'credito': total_credito,
+                'saldo': total_credito - total_debito
+            }
+        })
+        
+    except Exception as e:
+        print(f"Erro em get_lancamentos_excel: {str(e)}")
+        traceback.print_exc()
+        return jsonify({'erro': str(e)}), 500
 def gerar_relatorio_receita_fonte():
     """Gera o relatório de receitas por fonte ou alínea"""
     try:

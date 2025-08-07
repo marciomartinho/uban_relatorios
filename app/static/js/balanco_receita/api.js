@@ -48,6 +48,29 @@ class ApiBalancoReceita {
             }
         });
     }
+    
+    /**
+     * Carrega lançamentos de uma UG específica
+     * @param {Object} parametros - Parâmetros para buscar lançamentos
+     * @returns {Promise} Promessa com os dados dos lançamentos
+     */
+    carregarLancamentos(parametros) {
+        console.log('API: Carregando lançamentos:', parametros);
+        
+        return $.ajax({
+            url: this.endpoints.LANCAMENTOS,
+            method: 'GET',
+            data: parametros,
+            error: (xhr) => {
+                console.error('❌ Erro ao carregar lançamentos:', xhr);
+                let mensagemErro = 'Erro ao carregar lançamentos';
+                if (xhr.responseJSON && xhr.responseJSON.erro) {
+                    mensagemErro += ': ' + xhr.responseJSON.erro;
+                }
+                throw new Error(mensagemErro);
+            }
+        });
+    }
 }
 
 // Exportar instância única (Singleton)

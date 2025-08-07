@@ -262,4 +262,72 @@ tr.nivel-4 td:first-child {
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
     }
+
+    /* Ícone de UG */
+    .bi-building {
+        font-size: 0.85rem;
+    }
+
+    /* Botão de lançamentos */
+    .btn-lancamentos {
+        font-size: 0.75rem;
+        padding: 0.2rem 0.5rem;
+        margin-left: 10px;
+        border-radius: 15px;
+    }
+
+    .btn-lancamentos:hover {
+        background-color: #1e3c72;
+        color: white;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+
+    /* Modal de lançamentos */
+    #modalLancamentos .modal-dialog {
+        max-width: 90%;
+        width: 1200px;
+    }
+
+    #modalLancamentos .modal-header {
+        background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+        color: white;
+    }
+
+    #modalLancamentos .modal-title {
+        line-height: 1.4;
+    }
+
+    #modalLancamentos .modal-title small {
+        font-size: 0.85rem;
+        opacity: 0.9;
+    }
+
+    #modalLancamentos .table-lancamentos {
+        font-size: 0.9rem;
+    }
+
+    #modalLancamentos .table-lancamentos th {
+        background-color: #f8f9fa;
+        font-weight: 600;
+        text-transform: uppercase;
+        font-size: 0.85rem;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+
+    #modalLancamentos .totais-lancamentos {
+        background-color: #e9ecef;
+        padding: 15px;
+        border-radius: 5px;
+        margin-top: 15px;
+    }
+
+    #modalLancamentos .loading-lancamentos {
+        text-align: center;
+        padding: 50px;
+    }
+
+    /* Mensagem inicial */
 }

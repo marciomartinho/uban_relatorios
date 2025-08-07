@@ -7,7 +7,9 @@ const ConfiguracoesBalancoReceita = {
     // Endpoints da API
     API: {
         FILTROS: '/balanco-receita/api/filtros',
-        GERAR_RELATORIO: '/balanco-receita/api/gerar-relatorio'
+        GERAR_RELATORIO: '/balanco-receita/api/gerar-relatorio',
+        LANCAMENTOS: '/balanco-receita/api/lancamentos',
+        LANCAMENTOS_EXCEL: '/balanco-receita/api/lancamentos-excel'
     },
     
     // Mapeamento de meses
