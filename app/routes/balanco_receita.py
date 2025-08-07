@@ -548,7 +548,7 @@ def gerar_relatorio_receita_fonte():
         ano = request.args.get('ano', type=int)
         mes = request.args.get('mes', type=int)
         coug = request.args.get('coug', '')
-        tipo_receita = request.args.get('tipo_receita', 'todas') # MODIFICADO: Recebe o novo parâmetro
+        tipo_receita = request.args.get('tipo_receita', 'todas')
         
         # Validar parâmetros
         if not ano or not mes:
@@ -559,14 +559,15 @@ def gerar_relatorio_receita_fonte():
         
         print(f"DEBUG - Gerando relatório receita/fonte: tipo={tipo}, ano={ano}, mes={mes}, coug={coug}, tipo_receita={tipo_receita}")
         
-        # Gerar relatório
-        relatorio = RelatorioReceitaFonte()
+        # CORREÇÃO: Passar db_manager ao criar instância
+        relatorio = RelatorioReceitaFonte(db_manager)  # <-- AQUI está a correção principal
+        
         resultado = relatorio.gerar_relatorio(
             tipo=tipo,
             ano=ano,
             mes=mes,
             coug=coug if coug else None,
-            tipo_receita=tipo_receita if tipo_receita != 'todas' else None # MODIFICADO: Passa o filtro
+            tipo_receita=tipo_receita if tipo_receita != 'todas' else None
         )
         
         # Adicionar informações extras
@@ -736,112 +737,113 @@ def gerar_relatorio_receita_fonte():
     
 @balanco_receita.route('/api/lancamentos-fonte-alinea')
 def get_lancamentos_fonte_alinea():
-    """Retorna os lançamentos para uma fonte ou alínea específica"""
+    """
+    Retorna os lançamentos para uma fonte ou alínea específica
+    Compatível com o novo módulo de Relatório Receita/Fonte v2
+    """
     try:
+        from app.modules.relatorio_receita_fonte import RelatorioReceitaFonte
+        
         # Obter parâmetros
         ano = request.args.get('ano', type=int)
         mes = request.args.get('mes', type=int)
+        
+        # Aceitar AMBOS os parâmetros para compatibilidade
         cofonte = request.args.get('cofonte')
+        cofontereceita = request.args.get('cofontereceita')
         coalinea = request.args.get('coalinea')
+        coug = request.args.get('coug')
         
-        if not ano or not mes:
-            return jsonify({'erro': 'Ano e mês são obrigatórios'}), 400
+        # Usar cofonte ou cofontereceita (priorizar cofonte do novo módulo)
+        fonte_param = cofonte or cofontereceita
         
-        if not cofonte and not coalinea:
+        if not ano:
+            return jsonify({'erro': 'Ano é obrigatório'}), 400
+        
+        if not fonte_param and not coalinea:
             return jsonify({'erro': 'É necessário informar cofonte ou coalinea'}), 400
         
-        # Montar query baseada no tipo de filtro
-        param_style = "?" if db_manager.is_duckdb else ":param{}"
+        print(f"Buscando lançamentos: ano={ano}, mes={mes}, cofonte={fonte_param}, coalinea={coalinea}, coug={coug}")
         
-        # Query base
-        base_query = f"""
-        SELECT
-            rl.cocontacontabil as conta_contabil,
-            rl.coug as ug_emitente,
-            rl.cougcontab as ug_contabil,
-            rl.nudocumento as documento,
-            rl.coevento,
-            COALESCE(ev.noevento, 'Evento ' || rl.coevento) as nome_evento,
-            rl.indebitocredito as dc,
-            rl.valancamento as valor,
-            rl.dalancamento as data,
-            rl.inmes as mes
-        FROM receita_lancamento rl
-        LEFT JOIN dim_evento ev ON rl.coevento = CAST(ev.coevento AS VARCHAR)
-        WHERE rl.coexercicio = {param_style.format(1) if not db_manager.is_duckdb else '?'}
-            AND rl.inmes <= {param_style.format(2) if not db_manager.is_duckdb else '?'}
-            AND rl.cocontacontabil >= '621200000'
-            AND rl.cocontacontabil <= '621399999'
-        """
+        # Usar o novo módulo para buscar lançamentos
+        relatorio = RelatorioReceitaFonte(db_manager)
         
-        params = []
+        # Preparar parâmetros
+        params = {
+            'ano': ano,
+            'cofonte': fonte_param,
+            'coalinea': coalinea,
+            'coug': coug
+        }
         
-        if db_manager.is_duckdb:
-            params = [ano, mes]
-        else:
-            params = {'param1': ano, 'param2': mes}
+        # Se mes=0 ou None, busca o ano todo
+        if mes and mes > 0:
+            params['mes'] = mes
         
-        # Adicionar filtro específico
-        if cofonte:
-            # Buscar por cofonte (campo cofonte na tabela receita_lancamento)
-            base_query += f" AND rl.cofonte = {param_style.format(3) if not db_manager.is_duckdb else '?'}"
-            if db_manager.is_duckdb:
-                params.append(cofonte)
-            else:
-                params['param3'] = cofonte
-                
-        elif coalinea:
-            # Buscar por coalinea
-            base_query += f" AND rl.coalinea = {param_style.format(3) if not db_manager.is_duckdb else '?'}"
-            if db_manager.is_duckdb:
-                params.append(coalinea)
-            else:
-                params['param3'] = coalinea
+        # Buscar lançamentos
+        resultado = relatorio.buscar_lancamentos(**params)
         
-        # Ordenar e limitar
-        base_query += " ORDER BY rl.dalancamento DESC, rl.nulancamento DESC LIMIT 1001"
-        
-        print(f"Buscando lançamentos: ano={ano}, mes={mes}, cofonte={cofonte}, coalinea={coalinea}")
-        
-        # Executar query
-        resultados = db_manager.execute_query(base_query, params=params)
-        
-        # Verificar se há mais de 1000 registros
-        tem_mais_registros = len(resultados) > 1000
-        if tem_mais_registros:
-            resultados = resultados[:1000]
-        
-        # Formatar resultados
-        lancamentos = []
-        for row in resultados:
-            lancamentos.append({
-                'conta_contabil': row['conta_contabil'],
-                'ug_emitente': row['ug_emitente'],
-                'ug_contabil': row['ug_contabil'],
-                'documento': row['documento'],
-                'evento': f"{row['coevento']} - {row['nome_evento']}",
-                'dc': row['dc'],
-                'valor': float(row['valor']) if row['valor'] else 0,
-                'data': row['data'].strftime('%d/%m/%Y') if row['data'] else '',
-                'mes': row['mes']
-            })
-        
-        # Calcular totais
-        total_debito = sum(l['valor'] for l in lancamentos if l['dc'] == 'D')
-        total_credito = sum(l['valor'] for l in lancamentos if l['dc'] == 'C')
-        
-        return jsonify({
-            'lancamentos': lancamentos,
-            'total_registros': len(lancamentos),
-            'tem_mais_registros': tem_mais_registros,
-            'totais': {
-                'debito': total_debito,
-                'credito': total_credito,
-                'saldo': total_credito - total_debito
-            }
-        })
+        return jsonify(resultado)
         
     except Exception as e:
         print(f"Erro em get_lancamentos_fonte_alinea: {str(e)}")
+        traceback.print_exc()
+        return jsonify({'erro': str(e)}), 500
+
+@balanco_receita.route('/api/lancamentos-fonte-alinea-excel')
+def get_lancamentos_fonte_alinea_excel():
+    """
+    Retorna TODOS os lançamentos para exportação Excel (sem limite)
+    Compatível com o novo módulo
+    """
+    try:
+        from app.modules.relatorio_receita_fonte import RelatorioReceitaFonte
+        
+        # Obter parâmetros
+        ano = request.args.get('ano', type=int)
+        mes = request.args.get('mes', type=int)
+        
+        # Aceitar AMBOS os parâmetros para compatibilidade
+        cofonte = request.args.get('cofonte')
+        cofontereceita = request.args.get('cofontereceita')
+        coalinea = request.args.get('coalinea')
+        coug = request.args.get('coug')
+        
+        # Usar cofonte ou cofontereceita
+        fonte_param = cofonte or cofontereceita
+        
+        if not ano:
+            return jsonify({'erro': 'Ano é obrigatório'}), 400
+        
+        if not fonte_param and not coalinea:
+            return jsonify({'erro': 'É necessário informar cofonte ou coalinea'}), 400
+        
+        print(f"Buscando TODOS os lançamentos para Excel: ano={ano}, mes={mes}, cofonte={fonte_param}, coalinea={coalinea}")
+        
+        # Usar o novo módulo
+        relatorio = RelatorioReceitaFonte(db_manager)
+        
+        # Preparar parâmetros com flag para exportar Excel
+        params = {
+            'ano': ano,
+            'cofonte': fonte_param,
+            'coalinea': coalinea,
+            'coug': coug,
+            'exportar_excel': True  # Flag para pegar TODOS os registros
+        }
+        
+        # Se mes=0 ou None, busca o ano todo
+        if mes and mes > 0:
+            params['mes'] = mes
+        
+        # Buscar lançamentos
+        resultado = relatorio.buscar_lancamentos(**params)
+        
+        print(f"Total de registros para Excel: {resultado.get('total_registros', 0)}")
+        
+        return jsonify(resultado)
+        
+    except Exception as e:
+        print(f"Erro em get_lancamentos_fonte_alinea_excel: {str(e)}")
         traceback.print_exc()
         return jsonify({'erro': str(e)}), 500
