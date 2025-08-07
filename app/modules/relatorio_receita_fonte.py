@@ -665,7 +665,7 @@ class RelatorioReceitaFonte:
         params: ParametrosLancamentos
     ) -> List[Lancamento]:
         """
-        Busca lançamentos da tabela receita_saldo
+        Busca lançamentos da tabela receita_lancamento
         
         Args:
             params: Parâmetros da busca
@@ -674,74 +674,88 @@ class RelatorioReceitaFonte:
             Lista de lançamentos
         """
         # Construir filtros
-        filtros = ["rs.coexercicio = ?"]
+        filtros = ["rl.coexercicio = ?"]
         parametros = [params.ano]
         
         # Filtro por mês (se não for 0 ou None, busca apenas o mês específico)
         if params.mes and params.mes > 0:
-            filtros.append("rs.inmes = ?")
+            filtros.append("rl.inmes = ?")
             parametros.append(params.mes)
         # Se mes=0 ou None, busca o ano todo (não adiciona filtro de mês)
         
-        # Filtro por fonte
+        # Filtro por fonte - usar cofonte (campo correto na tabela)
         if params.cofonte:
-            filtros.append("rs.cofonte = ?")
+            filtros.append("rl.cofonte = ?")
             parametros.append(params.cofonte)
         
         # Filtro por alínea
         if params.coalinea:
-            filtros.append("rs.coalinea = ?")
+            filtros.append("rl.coalinea = ?")
             parametros.append(params.coalinea)
         
         # Filtro por UG
         if params.coug:
-            filtros.append("rs.coug = ?")
+            filtros.append("rl.coug = ?")
             parametros.append(params.coug)
         
         where_clause = " AND ".join(filtros)
         
-        # Query para buscar lançamentos
+        # Log para debug
+        logger.info(f"Buscando lançamentos com filtros: {filtros}")
+        logger.info(f"Parâmetros: {parametros}")
+        
+        # Query para buscar lançamentos da tabela receita_lancamento
         sql = f"""
         SELECT
-            rs.cocontacontabil as conta_contabil,
-            rs.coug as ug_emitente,
-            rs.coug as ug_contabil,
-            rs.coalinea || '/' || rs.cofonte as documento,
-            rs.cocategoriareceita as evento,
-            CASE 
-                WHEN rs.saldo_contabil_receita >= 0 THEN 'C'
-                ELSE 'D'
-            END as dc,
-            CAST(rs.coexercicio AS VARCHAR) || '-' || 
-            LPAD(CAST(rs.inmes AS VARCHAR), 2, '0') || '-01' as data,
-            ABS(rs.saldo_contabil_receita) as valor,
-            rs.saldo_contabil_receita as valor_original
-        FROM receita_saldo rs
+            rl.cocontacontabil as conta_contabil,
+            rl.coug as ug_emitente,
+            rl.cougcontab as ug_contabil,
+            rl.nudocumento as documento,
+            rl.coevento as evento,
+            rl.indebitocredito as dc,
+            CAST(rl.coexercicio AS VARCHAR) || '-' || 
+            LPAD(CAST(rl.inmes AS VARCHAR), 2, '0') || '-' || 
+            CAST(EXTRACT(DAY FROM rl.dalancamento) AS VARCHAR) as data,
+            rl.valancamento as valor,
+            rl.dalancamento as data_original
+        FROM receita_lancamento rl
         WHERE {where_clause}
-            AND rs.saldo_contabil_receita != 0
-            AND rs.cocontacontabil >= '621200000'
-            AND rs.cocontacontabil <= '621399999'
-        ORDER BY rs.inmes, rs.cocontacontabil
+            AND rl.valancamento != 0
+            AND rl.cocontacontabil >= '621200000'
+            AND rl.cocontacontabil <= '621399999'
+        ORDER BY rl.dalancamento DESC, rl.nulancamento DESC
         """
         
         # Adicionar limite se não for exportação
         if not params.exportar_excel:
             sql += f" LIMIT {params.limite}"
         
+        logger.info(f"SQL: {sql}")
+        
         # Executar query
         resultados = self.db_manager.execute_query(sql, parametros)
+        
+        logger.info(f"Total de resultados: {len(resultados)}")
         
         # Converter para objetos Lancamento
         lancamentos = []
         for row in resultados:
+            # Formatar data se necessário
+            data_str = row.get('data', '')
+            if row.get('data_original'):
+                try:
+                    data_str = row['data_original'].strftime('%Y-%m-%d')
+                except:
+                    pass
+            
             lancamento = Lancamento(
-                conta_contabil=row.get('conta_contabil', ''),
-                ug_emitente=row.get('ug_emitente', ''),
-                ug_contabil=row.get('ug_contabil', ''),
-                documento=row.get('documento', ''),
-                evento=row.get('evento', ''),
+                conta_contabil=str(row.get('conta_contabil', '')),
+                ug_emitente=str(row.get('ug_emitente', '')),
+                ug_contabil=str(row.get('ug_contabil', '')),
+                documento=str(row.get('documento', '')),
+                evento=str(row.get('evento', '')),
                 dc=row.get('dc', ''),
-                data=row.get('data', ''),
+                data=data_str,
                 valor=Decimal(str(row.get('valor', 0)))
             )
             lancamentos.append(lancamento)
@@ -750,7 +764,7 @@ class RelatorioReceitaFonte:
     
     def _buscar_lancamentos_db(self, params: ParametrosLancamentos) -> List[Lancamento]:
         """
-        Busca lançamentos da tabela específica de lançamentos (se existir)
+        Busca lançamentos da tabela específica de lançamentos (receita_lancamento)
         
         Args:
             params: Parâmetros da busca
@@ -758,62 +772,85 @@ class RelatorioReceitaFonte:
         Returns:
             Lista de lançamentos
         """
-        # Se não tem tabela de lançamentos, usar receita_saldo
-        if not self.estrutura_db.get('tem_tabela_lancamentos'):
+        # Sempre usar receita_lancamento se existir
+        if self.estrutura_db.get('tem_tabela_lancamentos'):
+            return self._buscar_lancamentos_receita_lancamento(params)
+        else:
+            # Fallback para receita_saldo se não tiver tabela de lançamentos
             return self._buscar_lancamentos_receita_saldo(params)
-        
-        # Construir query para tabela de lançamentos
-        filtros = ["l.ano = ?"]
+    
+    def _buscar_lancamentos_receita_lancamento(self, params: ParametrosLancamentos) -> List[Lancamento]:
+        """
+        Busca lançamentos da tabela receita_lancamento (tabela real de lançamentos)
+        """
+        # Construir filtros
+        filtros = ["rl.coexercicio = ?"]
         parametros = [params.ano]
         
         if params.mes and params.mes > 0:
-            filtros.append("l.mes = ?")
+            filtros.append("rl.inmes = ?")
             parametros.append(params.mes)
         
         if params.cofonte:
-            filtros.append("l.cofonte = ?")
+            filtros.append("rl.cofonte = ?")
             parametros.append(params.cofonte)
         
         if params.coalinea:
-            filtros.append("l.coalinea = ?")
+            filtros.append("rl.coalinea = ?")
             parametros.append(params.coalinea)
         
         if params.coug:
-            filtros.append("l.coug = ?")
+            filtros.append("rl.cougcontab = ?")  # Usar cougcontab para filtrar por UG
             parametros.append(params.coug)
         
         where_clause = " AND ".join(filtros)
         
         sql = f"""
         SELECT
-            l.conta_contabil,
-            l.ug_emitente,
-            l.ug_contabil,
-            l.documento,
-            l.evento,
-            l.dc,
-            l.data,
-            l.valor
-        FROM lancamentos_receita l
+            rl.cocontacontabil as conta_contabil,
+            rl.coug as ug_emitente,
+            rl.cougcontab as ug_contabil,
+            rl.nudocumento as documento,
+            rl.coevento as evento,
+            rl.indebitocredito as dc,
+            rl.dalancamento as data,
+            rl.valancamento as valor
+        FROM receita_lancamento rl
         WHERE {where_clause}
-        ORDER BY l.data, l.conta_contabil
+            AND rl.valancamento != 0
+            AND rl.cocontacontabil >= '621200000'
+            AND rl.cocontacontabil <= '621399999'
+        ORDER BY rl.dalancamento DESC, rl.nulancamento DESC
         """
         
         if not params.exportar_excel:
             sql += f" LIMIT {params.limite}"
         
+        logger.info(f"Executando query de lançamentos: {sql[:200]}...")
+        logger.info(f"Parâmetros: {parametros}")
+        
         resultados = self.db_manager.execute_query(sql, parametros)
+        
+        logger.info(f"Encontrados {len(resultados)} lançamentos")
         
         lancamentos = []
         for row in resultados:
+            # Formatar data
+            data_str = ''
+            if row.get('data'):
+                try:
+                    data_str = row['data'].strftime('%Y-%m-%d')
+                except:
+                    data_str = str(row.get('data', ''))
+            
             lancamento = Lancamento(
-                conta_contabil=row.get('conta_contabil', ''),
-                ug_emitente=row.get('ug_emitente', ''),
-                ug_contabil=row.get('ug_contabil', ''),
-                documento=row.get('documento', ''),
-                evento=row.get('evento', ''),
+                conta_contabil=str(row.get('conta_contabil', '')),
+                ug_emitente=str(row.get('ug_emitente', '')),
+                ug_contabil=str(row.get('ug_contabil', '')),
+                documento=str(row.get('documento', '')),
+                evento=str(row.get('evento', '')),
                 dc=row.get('dc', ''),
-                data=row.get('data', ''),
+                data=data_str,
                 valor=Decimal(str(row.get('valor', 0)))
             )
             lancamentos.append(lancamento)
