@@ -123,7 +123,7 @@ class ControladorPrincipalBalancoReceita {
     }
     
     /**
-     * Integra módulos adicionais (Análise Visual, Comparativo Mensal, etc)
+     * Integra módulos adicionais (Análise Visual e Comparativo Mensal)
      * @private
      */
     _integrarModulosAdicionais(dadosRelatorio) {
@@ -138,12 +138,6 @@ class ControladorPrincipalBalancoReceita {
             console.log('📊 Integrando módulo de Comparativo Mensal');
             comparativoMensal.inicializar(dadosRelatorio);
         }
-
-        // Relatório Receita/Fonte
-        if (typeof relatorioReceitaFonte !== 'undefined') {
-            console.log('📋 Integrando módulo de Relatório Receita/Fonte');
-            relatorioReceitaFonte.inicializar(dadosRelatorio);
-}
     }
     
     /**
@@ -181,11 +175,6 @@ class ControladorPrincipalBalancoReceita {
         if (typeof comparativoMensal !== 'undefined') {
             comparativoMensal.destruir();
             $('#comparativoMensalContainer').remove();
-        }
-
-        if (typeof relatorioReceitaFonte !== 'undefined') {
-            relatorioReceitaFonte.destruir();
-            $('#relatorioReceitaFonteContainer').remove();
         }
     }
     
