@@ -736,59 +736,75 @@ def gerar_relatorio_receita_fonte():
     
 @balanco_receita.route('/api/lancamentos-fonte-alinea')
 def get_lancamentos_fonte_alinea():
-    """Retorna os lançamentos por fonte e alínea (sem UG específica)"""
+    """Retorna os lançamentos para uma fonte ou alínea específica"""
     try:
         # Obter parâmetros
         ano = request.args.get('ano', type=int)
         mes = request.args.get('mes', type=int)
-        cofontereceita = request.args.get('cofontereceita')
+        cofonte = request.args.get('cofonte')
         coalinea = request.args.get('coalinea')
         
-        if not all([ano, mes, cofontereceita, coalinea]):
-            return jsonify({'erro': 'Todos os parâmetros são obrigatórios'}), 400
+        if not ano or not mes:
+            return jsonify({'erro': 'Ano e mês são obrigatórios'}), 400
         
-        # Query para buscar lançamentos agrupados por UG
+        if not cofonte and not coalinea:
+            return jsonify({'erro': 'É necessário informar cofonte ou coalinea'}), 400
+        
+        # Montar query baseada no tipo de filtro
         param_style = "?" if db_manager.is_duckdb else ":param{}"
         
-        query = f"""
+        # Query base
+        base_query = f"""
         SELECT
-            rl.cocontacontabil,
+            rl.cocontacontabil as conta_contabil,
             rl.coug as ug_emitente,
-            rl.cougcontab,
-            COALESCE(ug.noug, 'UG ' || rl.cougcontab) as nome_ug,
-            rl.nudocumento,
+            rl.cougcontab as ug_contabil,
+            rl.nudocumento as documento,
             rl.coevento,
             COALESCE(ev.noevento, 'Evento ' || rl.coevento) as nome_evento,
-            rl.indebitocredito,
-            rl.valancamento,
-            rl.dalancamento,
-            rl.inmes
+            rl.indebitocredito as dc,
+            rl.valancamento as valor,
+            rl.dalancamento as data,
+            rl.inmes as mes
         FROM receita_lancamento rl
         LEFT JOIN dim_evento ev ON rl.coevento = CAST(ev.coevento AS VARCHAR)
-        LEFT JOIN dim_unidade_gestora ug ON rl.cougcontab = CAST(ug.coug AS VARCHAR)
         WHERE rl.coexercicio = {param_style.format(1) if not db_manager.is_duckdb else '?'}
             AND rl.inmes <= {param_style.format(2) if not db_manager.is_duckdb else '?'}
-            AND rl.cofontereceita = {param_style.format(3) if not db_manager.is_duckdb else '?'}
-            AND rl.coalinea = {param_style.format(4) if not db_manager.is_duckdb else '?'}
             AND rl.cocontacontabil >= '621200000'
             AND rl.cocontacontabil <= '621399999'
-        ORDER BY rl.cougcontab, rl.dalancamento DESC, rl.nulancamento DESC
-        LIMIT 1001
         """
         
+        params = []
+        
         if db_manager.is_duckdb:
-            params = [ano, mes, cofontereceita, coalinea]
+            params = [ano, mes]
         else:
-            params = {
-                'param1': ano,
-                'param2': mes,
-                'param3': cofontereceita,
-                'param4': coalinea
-            }
+            params = {'param1': ano, 'param2': mes}
         
-        print(f"Buscando lançamentos: ano={ano}, mes={mes}, fonte={cofontereceita}, alinea={coalinea}")
+        # Adicionar filtro específico
+        if cofonte:
+            # Buscar por cofonte (campo cofonte na tabela receita_lancamento)
+            base_query += f" AND rl.cofonte = {param_style.format(3) if not db_manager.is_duckdb else '?'}"
+            if db_manager.is_duckdb:
+                params.append(cofonte)
+            else:
+                params['param3'] = cofonte
+                
+        elif coalinea:
+            # Buscar por coalinea
+            base_query += f" AND rl.coalinea = {param_style.format(3) if not db_manager.is_duckdb else '?'}"
+            if db_manager.is_duckdb:
+                params.append(coalinea)
+            else:
+                params['param3'] = coalinea
         
-        resultados = db_manager.execute_query(query, params=params)
+        # Ordenar e limitar
+        base_query += " ORDER BY rl.dalancamento DESC, rl.nulancamento DESC LIMIT 1001"
+        
+        print(f"Buscando lançamentos: ano={ano}, mes={mes}, cofonte={cofonte}, coalinea={coalinea}")
+        
+        # Executar query
+        resultados = db_manager.execute_query(base_query, params=params)
         
         # Verificar se há mais de 1000 registros
         tem_mais_registros = len(resultados) > 1000
@@ -799,15 +815,15 @@ def get_lancamentos_fonte_alinea():
         lancamentos = []
         for row in resultados:
             lancamentos.append({
-                'conta_contabil': row['cocontacontabil'],
+                'conta_contabil': row['conta_contabil'],
                 'ug_emitente': row['ug_emitente'],
-                'ug_contabil': f"{row['cougcontab']} - {row['nome_ug']}",
-                'documento': row['nudocumento'],
+                'ug_contabil': row['ug_contabil'],
+                'documento': row['documento'],
                 'evento': f"{row['coevento']} - {row['nome_evento']}",
-                'dc': row['indebitocredito'],
-                'valor': float(row['valancamento']),
-                'data': row['dalancamento'].strftime('%d/%m/%Y') if row['dalancamento'] else '',
-                'mes': row['inmes']
+                'dc': row['dc'],
+                'valor': float(row['valor']) if row['valor'] else 0,
+                'data': row['data'].strftime('%d/%m/%Y') if row['data'] else '',
+                'mes': row['mes']
             })
         
         # Calcular totais
