@@ -113,7 +113,7 @@ class ExportadorBalancoReceita {
                     'Mês': item.nome_mes,
                     [`Receita ${item.ano_anterior}`]: item.receita_anterior,
                     [`Receita ${item.ano_atual}`]: item.receita_atual,
-                    'Variação R: item.variacao_absoluta,
+                    'Variação R$': item.variacao_absoluta,
                     'Variação %': item.variacao_percentual.toFixed(2) + '%'
                 }));
                 const wsComparativo = XLSX.utils.json_to_sheet(dadosComparativo);

@@ -28,6 +28,9 @@ class RelatorioReceitaFonteIntegrado {
         // Armazenar dados originais
         this.dadosOriginais = dadosRelatorio;
         
+        // Pegar o filtro de tipo de receita atual
+        this.filtroAtivo = $('#selectTipoReceita').val() || 'todas';
+        
         // Carregar dados do relatório
         this.carregarDados('fonte');
     }
@@ -121,6 +124,9 @@ class RelatorioReceitaFonteIntegrado {
         } else {
             $('#relatorioContainer').after(html);
         }
+        
+        // Configurar evento de clique para lançamentos
+        this.configurarEventosLancamentos();
     }
 
     /**
@@ -133,15 +139,9 @@ class RelatorioReceitaFonteIntegrado {
         $('#emptyStateRF').hide();
         
         try {
-            // Verificar se já temos os dados em cache
-            if (tipo === 'fonte' && this.dadosRelatorioFonte) {
-                this.renderizarRelatorio(this.dadosRelatorioFonte);
-                return;
-            }
-            if (tipo === 'receita' && this.dadosRelatorioReceita) {
-                this.renderizarRelatorio(this.dadosRelatorioReceita);
-                return;
-            }
+            // Limpar cache se mudou o filtro
+            this.dadosRelatorioFonte = null;
+            this.dadosRelatorioReceita = null;
             
             // Buscar dados na API
             const params = new URLSearchParams({
@@ -250,6 +250,33 @@ class RelatorioReceitaFonteIntegrado {
             `;
         }
         
+        // Botão de lançamentos para itens nível 1 (secundários)
+        let btnLancamentos = '';
+        if (item.nivel === 1 && item.tipo === 'secundario') {
+            // Determinar se é fonte ou alínea baseado no tipo do relatório
+            if (this.tipoAtual === 'fonte') {
+                // Item principal é fonte, secundário é alínea
+                btnLancamentos = `
+                    <button class="btn btn-sm btn-outline-primary ms-2 btn-lancamentos-rf" 
+                            data-fonte="${item.pai_id.split('-')[1]}"
+                            data-alinea="${item.codigo}"
+                            title="Ver lançamentos">
+                        <i class="bi bi-list-ul"></i> Lançamentos
+                    </button>
+                `;
+            } else {
+                // Item principal é alínea, secundário é fonte
+                btnLancamentos = `
+                    <button class="btn btn-sm btn-outline-primary ms-2 btn-lancamentos-rf" 
+                            data-fonte="${item.codigo}"
+                            data-alinea="${item.pai_id.split('-')[1]}"
+                            title="Ver lançamentos">
+                        <i class="bi bi-list-ul"></i> Lançamentos
+                    </button>
+                `;
+            }
+        }
+        
         // Calcular variação
         const variacaoIcone = item.variacao_percentual >= 0 ? '↑' : '↓';
         const variacaoClass = item.variacao_percentual >= 0 ? 'text-success' : 'text-danger';
@@ -267,6 +294,7 @@ class RelatorioReceitaFonteIntegrado {
                 <td style="padding-left: ${paddingLeft}px;">
                     ${btnExpandir}
                     <span>${item.codigo} - ${item.descricao}</span>
+                    ${btnLancamentos}
                 </td>
                 <td class="text-end">${this.formatarMoeda(item.previsao_inicial)}</td>
                 <td class="text-end">${this.formatarMoeda(item.previsao_atualizada)}</td>
@@ -455,6 +483,231 @@ class RelatorioReceitaFonteIntegrado {
         this.containerCreated = false;
         this.dadosRelatorioFonte = null;
         this.dadosRelatorioReceita = null;
+    }
+
+    /**
+     * Configura eventos de lançamentos
+     */
+    configurarEventosLancamentos() {
+        $(document).on('click', '.btn-lancamentos-rf', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const $btn = $(e.currentTarget);
+            const cofonte = $btn.data('fonte');
+            const coalinea = $btn.data('alinea');
+            
+            // Obter período do relatório
+            const filtros = {
+                ano: this.dadosOriginais.periodo.ano,
+                mes: this.dadosOriginais.periodo.mes,
+                coug: this.dadosOriginais.filtros.coug || ''
+            };
+            
+            // Dados para lançamentos (sem UG específica)
+            const dadosLancamento = {
+                cofontereceita: cofonte,
+                coalinea: coalinea
+            };
+            
+            // Mostrar modal de lançamentos
+            this.mostrarModalLancamentos(dadosLancamento, filtros);
+        });
+    }
+
+    /**
+     * Mostra modal de lançamentos
+     */
+    mostrarModalLancamentos(dadosLancamento, filtros) {
+        // Usar o mesmo modal do balanço receita
+        if ($('#modalLancamentos').length === 0) {
+            // Se o modal não existe, precisamos criá-lo
+            this.criarModalLancamentosRF();
+        }
+        
+        // Atualizar título do modal
+        $('#modalLancamentos .modal-title').html(
+            `<div>
+                <i class="bi bi-list-ul"></i> Lançamentos - Fonte/Receita
+                <br>
+                <small class="text-muted">Fonte: ${dadosLancamento.cofontereceita} | Alínea: ${dadosLancamento.coalinea}</small>
+            </div>`
+        );
+        
+        // Mostrar loading
+        $('#modalLancamentosBody').html(`
+            <div class="loading-lancamentos">
+                <i class="bi bi-hourglass-split fa-spin" style="font-size: 2rem;"></i>
+                <p class="mt-3">Carregando lançamentos...</p>
+            </div>
+        `);
+        
+        // Mostrar modal
+        const modal = new bootstrap.Modal(document.getElementById('modalLancamentos'));
+        modal.show();
+        
+        // Carregar lançamentos
+        this.carregarLancamentosFonteAlinea(dadosLancamento, filtros);
+    }
+
+    /**
+     * Cria modal de lançamentos (se não existir)
+     */
+    criarModalLancamentosRF() {
+        const modalHtml = `
+            <div class="modal fade" id="modalLancamentos" tabindex="-1">
+                <div class="modal-dialog modal-xl">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Lançamentos</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body" id="modalLancamentosBody">
+                            <!-- Conteúdo será inserido dinamicamente -->
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                            <button type="button" class="btn btn-success" id="btnExportarLancamentos">
+                                <i class="bi bi-file-earmark-excel"></i> Exportar Excel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        $('body').append(modalHtml);
+    }
+
+    /**
+     * Carrega lançamentos por fonte e alínea
+     */
+    async carregarLancamentosFonteAlinea(dadosLancamento, filtros) {
+        try {
+            const parametros = {
+                ano: filtros.ano,
+                mes: filtros.mes,
+                cofontereceita: dadosLancamento.cofontereceita,
+                coalinea: dadosLancamento.coalinea
+            };
+            
+            const response = await $.ajax({
+                url: '/balanco-receita/api/lancamentos-fonte-alinea',
+                method: 'GET',
+                data: parametros
+            });
+            
+            // Renderizar tabela adaptada
+            this.renderizarTabelaLancamentosRF(response);
+            
+            // Armazenar dados para exportação
+            window.ultimosLancamentosCarregados = response;
+            
+        } catch (error) {
+            console.error('Erro ao carregar lançamentos:', error);
+            $('#modalLancamentosBody').html(`
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle"></i> 
+                    Erro ao carregar lançamentos: ${error.message || 'Erro desconhecido'}
+                </div>
+            `);
+        }
+    }
+
+    /**
+     * Renderiza tabela de lançamentos adaptada para fonte/alínea
+     */
+    renderizarTabelaLancamentosRF(dados) {
+        let html = `
+            <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                <table class="table table-striped table-hover table-lancamentos">
+                    <thead>
+                        <tr>
+                            <th>Conta Contábil</th>
+                            <th>UG Emitente</th>
+                            <th>UG Contábil</th>
+                            <th>Nº Documento</th>
+                            <th>Evento</th>
+                            <th class="text-center">D/C</th>
+                            <th>Data</th>
+                            <th class="text-end">Valor</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+        
+        if (dados.lancamentos && dados.lancamentos.length > 0) {
+            dados.lancamentos.forEach(lanc => {
+                const classDC = lanc.dc === 'C' ? 'text-success' : 'text-danger';
+                html += `
+                    <tr>
+                        <td>${lanc.conta_contabil}</td>
+                        <td>${lanc.ug_emitente}</td>
+                        <td>${lanc.ug_contabil}</td>
+                        <td>${lanc.documento}</td>
+                        <td>${lanc.evento}</td>
+                        <td class="text-center ${classDC}">${lanc.dc}</td>
+                        <td>${lanc.data}</td>
+                        <td class="text-end">${this.formatarMoeda(lanc.valor)}</td>
+                    </tr>
+                `;
+            });
+        } else {
+            html += `
+                <tr>
+                    <td colspan="8" class="text-center text-muted">
+                        Nenhum lançamento encontrado para os filtros selecionados.
+                    </td>
+                </tr>
+            `;
+        }
+        
+        html += `
+                    </tbody>
+                </table>
+            </div>
+        `;
+        
+        // Adicionar totais
+        if (dados.totais) {
+            html += `
+                <div class="totais-lancamentos">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <strong>Total de Registros:</strong> ${dados.total_registros}
+                        </div>
+                        <div class="col-md-3">
+                            <strong>Total Débito:</strong> 
+                            <span class="text-danger">${this.formatarMoeda(dados.totais.debito)}</span>
+                        </div>
+                        <div class="col-md-3">
+                            <strong>Total Crédito:</strong> 
+                            <span class="text-success">${this.formatarMoeda(dados.totais.credito)}</span>
+                        </div>
+                        <div class="col-md-3">
+                            <strong>Saldo (C - D):</strong> 
+                            <span class="${dados.totais.saldo >= 0 ? 'text-success' : 'text-danger'}">
+                                ${this.formatarMoeda(dados.totais.saldo)}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Adicionar aviso se houver mais de 1000 registros
+        if (dados.tem_mais_registros) {
+            html += `
+                <div class="alert alert-info mt-3">
+                    <i class="bi bi-info-circle"></i> 
+                    <strong>Atenção:</strong> Existem mais de 1.000 lançamentos para este filtro. 
+                    Apenas os 1.000 mais recentes estão sendo exibidos. 
+                    Para visualizar todos os registros, faça o download do arquivo Excel.
+                </div>
+            `;
+        }
+        
+        $('#modalLancamentosBody').html(html);
     }
 }
 

@@ -536,6 +536,61 @@ def obter_nome_ug(coug):
         return result[0]['noug'] if result else f"UG {coug}"
     except:
         return f"UG {coug}"
+
+@balanco_receita.route('/api/relatorio-receita-fonte')
+def gerar_relatorio_receita_fonte():
+    """Gera o relatório de receitas por fonte ou alínea"""
+    try:
+        from app.modules.relatorio_receita_fonte import RelatorioReceitaFonte
+        
+        # Obter parâmetros
+        tipo = request.args.get('tipo', 'fonte')
+        ano = request.args.get('ano', type=int)
+        mes = request.args.get('mes', type=int)
+        coug = request.args.get('coug', '')
+        tipo_receita = request.args.get('tipo_receita', 'todas') # MODIFICADO: Recebe o novo parâmetro
+        
+        # Validar parâmetros
+        if not ano or not mes:
+            return jsonify({'erro': 'Ano e mês são obrigatórios'}), 400
+        
+        if tipo not in ['fonte', 'receita']:
+            return jsonify({'erro': 'Tipo deve ser "fonte" ou "receita"'}), 400
+        
+        print(f"DEBUG - Gerando relatório receita/fonte: tipo={tipo}, ano={ano}, mes={mes}, coug={coug}, tipo_receita={tipo_receita}")
+        
+        # Gerar relatório
+        relatorio = RelatorioReceitaFonte()
+        resultado = relatorio.gerar_relatorio(
+            tipo=tipo,
+            ano=ano,
+            mes=mes,
+            coug=coug if coug else None,
+            tipo_receita=tipo_receita if tipo_receita != 'todas' else None # MODIFICADO: Passa o filtro
+        )
+        
+        # Adicionar informações extras
+        resultado['periodo_formatado'] = f"{mes:02d}/{ano}"
+        resultado['data_geracao'] = datetime.now().strftime('%d/%m/%Y %H:%M')
+        
+        # Obter nome da UG se especificada
+        if coug:
+            try:
+                query = "SELECT noug FROM dim_unidade_gestora WHERE coug = ?"
+                result = db_manager.execute_query(query, [int(coug)])
+                resultado['nome_ug'] = result[0]['noug'] if result else f"UG {coug}"
+            except:
+                resultado['nome_ug'] = f"UG {coug}"
+        else:
+            resultado['nome_ug'] = 'Consolidado'
+        
+        return jsonify(resultado)
+        
+    except Exception as e:
+        print(f"Erro em gerar_relatorio_receita_fonte: {str(e)}")
+        traceback.print_exc()
+        return jsonify({'erro': str(e)}), 500
+
 @balanco_receita.route('/api/lancamentos-excel')
 def get_lancamentos_excel():
     """Retorna TODOS os lançamentos para exportação Excel"""
@@ -676,5 +731,101 @@ def gerar_relatorio_receita_fonte():
         
     except Exception as e:
         print(f"Erro em gerar_relatorio_receita_fonte: {str(e)}")
+        traceback.print_exc()
+        return jsonify({'erro': str(e)}), 500
+    
+@balanco_receita.route('/api/lancamentos-fonte-alinea')
+def get_lancamentos_fonte_alinea():
+    """Retorna os lançamentos por fonte e alínea (sem UG específica)"""
+    try:
+        # Obter parâmetros
+        ano = request.args.get('ano', type=int)
+        mes = request.args.get('mes', type=int)
+        cofontereceita = request.args.get('cofontereceita')
+        coalinea = request.args.get('coalinea')
+        
+        if not all([ano, mes, cofontereceita, coalinea]):
+            return jsonify({'erro': 'Todos os parâmetros são obrigatórios'}), 400
+        
+        # Query para buscar lançamentos agrupados por UG
+        param_style = "?" if db_manager.is_duckdb else ":param{}"
+        
+        query = f"""
+        SELECT
+            rl.cocontacontabil,
+            rl.coug as ug_emitente,
+            rl.cougcontab,
+            COALESCE(ug.noug, 'UG ' || rl.cougcontab) as nome_ug,
+            rl.nudocumento,
+            rl.coevento,
+            COALESCE(ev.noevento, 'Evento ' || rl.coevento) as nome_evento,
+            rl.indebitocredito,
+            rl.valancamento,
+            rl.dalancamento,
+            rl.inmes
+        FROM receita_lancamento rl
+        LEFT JOIN dim_evento ev ON rl.coevento = CAST(ev.coevento AS VARCHAR)
+        LEFT JOIN dim_unidade_gestora ug ON rl.cougcontab = CAST(ug.coug AS VARCHAR)
+        WHERE rl.coexercicio = {param_style.format(1) if not db_manager.is_duckdb else '?'}
+            AND rl.inmes <= {param_style.format(2) if not db_manager.is_duckdb else '?'}
+            AND rl.cofontereceita = {param_style.format(3) if not db_manager.is_duckdb else '?'}
+            AND rl.coalinea = {param_style.format(4) if not db_manager.is_duckdb else '?'}
+            AND rl.cocontacontabil >= '621200000'
+            AND rl.cocontacontabil <= '621399999'
+        ORDER BY rl.cougcontab, rl.dalancamento DESC, rl.nulancamento DESC
+        LIMIT 1001
+        """
+        
+        if db_manager.is_duckdb:
+            params = [ano, mes, cofontereceita, coalinea]
+        else:
+            params = {
+                'param1': ano,
+                'param2': mes,
+                'param3': cofontereceita,
+                'param4': coalinea
+            }
+        
+        print(f"Buscando lançamentos: ano={ano}, mes={mes}, fonte={cofontereceita}, alinea={coalinea}")
+        
+        resultados = db_manager.execute_query(query, params=params)
+        
+        # Verificar se há mais de 1000 registros
+        tem_mais_registros = len(resultados) > 1000
+        if tem_mais_registros:
+            resultados = resultados[:1000]
+        
+        # Formatar resultados
+        lancamentos = []
+        for row in resultados:
+            lancamentos.append({
+                'conta_contabil': row['cocontacontabil'],
+                'ug_emitente': row['ug_emitente'],
+                'ug_contabil': f"{row['cougcontab']} - {row['nome_ug']}",
+                'documento': row['nudocumento'],
+                'evento': f"{row['coevento']} - {row['nome_evento']}",
+                'dc': row['indebitocredito'],
+                'valor': float(row['valancamento']),
+                'data': row['dalancamento'].strftime('%d/%m/%Y') if row['dalancamento'] else '',
+                'mes': row['inmes']
+            })
+        
+        # Calcular totais
+        total_debito = sum(l['valor'] for l in lancamentos if l['dc'] == 'D')
+        total_credito = sum(l['valor'] for l in lancamentos if l['dc'] == 'C')
+        
+        return jsonify({
+            'lancamentos': lancamentos,
+            'total_registros': len(lancamentos),
+            'tem_mais_registros': tem_mais_registros,
+            'totais': {
+                'debito': total_debito,
+                'credito': total_credito,
+                'saldo': total_credito - total_debito
+            }
+        })
+        
+    except Exception as e:
+        print(f"Erro em get_lancamentos_fonte_alinea: {str(e)}")
         traceback.print_exc()
         return jsonify({'erro': str(e)}), 500
