@@ -10,6 +10,7 @@ class RelatorioReceitaFonteIntegrado {
         this.tipoAtual = 'fonte';
         this.dadosRelatorioFonte = null;
         this.dadosRelatorioReceita = null;
+        this.filtroAtivo = 'todas'; // Adicionado para guardar o estado do filtro
     }
 
     /**
@@ -87,8 +88,7 @@ class RelatorioReceitaFonteIntegrado {
                                         </tr>
                                     </thead>
                                     <tbody id="tbodyRelatorioRF">
-                                        <!-- Dados serão inseridos aqui -->
-                                    </tbody>
+                                        </tbody>
                                     <tfoot>
                                         <tr class="table-secondary fw-bold">
                                             <td>TOTAL GERAL</td>
@@ -148,7 +148,8 @@ class RelatorioReceitaFonteIntegrado {
                 tipo: tipo,
                 ano: this.dadosOriginais.periodo.ano,
                 mes: this.dadosOriginais.periodo.mes,
-                coug: this.dadosOriginais.filtros.coug || ''
+                coug: this.dadosOriginais.filtros.coug || '',
+                tipo_receita: this.filtroAtivo // MODIFICADO: Enviar o filtro ativo
             });
             
             const response = await fetch(`/balanco-receita/api/relatorio-receita-fonte?${params}`);
@@ -433,11 +434,14 @@ class RelatorioReceitaFonteIntegrado {
     /**
      * Atualiza quando o relatório principal é atualizado
      */
-    atualizar(dadosRelatorio) {
-        console.log('📋 Atualizando Relatório Receita/Fonte com novos dados');
+    atualizar(dadosRelatorio, tipoReceitaFiltro) { // MODIFICADO: Recebe o filtro
+        console.log('📋 Atualizando Relatório Receita/Fonte com novos dados e filtro:', tipoReceitaFiltro);
         this.dadosOriginais = dadosRelatorio;
         this.dadosRelatorioFonte = null;
         this.dadosRelatorioReceita = null;
+
+        // Armazena o filtro ativo para a próxima chamada de API
+        this.filtroAtivo = tipoReceitaFiltro || 'todas';
         
         // Recarregar dados com os novos filtros
         this.carregarDados(this.tipoAtual);

@@ -8,15 +8,6 @@ from typing import List, Dict, Optional, Literal
 from app.db_manager import db_manager
 import traceback
 
-# ===== ARQUIVO DE ATUALIZAÇÃO DO app/__init__.py =====
-# Adicione as seguintes linhas no arquivo app/__init__.py após os outros blueprints:
-#
-# from app.routes.relatorio_receita_fonte import relatorio_receita_fonte
-# app.register_blueprint(relatorio_receita_fonte, url_prefix='/relatorio-receita-fonte')
-#
-# ===== FIM DAS INSTRUÇÕES DE ATUALIZAÇÃO =====
-
-
 class RelatorioReceitaFonte:
     """Classe para gerar relatórios agrupados por receita ou fonte"""
 
@@ -36,7 +27,6 @@ class RelatorioReceitaFonte:
                 query = "SELECT 1 FROM receita_saldo LIMIT 1"
                 result = self.db_manager.execute_query(query)
                 tem_tabela_receitas = True
-                print(f"DEBUG - Tabela receita_saldo encontrada")
             except:
                 tem_tabela_receitas = False
             
@@ -45,7 +35,6 @@ class RelatorioReceitaFonte:
                 query = "SELECT 1 FROM dim_fonte LIMIT 1"
                 result = self.db_manager.execute_query(query)
                 tem_tabela_fontes = True
-                print(f"DEBUG - Tabela dim_fonte encontrada")
             except:
                 tem_tabela_fontes = False
             
@@ -54,7 +43,6 @@ class RelatorioReceitaFonte:
                 query = "SELECT 1 FROM dim_receita_alinea LIMIT 1"
                 result = self.db_manager.execute_query(query)
                 tem_tabela_alineas = True
-                print(f"DEBUG - Tabela dim_receita_alinea encontrada")
             except:
                 tem_tabela_alineas = False
                         
@@ -66,7 +54,6 @@ class RelatorioReceitaFonte:
             'tem_tabela_fontes': tem_tabela_fontes,
             'tem_tabela_alineas': tem_tabela_alineas
         }
-        print(f"DEBUG - Estrutura verificada: {resultado}")
         return resultado
 
     def gerar_relatorio(self, tipo: Literal['receita', 'fonte'],
@@ -75,19 +62,7 @@ class RelatorioReceitaFonte:
                        tipo_receita: Optional[str] = None) -> Dict:
         """
         Gera o relatório principal
-        
-        Args:
-            tipo: 'receita' para agrupar por alínea, 'fonte' para agrupar por fonte
-            ano: Ano do exercício
-            mes: Mês de referência
-            coug: Código da UG (opcional)
-            tipo_receita: Tipo de receita para filtrar (opcional)
-        
-        Returns:
-            Dict com dados do relatório
         """
-        print(f"DEBUG - gerar_relatorio: tipo={tipo}, ano={ano}, mes={mes}, coug={coug}, tipo_receita={tipo_receita}")
-        
         try:
             dados = self._gerar_dados_relatorio(tipo, ano, mes, coug, tipo_receita)
             totais = self._calcular_totais(dados)
@@ -131,44 +106,31 @@ class RelatorioReceitaFonte:
             filtros.append("rs.coug = ?")
             params.append(coug)
         
-        # Adicionar filtro por tipo de receita
+        # MODIFICADO: Adicionar filtro por tipo de receita
         if tipo_receita and tipo_receita != 'todas':
-            # Mapeamento de tipos de receita para fontes
             tipos_map = {
-                '11': ['11', '71'],  # Impostos
-                '12': ['12', '72'],  # Contribuições
-                '13': ['13', '73'],  # Patrimonial
-                '14': ['14', '74'],  # Agropecuária
-                '15': ['15', '75'],  # Industrial
-                '16': ['16', '76'],  # Serviços
-                '17': ['17', '77'],  # Transferências Correntes
-                '19': ['19', '79'],  # Outras Correntes
-                '21': ['21'],        # Operações de Crédito
-                '22': ['22'],        # Alienação de Bens
-                '23': ['23'],        # Amortização
-                '24': ['24']         # Transferências de Capital
+                '11': ['11', '71'], '12': ['12', '72'], '13': ['13', '73'],
+                '14': ['14', '74'], '15': ['15', '75'], '16': ['16', '76'],
+                '17': ['17', '77'], '19': ['19', '79'], '21': ['21'],
+                '22': ['22'], '23': ['23'], '24': ['24']
             }
-            
             if tipo_receita in tipos_map:
                 fontes = tipos_map[tipo_receita]
                 placeholders = ','.join(['?' for _ in fontes])
-                filtros.append(f"rs.cofonte IN ({placeholders})")
+                filtros.append(f"rs.cofontereceita IN ({placeholders})")
                 params.extend(fontes)
-                print(f"DEBUG - Aplicando filtro por tipo_receita: {tipo_receita} -> fontes: {fontes}")
         
         where_clause = " AND " + " AND ".join(filtros) if filtros else ""
         
         # Define campos baseado no tipo
         if tipo == 'receita':
-            # Mãe = Alínea, Filho = Fonte
             campo_principal = 'coalinea'
             nome_principal = 'noalinea'
             tabela_principal = 'dim_receita_alinea'
             campo_secundario = 'cofonte'
             nome_secundario = 'nofonte'
             tabela_secundaria = 'dim_fonte'
-        else:  # tipo == 'fonte'
-            # Mãe = Fonte, Filho = Alínea
+        else:
             campo_principal = 'cofonte'
             nome_principal = 'nofonte'
             tabela_principal = 'dim_fonte'
@@ -265,7 +227,6 @@ class RelatorioReceitaFonte:
             if not codigo_principal:
                 continue
             
-            # Criar grupo principal se não existir
             if codigo_principal not in grupos:
                 grupos[codigo_principal] = {
                     'id': f'{tipo}-{codigo_principal}',
@@ -282,7 +243,6 @@ class RelatorioReceitaFonte:
                     'itens_secundarios': []
                 }
             
-            # Adicionar item secundário
             codigo_secundario = row.get(campo_secundario)
             if codigo_secundario:
                 grupos[codigo_principal]['tem_filhos'] = True
@@ -311,7 +271,6 @@ class RelatorioReceitaFonte:
                 self._calcular_variacoes(item)
                 dados_finais.append(item)
         
-        print(f"DEBUG - Total de resultados: {len(dados_finais)}")
         return dados_finais
 
     def _calcular_variacoes(self, item: Dict) -> None:
@@ -338,7 +297,7 @@ class RelatorioReceitaFonte:
         }
         
         for item in dados:
-            if item.get('nivel') == 0:  # Apenas itens principais
+            if item.get('nivel') == 0:
                 totais['previsao_inicial'] += item.get('previsao_inicial', 0)
                 totais['previsao_atualizada'] += item.get('previsao_atualizada', 0)
                 totais['receita_atual'] += item.get('receita_atual', 0)

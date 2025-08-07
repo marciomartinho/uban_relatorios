@@ -444,11 +444,11 @@ def gerar_relatorio_receita_fonte():
         from app.modules.relatorio_receita_fonte import RelatorioReceitaFonte
         
         # Obter parâmetros
-        tipo = request.args.get('tipo', 'fonte')  # 'fonte' ou 'receita'
+        tipo = request.args.get('tipo', 'fonte')
         ano = request.args.get('ano', type=int)
         mes = request.args.get('mes', type=int)
         coug = request.args.get('coug', '')
-        tipo_receita = request.args.get('tipo_receita', 'todas')  # NOVO PARÂMETRO
+        tipo_receita = request.args.get('tipo_receita', 'todas') # MODIFICADO: Recebe o novo parâmetro
         
         # Validar parâmetros
         if not ano or not mes:
@@ -466,7 +466,7 @@ def gerar_relatorio_receita_fonte():
             ano=ano,
             mes=mes,
             coug=coug if coug else None,
-            tipo_receita=tipo_receita if tipo_receita != 'todas' else None  # PASSAR O FILTRO
+            tipo_receita=tipo_receita if tipo_receita != 'todas' else None # MODIFICADO: Passa o filtro
         )
         
         # Adicionar informações extras

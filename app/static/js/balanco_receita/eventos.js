@@ -236,26 +236,30 @@ class EventosBalancoReceita {
         });
     }
     
-        /**
-         * Atualiza módulos integrados após mudança de filtro
-         * @private
-         */
-        _atualizarModulosIntegrados() {
-            // Análise Visual
-            if (typeof analiseVisual !== 'undefined') {
-                analiseVisual.atualizarGraficos(window.ultimoRelatorioGerado);
-            }
-            
-            // Comparativo Mensal
-            if (typeof comparativoMensal !== 'undefined') {
-                comparativoMensal.atualizar(window.ultimoRelatorioGerado);
-            }
-            
-            // Relatório Receita/Fonte
-            if (typeof relatorioReceitaFonte !== 'undefined') {
-                relatorioReceitaFonte.atualizar(window.ultimoRelatorioGerado);
-            }
+    /**
+     * Atualiza módulos integrados após mudança de filtro
+     * @private
+     */
+    _atualizarModulosIntegrados() {
+        // Obter o valor atual do filtro de tipo de receita
+        const tipoReceitaFiltro = $(this.seletores.SELECT_TIPO_RECEITA).val() || 'todas';
+
+        // Análise Visual
+        if (typeof analiseVisual !== 'undefined') {
+            analiseVisual.atualizarGraficos(window.ultimoRelatorioGerado);
         }
+        
+        // Comparativo Mensal
+        if (typeof comparativoMensal !== 'undefined') {
+            comparativoMensal.atualizar(window.ultimoRelatorioGerado);
+        }
+        
+        // Relatório Receita/Fonte
+        if (typeof relatorioReceitaFonte !== 'undefined') {
+            // MODIFICADO: Passe o filtro para a função de atualização
+            relatorioReceitaFonte.atualizar(window.ultimoRelatorioGerado, tipoReceitaFiltro);
+        }
+    }
 }
 
 // Exportar instância única
