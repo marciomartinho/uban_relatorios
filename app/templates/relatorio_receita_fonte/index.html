@@ -1,0 +1,284 @@
+{% extends "base.html" %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/relatorio_receita_fonte.css') }}">
+<link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.2/css/buttons.bootstrap5.min.css">
+<style>
+    /* Estilos adicionais para o modal */
+    #modalDetalhes .modal-header small {
+        color: white !important;
+    }
+    #tabelaDetalhes thead th {
+        color: black !important;
+        background-color: #f8f9fa !important;
+        font-weight: 600;
+        border-bottom: 2px solid #dee2e6;
+    }
+    #tabelaDetalhes {
+        font-size: 0.85rem;
+    }
+    #tabelaDetalhes td {
+        padding: 0.3rem;
+        vertical-align: middle;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h2 class="mb-4">
+        <i class="bi bi-file-earmark-spreadsheet text-primary"></i> Relatório Detalhado por Fonte/Receita
+    </h2>
+    
+    <!-- Controles do Relatório -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">
+                <i class="bi bi-gear"></i> Configurações do Relatório
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="row align-items-center">
+                <!-- Modo de Visualização -->
+                <div class="col-md-4">
+                    <label class="form-label fw-bold">Modo de Visualização:</label>
+                    <div class="btn-group w-100" role="group">
+                        <input type="radio" class="btn-check" name="modoVisualizacao" id="modoPorFonte" value="fonte" checked>
+                        <label class="btn btn-outline-primary" for="modoPorFonte">
+                            <i class="bi bi-folder2-open"></i> Por Fonte
+                        </label>
+                        
+                        <input type="radio" class="btn-check" name="modoVisualizacao" id="modoPorReceita" value="receita">
+                        <label class="btn btn-outline-primary" for="modoPorReceita">
+                            <i class="bi bi-receipt"></i> Por Receita
+                        </label>
+                    </div>
+                </div>
+                
+                <!-- Tipo de Exibição -->
+                <div class="col-md-3">
+                    <label class="form-label fw-bold">Exibir:</label>
+                    <select class="form-select" id="tipoExibicao">
+                        <option value="codigo">Código</option>
+                        <option value="descricao">Descrição</option>
+                        <option value="ambos" selected>Código + Descrição</option>
+                    </select>
+                </div>
+                
+                <!-- Ações -->
+                <div class="col-md-5 text-end">
+                    <button class="btn btn-success" id="btnExpandirTodos">
+                        <i class="bi bi-arrows-expand"></i> Expandir Todos
+                    </button>
+                    <button class="btn btn-warning" id="btnRecolherTodos">
+                        <i class="bi bi-arrows-collapse"></i> Recolher Todos
+                    </button>
+                    <button class="btn btn-info" id="btnAtualizar">
+                        <i class="bi bi-arrow-clockwise"></i> Atualizar
+                    </button>
+                    <button class="btn btn-danger" id="btnExportar">
+                        <i class="bi bi-file-earmark-excel"></i> Exportar Excel
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Cards de Resumo -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card border-left-primary shadow h-100">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                Previsão Inicial
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800" id="totalPrevisaoInicial">
+                                R$ 0,00
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="bi bi-clipboard-data text-primary" style="font-size: 2rem;"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card border-left-info shadow h-100">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                Previsão Atualizada
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800" id="totalPrevisaoAtualizada">
+                                R$ 0,00
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="bi bi-clipboard-check text-info" style="font-size: 2rem;"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card border-left-success shadow h-100">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                Realizada <span id="anoAtual">2025</span>
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800" id="totalRealizadaAtual">
+                                R$ 0,00
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="bi bi-cash-stack text-success" style="font-size: 2rem;"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card border-left-warning shadow h-100">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                Variação %
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold" id="totalVariacao">
+                                <span class="text-success">↑ 0,00%</span>
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="bi bi-graph-up-arrow text-warning" style="font-size: 2rem;"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Tabela de Dados -->
+    <div class="card shadow-sm">
+        <div class="card-header bg-light">
+            <div class="row align-items-center">
+                <div class="col">
+                    <h5 class="mb-0">
+                        <i class="bi bi-table"></i> Detalhamento <span id="tituloModo">por Fonte</span>
+                        <span class="badge bg-secondary ms-2" id="badgeRegistros">0 registros</span>
+                        <small class="text-muted ms-2">(Ordenado por Realizada 2025 ↓)</small>
+                    </h5>
+                </div>
+                <div class="col-auto">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="mostrarNomesCompletos">
+                        <label class="form-check-label" for="mostrarNomesCompletos">
+                            Nomes completos
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="card-body">
+            <div id="divTabela" class="table-responsive">
+                <!-- Tabela será inserida aqui via JavaScript -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Detalhes dos Lançamentos -->
+<div class="modal fade" id="modalDetalhes" tabindex="-1" aria-labelledby="modalDetalhesLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="modalDetalhesLabel">Detalhes dos Lançamentos</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Alerta de limite -->
+                <div class="alert alert-warning" id="alertaLimite" style="display: none;">
+                    <div id="textoLimite"></div>
+                </div>
+                
+                <!-- Cards de resumo -->
+                <div class="row mb-3">
+                    <div class="col-md-3">
+                        <div class="card bg-light">
+                            <div class="card-body p-2">
+                                <small class="text-muted">Total Registros</small>
+                                <div class="fw-bold" id="resumoTotalRegistros">0</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-light">
+                            <div class="card-body p-2">
+                                <small class="text-muted">Total Débito</small>
+                                <div class="fw-bold text-danger" id="resumoTotalDebito">R$ 0,00</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-light">
+                            <div class="card-body p-2">
+                                <small class="text-muted">Total Crédito</small>
+                                <div class="fw-bold text-success" id="resumoTotalCredito">R$ 0,00</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-light">
+                            <div class="card-body p-2">
+                                <small class="text-muted">Saldo</small>
+                                <div class="fw-bold text-primary" id="resumoSaldo">R$ 0,00</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Tabela de detalhes -->
+                <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                    <table class="table table-sm table-striped table-hover" id="tabelaDetalhes">
+                        <thead class="sticky-top">
+                            <tr>
+                                <th style="width: 12%;">Conta</th>
+                                <th style="width: 8%;" class="text-center">UG</th>
+                                <th style="width: 15%;">Documento</th>
+                                <th style="width: 8%;" class="text-center">Evento</th>
+                                <th style="width: 5%;" class="text-center">D/C</th>
+                                <th style="width: 12%;" class="text-end">Valor</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Dados serão inseridos via JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-danger" id="btnExportarDetalhes">
+                    <i class="bi bi-file-earmark-excel"></i> Exportar Excel (Todos os Registros)
+                </button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" id="btnFecharModal">Fechar</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.datatables.net/buttons/2.4.2/js/dataTables.buttons.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.html5.min.js"></script>
+<script src="{{ url_for('static', filename='js/relatorio_receita_fonte.js') }}"></script>
+{% endblock %}

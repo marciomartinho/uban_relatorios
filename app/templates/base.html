@@ -135,6 +135,35 @@
                         </ul>
                     </li>
 
+                    <!-- Menu Relatórios Gerenciais -->
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" 
+                           data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-clipboard-data"></i> Relatórios Gerenciais
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li>
+                                <a class="dropdown-item {% if request.endpoint == 'relatorio_receita_fonte.index' %}active{% endif %}" 
+                                   href="{{ url_for('relatorio_receita_fonte.index') }}">
+                                    <i class="bi bi-file-earmark-spreadsheet"></i> Detalhado por Fonte/Receita
+                                </a>
+                            </li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <a class="dropdown-item disabled" href="#">
+                                    <i class="bi bi-graph-up"></i> Análise Comparativa
+                                    <small class="text-muted">(Em breve)</small>
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item disabled" href="#">
+                                    <i class="bi bi-calendar3"></i> Evolução Mensal
+                                    <small class="text-muted">(Em breve)</small>
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+
                     <!-- Menu Balanço Geral GDF -->
                     <li class="nav-item">
                         <a class="nav-link {% if request.endpoint == 'balanco_geral.index' %}active{% endif %}" 
@@ -143,12 +172,7 @@
                         </a>
                     </li>
                     
-                    <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint == 'main.sobre' %}active{% endif %}" 
-                           href="{{ url_for('main.sobre') }}">
-                            <i class="bi bi-info-circle"></i> Sobre
-                        </a>
-                    </li>
+
                 </ul>
             </div>
         </div>

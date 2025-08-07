@@ -1,10 +1,14 @@
 /**
  * Módulo de Relatório Receita/Fonte Integrado
- * Versão 2.0 - Reescrita completa
+ * Versão 2.1 - CORRIGIDO
  * 
  * @author Sistema de Balanço de Receitas
- * @version 2.0.0
+ * @version 2.1.0
  * @description Gerencia relatórios detalhados por código de fonte ou receita com suporte a lançamentos
+ * 
+ * CORREÇÕES APLICADAS:
+ * 1. Filtro dinâmico agora funciona corretamente
+ * 2. Lançamentos agora buscam dados corretos usando cofonte/coalinea
  */
 
 class RelatorioReceitaFonteIntegrado {
@@ -70,7 +74,7 @@ class RelatorioReceitaFonteIntegrado {
      * Inicializa o módulo com dados do relatório principal
      */
     inicializar(dadosRelatorio) {
-        console.log('🚀 Inicializando Relatório Receita/Fonte v2.0');
+        console.log('🚀 Inicializando Relatório Receita/Fonte v2.1');
         
         try {
             // Validar dados de entrada
@@ -80,6 +84,9 @@ class RelatorioReceitaFonteIntegrado {
 
             // Armazenar dados originais
             this.dataCache.originalData = dadosRelatorio;
+            
+            // CORREÇÃO 1: Capturar o filtro atual
+            this.state.currentFilter = $('#selectTipoReceita').val() || 'todas';
 
             // Criar interface se necessário
             if (!this.state.isInitialized) {
@@ -323,13 +330,9 @@ class RelatorioReceitaFonteIntegrado {
             return;
         }
 
-        // Verificar cache
+        // CORREÇÃO 1: Sempre limpar cache ao carregar para garantir dados atualizados
         const cacheKey = tipo === 'fonte' ? 'fonteReport' : 'receitaReport';
-        if (this.dataCache[cacheKey] && !this.shouldRefreshCache()) {
-            console.log('📦 Usando dados do cache');
-            this.renderizarRelatorio(this.dataCache[cacheKey]);
-            return;
-        }
+        this.dataCache[cacheKey] = null;
 
         // Mostrar loading
         this.mostrarLoading(true);
@@ -337,6 +340,8 @@ class RelatorioReceitaFonteIntegrado {
         try {
             // Preparar parâmetros
             const params = this.prepararParametrosRelatorio(tipo);
+            
+            console.log('📤 Parâmetros da requisição:', params);
             
             // Fazer requisição
             const response = await this.fazerRequisicao(
@@ -377,8 +382,10 @@ class RelatorioReceitaFonteIntegrado {
             params.coug = dados.filtros.coug;
         }
 
-        if (this.state.currentFilter && this.state.currentFilter !== 'todas') {
-            params.tipo_receita = this.state.currentFilter;
+        // CORREÇÃO 1: Sempre pegar o filtro atual do select
+        const filtroAtual = $('#selectTipoReceita').val() || 'todas';
+        if (filtroAtual && filtroAtual !== 'todas') {
+            params.tipo_receita = filtroAtual;
         }
 
         return params;
@@ -419,21 +426,27 @@ class RelatorioReceitaFonteIntegrado {
     }
 
     /**
-     * Prepara parâmetros para requisição de lançamentos
+     * CORREÇÃO 2: Prepara parâmetros corretos para requisição de lançamentos
      */
     prepararParametrosLancamentos(dados) {
         const params = {
-            ano: this.dataCache.originalData.periodo.ano
-            // Não enviar mês para buscar o ano todo
+            ano: this.dataCache.originalData.periodo.ano,
+            mes: 0  // IMPORTANTE: mes=0 para buscar o ano todo
         };
 
-        // Adicionar códigos baseado no tipo
+        // CORREÇÃO 2: Lógica correta para parâmetros baseada no tipo
         if (dados.tipo === 'fonte') {
-            params.cofonte = dados.codigoPai;
-            params.coalinea = dados.codigo;
+            // Visualização por fonte: codigo principal = cofonte, codigo secundário = coalinea
+            params.cofonte = dados.codigoPai || dados.codigo;  // cofonte é o principal
+            if (dados.codigo && dados.codigoPai) {
+                params.coalinea = dados.codigo;  // coalinea é o secundário
+            }
         } else {
-            params.coalinea = dados.codigoPai;
-            params.cofonte = dados.codigo;
+            // Visualização por receita: codigo principal = coalinea, codigo secundário = cofonte
+            params.coalinea = dados.codigoPai || dados.codigo;  // coalinea é o principal
+            if (dados.codigo && dados.codigoPai) {
+                params.cofonte = dados.codigo;  // cofonte é o secundário
+            }
         }
 
         // Adicionar COUG se disponível
@@ -441,7 +454,7 @@ class RelatorioReceitaFonteIntegrado {
             params.coug = this.dataCache.originalData.filtros.coug;
         }
 
-        console.log('📤 Parâmetros de lançamentos:', params);
+        console.log('📤 Parâmetros de lançamentos corrigidos:', params);
         return params;
     }
 
@@ -480,7 +493,7 @@ class RelatorioReceitaFonteIntegrado {
     }
 
     /**
-     * Cria uma linha da tabela
+     * CORREÇÃO 2: Cria uma linha da tabela com parâmetros corretos para lançamentos
      */
     criarLinhaTabela(item, tipoRelatorio) {
         const isExpanded = this.state.expandedRows.has(item.id);
@@ -498,10 +511,16 @@ class RelatorioReceitaFonteIntegrado {
             `;
         }
 
-        // Botão de lançamentos (apenas para itens secundários com valor)
+        // CORREÇÃO 2: Botão de lançamentos com parâmetros corretos
         let btnLancamentos = '';
         if (item.nivel === 1 && item.receita_atual > 0) {
-            const codigoPai = item.pai_id ? item.pai_id.split('-')[1] : '';
+            // Extrair código pai do ID (formato: tipo-codigoPai-codigo)
+            let codigoPai = '';
+            if (item.pai_id) {
+                const partes = item.pai_id.split('-');
+                codigoPai = partes[partes.length - 1];  // Pegar último elemento
+            }
+            
             btnLancamentos = `
                 <button class="btn btn-sm btn-outline-primary btn-lancamentos-rf" 
                         data-codigo="${item.codigo}"
@@ -929,8 +948,8 @@ class RelatorioReceitaFonteIntegrado {
     async abrirModalLancamentos(dados) {
         // Preparar título
         const titulo = dados.tipo === 'fonte'
-            ? `Lançamentos - Alínea: ${dados.codigo} - ${dados.descricao}`
-            : `Lançamentos - Fonte: ${dados.codigo} - ${dados.descricao}`;
+            ? `Lançamentos - Fonte: ${dados.codigoPai} / Alínea: ${dados.codigo} - ${dados.descricao}`
+            : `Lançamentos - Alínea: ${dados.codigoPai} / Fonte: ${dados.codigo} - ${dados.descricao}`;
 
         $(this.selectors.modalTitle).html(`<i class="bi bi-list-ul"></i> ${titulo}`);
 
@@ -1069,9 +1088,8 @@ class RelatorioReceitaFonteIntegrado {
      * Verifica se deve atualizar cache
      */
     shouldRefreshCache() {
-        // Por enquanto, sempre usar cache se disponível
-        // Pode implementar lógica de expiração aqui
-        return false;
+        // CORREÇÃO 1: Sempre retornar true para forçar atualização
+        return true;
     }
 
     // ================== ESTADOS DE UI ==================
@@ -1166,20 +1184,20 @@ class RelatorioReceitaFonteIntegrado {
     // ================== MÉTODOS PÚBLICOS ==================
 
     /**
-     * Atualiza o módulo com novos dados
+     * CORREÇÃO 1: Atualiza o módulo com novos dados e filtros
      */
     atualizar(dadosRelatorio, tipoReceitaFiltro) {
-        console.log('🔄 Atualizando relatório com novos filtros');
+        console.log('🔄 Atualizando relatório com novos filtros:', tipoReceitaFiltro);
         
-        // Limpar cache
+        // Limpar cache para forçar nova busca
         this.dataCache.fonteReport = null;
         this.dataCache.receitaReport = null;
         
-        // Atualizar dados
+        // Atualizar dados e filtro
         this.dataCache.originalData = dadosRelatorio;
         this.state.currentFilter = tipoReceitaFiltro || 'todas';
         
-        // Recarregar
+        // Recarregar relatório atual
         this.carregarRelatorio(this.state.currentType);
     }
 
@@ -1220,4 +1238,4 @@ class RelatorioReceitaFonteIntegrado {
 const relatorioReceitaFonte = new RelatorioReceitaFonteIntegrado();
 
 // Log de inicialização
-console.log('📦 Módulo RelatorioReceitaFonte v2.0 carregado');
+console.log('📦 Módulo RelatorioReceitaFonte v2.1 CORRIGIDO carregado');

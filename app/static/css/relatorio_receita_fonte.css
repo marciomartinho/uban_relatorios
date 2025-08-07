@@ -1,473 +1,303 @@
-/**
- * Estilos para o Relatório Receita/Fonte
- * app/static/css/relatorio_receita_fonte.css
- */
+/* CSS para Relatório Detalhado por Fonte/Receita */
 
-/* ============================= */
-/* Container Principal           */
-/* ============================= */
-.container-fluid {
-    padding-bottom: 50px;
+/* Cards customizados */
+.border-left-primary {
+    border-left: 0.25rem solid #4e73df!important;
 }
 
-/* ============================= */
-/* Card de Filtros               */
-/* ============================= */
-.filtros-card {
-    margin-bottom: 20px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    border: none;
+.border-left-info {
+    border-left: 0.25rem solid #36b9cc!important;
 }
 
-.filtros-card .card-header {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    border: none;
-    padding: 1rem 1.5rem;
+.border-left-success {
+    border-left: 0.25rem solid #1cc88a!important;
 }
 
-.filtros-card .card-header h5 {
-    margin: 0;
-    font-weight: 600;
+.border-left-warning {
+    border-left: 0.25rem solid #f6c23e!important;
 }
 
-.filtros-card .card-body {
-    padding: 1.5rem;
+.text-xs {
+    font-size: .7rem;
+}
+
+.font-weight-bold {
+    font-weight: 700!important;
+}
+
+.text-gray-800 {
+    color: #5a5c69!important;
+}
+
+/* Botões de visualização */
+.btn-check:checked + .btn-outline-primary {
+    background-color: #4e73df;
+    border-color: #4e73df;
+    color: white;
+}
+
+/* Tabela hierárquica */
+#tabelaDados {
+    font-size: 0.9rem;
+}
+
+#tabelaDados thead th {
     background-color: #f8f9fa;
-}
-
-/* ============================= */
-/* Container do Relatório        */
-/* ============================= */
-.relatorio-container {
-    animation: fadeIn 0.3s ease-in;
-}
-
-@keyframes fadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(10px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-/* ============================= */
-/* Tabela do Relatório           */
-/* ============================= */
-#tabelaRelatorio {
-    font-size: 0.9rem;
-    border-collapse: separate;
-    border-spacing: 0;
-}
-
-#tabelaRelatorio thead th {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
     font-weight: 600;
-    text-transform: uppercase;
-    font-size: 0.85rem;
-    padding: 12px 8px;
-    border: none;
-    position: sticky;
-    top: 0;
-    z-index: 10;
+    border-bottom: 2px solid #dee2e6;
+    vertical-align: middle;
+    white-space: nowrap;
 }
 
-#tabelaRelatorio tbody tr {
-    transition: background-color 0.2s ease;
-}
-
-#tabelaRelatorio tbody tr:hover {
-    background-color: rgba(102, 126, 234, 0.05) !important;
-}
-
-/* Estilos por nível hierárquico */
-#tabelaRelatorio tr.nivel-0 {
-    background-color: #f1f3f5;
-    font-weight: bold;
-}
-
-#tabelaRelatorio tr.nivel-0 td {
-    padding: 10px 8px;
-    font-size: 0.95rem;
-}
-
-#tabelaRelatorio tr.nivel-1 {
-    background-color: #ffffff;
-}
-
-#tabelaRelatorio tr.nivel-1 td {
-    padding: 8px;
-    font-size: 0.9rem;
-}
-
-/* Primeira coluna (descrição) */
-#tabelaRelatorio .col-descricao {
-    min-width: 400px;
+/* Primeira coluna com controle de largura */
+#tabelaDados td:first-child,
+#tabelaDados th:first-child {
+    min-width: 350px;
     max-width: 500px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
-/* ============================= */
-/* Botão Toggle (Expandir/Recolher) */
-/* ============================= */
-.toggle-btn {
-    background: transparent;
-    border: 1px solid #667eea;
-    color: #667eea;
-    width: 20px;
-    height: 20px;
-    padding: 0;
-    line-height: 1;
-    font-size: 12px;
-    font-weight: bold;
-    border-radius: 3px;
-    transition: all 0.2s ease;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    margin-right: 8px;
+/* Permitir quebra controlada no hover */
+#tabelaDados td:first-child:hover {
+    white-space: normal;
+    word-break: break-word;
+    overflow: visible;
+    position: relative;
+    z-index: 10;
+    background-color: #fff;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
-.toggle-btn:hover {
-    background-color: #667eea;
-    color: white;
-    transform: scale(1.1);
+/* Linhas principais da tabela */
+.linha-principal {
+    background-color: #f8f9fc;
+    font-weight: 500;
 }
 
-.toggle-btn.expandido {
-    background-color: #667eea;
-    color: white;
+.linha-principal:hover {
+    background-color: #e7e9f0;
 }
 
-/* ============================= */
-/* Valores e Variações           */
-/* ============================= */
+/* Linhas filhas (colapsáveis) */
+.linha-filha {
+    background-color: #ffffff;
+    font-size: 0.85rem;
+}
+
+.linha-filha:hover {
+    background-color: #f1f3f5;
+}
+
+.linha-filha td:first-child {
+    padding-left: 3rem !important;
+    color: #6c757d;
+}
+
+/* Texto com ellipsis */
+.text-nowrap {
+    white-space: nowrap !important;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Botão de expandir/colapsar */
+.btn-expandir {
+    padding: 0 5px;
+    margin-right: 5px;
+    color: #4e73df;
+    text-decoration: none;
+    border: none;
+    background: none;
+}
+
+.btn-expandir:hover {
+    color: #2e59d9;
+}
+
+.btn-expandir i {
+    transition: transform 0.2s ease;
+}
+
+/* Valores positivos e negativos */
 .text-success {
-    color: #28a745 !important;
+    color: #1cc88a !important;
     font-weight: 600;
 }
 
 .text-danger {
-    color: #dc3545 !important;
+    color: #e74a3b !important;
     font-weight: 600;
 }
 
 .text-muted {
-    color: #6c757d !important;
+    color: #858796 !important;
 }
 
-/* ============================= */
-/* Totais                        */
-/* ============================= */
-#tabelaRelatorio tfoot tr {
-    background-color: #2c3e50 !important;
-    color: white;
-    font-weight: bold;
+/* Badges */
+.badge {
+    font-size: 0.75rem;
+    font-weight: normal;
 }
 
-#tabelaRelatorio tfoot td {
-    padding: 12px 8px;
-    border-top: 2px solid #667eea;
-    font-size: 0.95rem;
-}
-
-/* ============================= */
-/* Loading                       */
-/* ============================= */
-#loadingContainer {
-    padding: 80px 20px;
-}
-
-#loadingContainer .spinner-border {
-    width: 3rem;
-    height: 3rem;
-    border-width: 0.3rem;
-}
-
-#loadingContainer h4 {
-    color: #667eea;
-    margin-top: 1.5rem;
-}
-
-/* ============================= */
-/* Estado Vazio                  */
-/* ============================= */
-#emptyState {
-    padding: 60px 20px;
+/* Footer da tabela */
+#tabelaDados tfoot {
+    font-weight: 700;
     background-color: #f8f9fa;
-    border-radius: 8px;
-    margin: 20px 0;
+    border-top: 2px solid #dee2e6;
 }
 
-#emptyState .bi-inbox {
-    color: #dee2e6;
+#tabelaDados tfoot td {
+    padding: 12px 8px;
 }
 
-#emptyState h4 {
-    color: #6c757d;
-    margin-top: 1rem;
+/* Botões de ação */
+.btn-detalhes {
+    padding: 2px 8px;
 }
 
-/* ============================= */
-/* Botões de Ação                */
-/* ============================= */
-.btn-sm {
-    padding: 0.375rem 0.75rem;
-    font-size: 0.875rem;
+/* Cards com hover effect */
+.card {
+    transition: all 0.2s ease;
 }
 
-.btn-outline-primary {
-    color: #667eea;
-    border-color: #667eea;
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
 }
 
-.btn-outline-primary:hover {
-    background-color: #667eea;
-    border-color: #667eea;
-    color: white;
+/* Responsividade da tabela */
+.table-responsive {
+    max-height: 70vh;
+    overflow: auto;
 }
 
-#btnExportar {
-    background-color: #28a745;
-    border-color: #28a745;
-}
-
-#btnExportar:hover {
-    background-color: #218838;
-    border-color: #1e7e34;
-}
-
-/* ============================= */
-/* Alertas                       */
-/* ============================= */
-.alert {
-    border-radius: 8px;
-    border: none;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    animation: slideDown 0.3s ease;
-}
-
-@keyframes slideDown {
-    from {
-        opacity: 0;
-        transform: translateY(-20px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-.alert-info {
-    background-color: #e7f3ff;
-    color: #004085;
-    border-left: 4px solid #667eea;
-}
-
-.alert-success {
-    background-color: #d4edda;
-    color: #155724;
-    border-left: 4px solid #28a745;
-}
-
-.alert-danger {
-    background-color: #f8d7da;
-    color: #721c24;
-    border-left: 4px solid #dc3545;
-}
-
-/* ============================= */
-/* Responsividade                */
-/* ============================= */
-@media (max-width: 768px) {
-    .container-fluid h2 {
-        font-size: 1.5rem;
-    }
-    
-    #tabelaRelatorio {
-        font-size: 0.8rem;
-    }
-    
-    #tabelaRelatorio thead th {
-        font-size: 0.75rem;
-        padding: 8px 4px;
-    }
-    
-    #tabelaRelatorio tbody td {
-        padding: 6px 4px;
-    }
-    
-    #tabelaRelatorio .col-descricao {
-        min-width: 200px;
-    }
-    
-    .btn-sm {
-        padding: 0.25rem 0.5rem;
-        font-size: 0.75rem;
-    }
-    
-    .card-header .row {
-        flex-direction: column;
-    }
-    
-    .card-header .col-md-4 {
-        margin-top: 1rem;
-    }
-}
-
-@media (max-width: 576px) {
-    .form-label {
-        font-size: 0.875rem;
-    }
-    
-    .form-select {
-        font-size: 0.875rem;
-    }
-    
-    .btn {
-        font-size: 0.875rem;
-    }
-}
-
-/* ============================= */
-/* Impressão                     */
-/* ============================= */
-@media print {
-    /* Ocultar elementos desnecessários */
-    .filtros-card,
-    #mensagemInicial,
-    #loadingContainer,
-    .btn,
-    .btn-sm,
-    .toggle-btn,
-    .alert,
-    .navbar,
-    .footer {
-        display: none !important;
-    }
-    
-    /* Ajustar container */
-    .container-fluid {
-        padding: 0;
-    }
-    
-    /* Mostrar relatório */
-    .relatorio-container {
-        display: block !important;
-    }
-    
-    /* Cabeçalho da tabela */
-    #tabelaRelatorio thead th {
-        background-color: #667eea !important;
-        color: white !important;
-        -webkit-print-color-adjust: exact;
-        print-color-adjust: exact;
-    }
-    
-    /* Mostrar todos os itens expandidos */
-    #tabelaRelatorio tr[data-nivel="1"] {
-        display: table-row !important;
-    }
-    
-    /* Totais */
-    #tabelaRelatorio tfoot tr {
-        background-color: #2c3e50 !important;
-        color: white !important;
-        -webkit-print-color-adjust: exact;
-        print-color-adjust: exact;
-    }
-    
-    /* Quebras de página */
-    #tabelaRelatorio {
-        page-break-inside: auto;
-    }
-    
-    #tabelaRelatorio tr {
-        page-break-inside: avoid;
-        page-break-after: auto;
-    }
-    
-    /* Tamanho da fonte */
-    #tabelaRelatorio {
-        font-size: 10pt;
-    }
-    
-    /* Remover hover */
-    #tabelaRelatorio tbody tr:hover {
-        background-color: transparent !important;
-    }
-}
-
-/* ============================= */
-/* Animações de Loading          */
-/* ============================= */
-@keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-}
-
-.spinner-custom {
-    border: 3px solid #f3f3f3;
-    border-top: 3px solid #667eea;
-    border-radius: 50%;
-    width: 40px;
-    height: 40px;
-    animation: spin 1s linear infinite;
-    margin: 0 auto;
-}
-
-/* ============================= */
-/* Utilitários                   */
-/* ============================= */
-.fw-bold {
-    font-weight: 700 !important;
-}
-
-.text-center {
-    text-align: center !important;
-}
-
-.text-end {
-    text-align: right !important;
-}
-
-.mt-3 {
-    margin-top: 1rem !important;
-}
-
-.mt-4 {
-    margin-top: 1.5rem !important;
-}
-
-.mb-4 {
-    margin-bottom: 1.5rem !important;
-}
-
-.py-5 {
-    padding-top: 3rem !important;
-    padding-bottom: 3rem !important;
-}
-
-/* ============================= */
-/* Scrollbar Customizada         */
-/* ============================= */
+/* Scrollbar customizada */
 .table-responsive::-webkit-scrollbar {
+    width: 8px;
     height: 8px;
 }
 
 .table-responsive::-webkit-scrollbar-track {
     background: #f1f1f1;
-    border-radius: 4px;
 }
 
 .table-responsive::-webkit-scrollbar-thumb {
-    background: #667eea;
+    background: #888;
     border-radius: 4px;
 }
 
 .table-responsive::-webkit-scrollbar-thumb:hover {
-    background: #764ba2;
+    background: #555;
+}
+
+/* Indicadores de variação */
+td .text-success::before,
+td .text-danger::before,
+td .text-muted::before {
+    margin-right: 3px;
+}
+
+/* Animação de transição */
+.linha-filha {
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-5px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Ajustes para impressão */
+@media print {
+    .card {
+        border: none !important;
+        box-shadow: none !important;
+    }
+    
+    .btn, #modalLoading {
+        display: none !important;
+    }
+    
+    #tabelaDados {
+        font-size: 10pt;
+    }
+    
+    .linha-filha {
+        display: table-row !important;
+    }
+    
+    .border-left-primary,
+    .border-left-info,
+    .border-left-success,
+    .border-left-warning {
+        border-left: none!important;
+    }
+}
+
+/* Responsividade para mobile */
+@media (max-width: 768px) {
+    .card {
+        margin-bottom: 1rem;
+    }
+    
+    .col-auto i {
+        font-size: 1.5rem!important;
+    }
+    
+    .btn-group {
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .btn-group .btn {
+        border-radius: 0.375rem !important;
+        margin-bottom: 0.5rem;
+    }
+    
+    #tabelaDados {
+        font-size: 0.75rem;
+    }
+    
+    .linha-filha td:first-child {
+        padding-left: 2rem !important;
+    }
+    
+    /* Esconder colunas menos importantes em mobile */
+    #tabelaDados th:nth-child(2),
+    #tabelaDados td:nth-child(2),
+    #tabelaDados th:nth-child(3),
+    #tabelaDados td:nth-child(3) {
+        display: none;
+    }
+}
+
+/* Tooltip customizado */
+.tooltip-inner {
+    max-width: 300px;
+    text-align: left;
+}
+
+/* Destacar linha ao passar o mouse */
+#tabelaDados tbody tr {
+    transition: background-color 0.2s ease;
+}
+
+/* Estilo para seleção múltipla */
+.form-select:focus {
+    border-color: #4e73df;
+    box-shadow: 0 0 0 0.2rem rgba(78, 115, 223, 0.25);
+}
+
+/* Badge do contador de registros */
+#badgeRegistros {
+    font-size: 0.875rem;
+    vertical-align: middle;
 }
