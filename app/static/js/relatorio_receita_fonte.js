@@ -11,11 +11,20 @@ let dadosLancamentosCompletos = [];
 $(document).ready(function() {
     console.log('Document ready - iniciando carregamento dos dados');
     configurarEventos();
-    carregarDados();
+    carregarListaUGs();  // Carregar lista de UGs primeiro
 });
 
 // Configurar eventos
 function configurarEventos() {
+    // Mudança de UG
+    $('#filtroUG').on('change', function() {
+        const ugSelecionada = $(this).val();
+        const textoUG = ugSelecionada ? $('#filtroUG option:selected').text() : 'Consolidado';
+        $('#badgeUGSelecionada').text(textoUG);
+        console.log('UG alterada para:', ugSelecionada || 'Consolidado');
+        carregarDados();
+    });
+    
     // Mudança de modo de visualização
     $('input[name="modoVisualizacao"]').on('change', function() {
         modoAtual = $(this).val();
@@ -61,9 +70,48 @@ function configurarEventos() {
     $('#btnExportarDetalhes').on('click', exportarDetalhesExcel);
 }
 
+// Carregar lista de UGs disponíveis
+function carregarListaUGs() {
+    console.log('Carregando lista de UGs...');
+    
+    $.ajax({
+        url: '/relatorio-receita-fonte/api/lista-ugs',
+        method: 'GET',
+        success: function(response) {
+            console.log('✅ Lista de UGs carregada:', response.total, 'UGs');
+            
+            // Limpar select mantendo apenas a opção consolidado
+            $('#filtroUG').html('<option value="">Consolidado (Todas as UGs)</option>');
+            
+            // Adicionar UGs ao select
+            response.ugs.forEach(function(ug) {
+                const option = $('<option></option>')
+                    .attr('value', ug.coug)
+                    .text(ug.coug + ' - ' + ug.noug);
+                $('#filtroUG').append(option);
+            });
+            
+            // Atualizar contador no label
+            const label = $('label[for="filtroUG"]');
+            label.html('Unidade Gestora (UG): <span class="badge bg-secondary">' + response.total + ' UGs disponíveis</span>');
+            
+            // Após carregar as UGs, carregar os dados
+            carregarDados();
+        },
+        error: function(xhr) {
+            console.error('❌ Erro ao carregar lista de UGs:', xhr);
+            // Mesmo com erro, tenta carregar os dados (modo consolidado)
+            carregarDados();
+        }
+    });
+}
+
 // Carregar dados baseado no modo selecionado
 function carregarDados() {
     console.log('Carregando dados - Modo:', modoAtual);
+    
+    const ugSelecionada = $('#filtroUG').val();
+    console.log('UG selecionada:', ugSelecionada || 'Consolidado');
     
     // Adicionar indicador visual sutil de carregamento na tabela
     $('#divTabela').html('<div class="text-center py-4"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Carregando...</span></div></div>');
@@ -72,9 +120,13 @@ function carregarDados() {
         ? '/relatorio-receita-fonte/api/dados-por-fonte'
         : '/relatorio-receita-fonte/api/dados-por-receita';
     
+    // Adicionar parâmetro de UG se selecionada
+    const params = ugSelecionada ? { coug: ugSelecionada } : {};
+    
     $.ajax({
         url: url,
         method: 'GET',
+        data: params,
         success: function(response) {
             console.log('✅ Dados carregados:', response);
             
@@ -306,15 +358,24 @@ function abrirModalDetalhes(cofonte, coalinea, nomeFonte, nomeAlinea) {
     
     // Buscar dados
     const ano = $('#anoAtual').text();
+    const coug = $('#filtroUG').val(); // Pegar a UG selecionada
+    
+    // Montar parâmetros da requisição
+    const params = {
+        cofonte: cofonte,
+        coalinea: coalinea,
+        ano: ano
+    };
+    
+    // Adicionar coug se estiver filtrado
+    if (coug) {
+        params.coug = coug;
+    }
     
     $.ajax({
         url: '/relatorio-receita-fonte/api/detalhes-lancamentos',
         method: 'GET',
-        data: {
-            cofonte: cofonte,
-            coalinea: coalinea,
-            ano: ano
-        },
+        data: params,
         success: function(response) {
             console.log('✅ Detalhes carregados:', response);
             
@@ -400,15 +461,24 @@ function exportarDetalhesExcel() {
     $('#btnExportarDetalhes').prop('disabled', true);
     
     // Buscar TODOS os dados (sem limite)
+    const coug = $('#filtroUG').val(); // Pegar a UG selecionada
+    
+    const params = {
+        cofonte: dadosLancamentosCompletos.cofonte,
+        coalinea: dadosLancamentosCompletos.coalinea,
+        ano: dadosLancamentosCompletos.ano,
+        exportar: 'true'  // Flag para trazer todos os registros
+    };
+    
+    // Adicionar coug se estiver filtrado
+    if (coug) {
+        params.coug = coug;
+    }
+    
     $.ajax({
         url: '/relatorio-receita-fonte/api/detalhes-lancamentos',
         method: 'GET',
-        data: {
-            cofonte: dadosLancamentosCompletos.cofonte,
-            coalinea: dadosLancamentosCompletos.coalinea,
-            ano: dadosLancamentosCompletos.ano,
-            exportar: 'true'  // Flag para trazer todos os registros
-        },
+        data: params,
         success: function(response) {
             console.log('✅ Dados completos carregados para exportação');
             
@@ -573,8 +643,15 @@ function exportarExcel() {
     
     let csv = [];
     const tipoExibicao = $('#tipoExibicao').val();
+    const ugSelecionada = $('#filtroUG').val();
+    const textoUG = ugSelecionada ? $('#filtroUG option:selected').text() : 'Consolidado (Todas as UGs)';
     
-    // Cabeçalho
+    // Cabeçalho do relatório
+    csv.push(['RELATÓRIO DETALHADO POR ' + (modoAtual === 'fonte' ? 'FONTE' : 'RECEITA')].join(';'));
+    csv.push(['UG: ' + textoUG].join(';'));
+    csv.push('');
+    
+    // Cabeçalho da tabela
     const headers = [
         modoAtual === 'fonte' ? 'Fonte' : 'Alínea',
         modoAtual === 'fonte' ? 'Alínea' : 'Fonte',

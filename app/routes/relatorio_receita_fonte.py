@@ -22,67 +22,130 @@ def get_dados_por_fonte():
     try:
         ano_atual = datetime.now().year
         ano_anterior = ano_atual - 1
+        coug = request.args.get('coug', '')  # Vazio significa consolidado
         
         # Query para buscar dados agrupados por fonte
-        query = """
-        WITH fonte_data AS (
-            -- Previsão Inicial (521100000 - 521199999)
+        if coug:
+            # Query com filtro de UG
+            query = """
+            WITH fonte_data AS (
+                -- Previsão Inicial (521100000 - 521199999)
+                SELECT 
+                    cofonte,
+                    coalinea,
+                    SUM(CASE 
+                        WHEN coexercicio = ? AND CAST(cocontacontabil AS BIGINT) BETWEEN 521100000 AND 521199999 
+                        THEN saldo_contabil_receita 
+                        ELSE 0 
+                    END) as previsao_inicial,
+                    
+                    -- Previsão Atualizada (521100000 - 521299999)
+                    SUM(CASE 
+                        WHEN coexercicio = ? AND CAST(cocontacontabil AS BIGINT) BETWEEN 521100000 AND 521299999 
+                        THEN saldo_contabil_receita 
+                        ELSE 0 
+                    END) as previsao_atualizada,
+                    
+                    -- Realizada Ano Atual (621200000 - 621399999)
+                    SUM(CASE 
+                        WHEN coexercicio = ? AND CAST(cocontacontabil AS BIGINT) BETWEEN 621200000 AND 621399999 
+                        THEN saldo_contabil_receita 
+                        ELSE 0 
+                    END) as realizada_atual,
+                    
+                    -- Realizada Ano Anterior (621200000 - 621399999)
+                    SUM(CASE 
+                        WHEN coexercicio = ? AND CAST(cocontacontabil AS BIGINT) BETWEEN 621200000 AND 621399999 
+                        THEN saldo_contabil_receita 
+                        ELSE 0 
+                    END) as realizada_anterior
+                    
+                FROM receita_saldo
+                WHERE coexercicio IN (?, ?)
+                  AND cofonte IS NOT NULL
+                  AND cofonte != ''
+                  AND coug = ?
+                GROUP BY cofonte, coalinea
+            )
             SELECT 
                 cofonte,
                 coalinea,
-                SUM(CASE 
-                    WHEN coexercicio = ? AND CAST(cocontacontabil AS BIGINT) BETWEEN 521100000 AND 521199999 
-                    THEN saldo_contabil_receita 
+                previsao_inicial,
+                previsao_atualizada,
+                realizada_atual,
+                realizada_anterior,
+                CASE 
+                    WHEN realizada_anterior != 0 
+                    THEN ((realizada_atual - realizada_anterior) / ABS(realizada_anterior)) * 100
                     ELSE 0 
-                END) as previsao_inicial,
-                
-                -- Previsão Atualizada (521100000 - 521299999)
-                SUM(CASE 
-                    WHEN coexercicio = ? AND CAST(cocontacontabil AS BIGINT) BETWEEN 521100000 AND 521299999 
-                    THEN saldo_contabil_receita 
+                END as variacao_percentual,
+                (realizada_atual - realizada_anterior) as variacao_absoluta
+            FROM fonte_data
+            WHERE (previsao_inicial != 0 OR previsao_atualizada != 0 OR 
+                   realizada_atual != 0 OR realizada_anterior != 0)
+            ORDER BY cofonte, coalinea
+            """
+            params = [ano_atual, ano_atual, ano_atual, ano_anterior, ano_atual, ano_anterior, coug]
+        else:
+            # Query sem filtro de UG (consolidado)
+            query = """
+            WITH fonte_data AS (
+                -- Previsão Inicial (521100000 - 521199999)
+                SELECT 
+                    cofonte,
+                    coalinea,
+                    SUM(CASE 
+                        WHEN coexercicio = ? AND CAST(cocontacontabil AS BIGINT) BETWEEN 521100000 AND 521199999 
+                        THEN saldo_contabil_receita 
+                        ELSE 0 
+                    END) as previsao_inicial,
+                    
+                    -- Previsão Atualizada (521100000 - 521299999)
+                    SUM(CASE 
+                        WHEN coexercicio = ? AND CAST(cocontacontabil AS BIGINT) BETWEEN 521100000 AND 521299999 
+                        THEN saldo_contabil_receita 
+                        ELSE 0 
+                    END) as previsao_atualizada,
+                    
+                    -- Realizada Ano Atual (621200000 - 621399999)
+                    SUM(CASE 
+                        WHEN coexercicio = ? AND CAST(cocontacontabil AS BIGINT) BETWEEN 621200000 AND 621399999 
+                        THEN saldo_contabil_receita 
+                        ELSE 0 
+                    END) as realizada_atual,
+                    
+                    -- Realizada Ano Anterior (621200000 - 621399999)
+                    SUM(CASE 
+                        WHEN coexercicio = ? AND CAST(cocontacontabil AS BIGINT) BETWEEN 621200000 AND 621399999 
+                        THEN saldo_contabil_receita 
+                        ELSE 0 
+                    END) as realizada_anterior
+                    
+                FROM receita_saldo
+                WHERE coexercicio IN (?, ?)
+                  AND cofonte IS NOT NULL
+                  AND cofonte != ''
+                GROUP BY cofonte, coalinea
+            )
+            SELECT 
+                cofonte,
+                coalinea,
+                previsao_inicial,
+                previsao_atualizada,
+                realizada_atual,
+                realizada_anterior,
+                CASE 
+                    WHEN realizada_anterior != 0 
+                    THEN ((realizada_atual - realizada_anterior) / ABS(realizada_anterior)) * 100
                     ELSE 0 
-                END) as previsao_atualizada,
-                
-                -- Realizada Ano Atual (621200000 - 621399999)
-                SUM(CASE 
-                    WHEN coexercicio = ? AND CAST(cocontacontabil AS BIGINT) BETWEEN 621200000 AND 621399999 
-                    THEN saldo_contabil_receita 
-                    ELSE 0 
-                END) as realizada_atual,
-                
-                -- Realizada Ano Anterior (621200000 - 621399999)
-                SUM(CASE 
-                    WHEN coexercicio = ? AND CAST(cocontacontabil AS BIGINT) BETWEEN 621200000 AND 621399999 
-                    THEN saldo_contabil_receita 
-                    ELSE 0 
-                END) as realizada_anterior
-                
-            FROM receita_saldo
-            WHERE coexercicio IN (?, ?)
-              AND cofonte IS NOT NULL
-              AND cofonte != ''
-            GROUP BY cofonte, coalinea
-        )
-        SELECT 
-            cofonte,
-            coalinea,
-            previsao_inicial,
-            previsao_atualizada,
-            realizada_atual,
-            realizada_anterior,
-            CASE 
-                WHEN realizada_anterior != 0 
-                THEN ((realizada_atual - realizada_anterior) / ABS(realizada_anterior)) * 100
-                ELSE 0 
-            END as variacao_percentual,
-            (realizada_atual - realizada_anterior) as variacao_absoluta
-        FROM fonte_data
-        WHERE (previsao_inicial != 0 OR previsao_atualizada != 0 OR 
-               realizada_atual != 0 OR realizada_anterior != 0)
-        ORDER BY cofonte, coalinea
-        """
-        
-        params = [ano_atual, ano_atual, ano_atual, ano_anterior, ano_atual, ano_anterior]
+                END as variacao_percentual,
+                (realizada_atual - realizada_anterior) as variacao_absoluta
+            FROM fonte_data
+            WHERE (previsao_inicial != 0 OR previsao_atualizada != 0 OR 
+                   realizada_atual != 0 OR realizada_anterior != 0)
+            ORDER BY cofonte, coalinea
+            """
+            params = [ano_atual, ano_atual, ano_atual, ano_anterior, ano_atual, ano_anterior]
         
         dados = db_manager.execute_query(query, params)
         
@@ -197,63 +260,122 @@ def get_dados_por_receita():
     try:
         ano_atual = datetime.now().year
         ano_anterior = ano_atual - 1
+        coug = request.args.get('coug', '')  # Vazio significa consolidado
         
         # Query similar à anterior, mas agrupando primeiro por alínea
-        query = """
-        WITH receita_data AS (
+        if coug:
+            # Query com filtro de UG
+            query = """
+            WITH receita_data AS (
+                SELECT 
+                    coalinea,
+                    cofonte,
+                    SUM(CASE 
+                        WHEN coexercicio = ? AND CAST(cocontacontabil AS BIGINT) BETWEEN 521100000 AND 521199999 
+                        THEN saldo_contabil_receita 
+                        ELSE 0 
+                    END) as previsao_inicial,
+                    
+                    SUM(CASE 
+                        WHEN coexercicio = ? AND CAST(cocontacontabil AS BIGINT) BETWEEN 521100000 AND 521299999 
+                        THEN saldo_contabil_receita 
+                        ELSE 0 
+                    END) as previsao_atualizada,
+                    
+                    SUM(CASE 
+                        WHEN coexercicio = ? AND CAST(cocontacontabil AS BIGINT) BETWEEN 621200000 AND 621399999 
+                        THEN saldo_contabil_receita 
+                        ELSE 0 
+                    END) as realizada_atual,
+                    
+                    SUM(CASE 
+                        WHEN coexercicio = ? AND CAST(cocontacontabil AS BIGINT) BETWEEN 621200000 AND 621399999 
+                        THEN saldo_contabil_receita 
+                        ELSE 0 
+                    END) as realizada_anterior
+                    
+                FROM receita_saldo
+                WHERE coexercicio IN (?, ?)
+                  AND coalinea IS NOT NULL
+                  AND coalinea != ''
+                  AND coug = ?
+                GROUP BY coalinea, cofonte
+            )
             SELECT 
                 coalinea,
                 cofonte,
-                SUM(CASE 
-                    WHEN coexercicio = ? AND CAST(cocontacontabil AS BIGINT) BETWEEN 521100000 AND 521199999 
-                    THEN saldo_contabil_receita 
+                previsao_inicial,
+                previsao_atualizada,
+                realizada_atual,
+                realizada_anterior,
+                CASE 
+                    WHEN realizada_anterior != 0 
+                    THEN ((realizada_atual - realizada_anterior) / ABS(realizada_anterior)) * 100
                     ELSE 0 
-                END) as previsao_inicial,
-                
-                SUM(CASE 
-                    WHEN coexercicio = ? AND CAST(cocontacontabil AS BIGINT) BETWEEN 521100000 AND 521299999 
-                    THEN saldo_contabil_receita 
+                END as variacao_percentual,
+                (realizada_atual - realizada_anterior) as variacao_absoluta
+            FROM receita_data
+            WHERE (previsao_inicial != 0 OR previsao_atualizada != 0 OR 
+                   realizada_atual != 0 OR realizada_anterior != 0)
+            ORDER BY coalinea, cofonte
+            """
+            params = [ano_atual, ano_atual, ano_atual, ano_anterior, ano_atual, ano_anterior, coug]
+        else:
+            # Query sem filtro de UG (consolidado)
+            query = """
+            WITH receita_data AS (
+                SELECT 
+                    coalinea,
+                    cofonte,
+                    SUM(CASE 
+                        WHEN coexercicio = ? AND CAST(cocontacontabil AS BIGINT) BETWEEN 521100000 AND 521199999 
+                        THEN saldo_contabil_receita 
+                        ELSE 0 
+                    END) as previsao_inicial,
+                    
+                    SUM(CASE 
+                        WHEN coexercicio = ? AND CAST(cocontacontabil AS BIGINT) BETWEEN 521100000 AND 521299999 
+                        THEN saldo_contabil_receita 
+                        ELSE 0 
+                    END) as previsao_atualizada,
+                    
+                    SUM(CASE 
+                        WHEN coexercicio = ? AND CAST(cocontacontabil AS BIGINT) BETWEEN 621200000 AND 621399999 
+                        THEN saldo_contabil_receita 
+                        ELSE 0 
+                    END) as realizada_atual,
+                    
+                    SUM(CASE 
+                        WHEN coexercicio = ? AND CAST(cocontacontabil AS BIGINT) BETWEEN 621200000 AND 621399999 
+                        THEN saldo_contabil_receita 
+                        ELSE 0 
+                    END) as realizada_anterior
+                    
+                FROM receita_saldo
+                WHERE coexercicio IN (?, ?)
+                  AND coalinea IS NOT NULL
+                  AND coalinea != ''
+                GROUP BY coalinea, cofonte
+            )
+            SELECT 
+                coalinea,
+                cofonte,
+                previsao_inicial,
+                previsao_atualizada,
+                realizada_atual,
+                realizada_anterior,
+                CASE 
+                    WHEN realizada_anterior != 0 
+                    THEN ((realizada_atual - realizada_anterior) / ABS(realizada_anterior)) * 100
                     ELSE 0 
-                END) as previsao_atualizada,
-                
-                SUM(CASE 
-                    WHEN coexercicio = ? AND CAST(cocontacontabil AS BIGINT) BETWEEN 621200000 AND 621399999 
-                    THEN saldo_contabil_receita 
-                    ELSE 0 
-                END) as realizada_atual,
-                
-                SUM(CASE 
-                    WHEN coexercicio = ? AND CAST(cocontacontabil AS BIGINT) BETWEEN 621200000 AND 621399999 
-                    THEN saldo_contabil_receita 
-                    ELSE 0 
-                END) as realizada_anterior
-                
-            FROM receita_saldo
-            WHERE coexercicio IN (?, ?)
-              AND coalinea IS NOT NULL
-              AND coalinea != ''
-            GROUP BY coalinea, cofonte
-        )
-        SELECT 
-            coalinea,
-            cofonte,
-            previsao_inicial,
-            previsao_atualizada,
-            realizada_atual,
-            realizada_anterior,
-            CASE 
-                WHEN realizada_anterior != 0 
-                THEN ((realizada_atual - realizada_anterior) / ABS(realizada_anterior)) * 100
-                ELSE 0 
-            END as variacao_percentual,
-            (realizada_atual - realizada_anterior) as variacao_absoluta
-        FROM receita_data
-        WHERE (previsao_inicial != 0 OR previsao_atualizada != 0 OR 
-               realizada_atual != 0 OR realizada_anterior != 0)
-        ORDER BY coalinea, cofonte
-        """
-        
-        params = [ano_atual, ano_atual, ano_atual, ano_anterior, ano_atual, ano_anterior]
+                END as variacao_percentual,
+                (realizada_atual - realizada_anterior) as variacao_absoluta
+            FROM receita_data
+            WHERE (previsao_inicial != 0 OR previsao_atualizada != 0 OR 
+                   realizada_atual != 0 OR realizada_anterior != 0)
+            ORDER BY coalinea, cofonte
+            """
+            params = [ano_atual, ano_atual, ano_atual, ano_anterior, ano_atual, ano_anterior]
         
         dados = db_manager.execute_query(query, params)
         
@@ -361,12 +483,56 @@ def get_dados_por_receita():
         traceback.print_exc()
         return jsonify({'erro': str(e)}), 500
 
+@relatorio_receita_fonte.route('/api/lista-ugs')
+def get_lista_ugs():
+    """Retorna lista de UGs que possuem saldo nas contas de receita realizada"""
+    try:
+        ano_atual = datetime.now().year
+        
+        # Query para buscar UGs com saldo realizado
+        query = """
+        SELECT DISTINCT 
+            rs.coug,
+            ug.noug
+        FROM receita_saldo rs
+        LEFT JOIN dim_unidade_gestora ug ON rs.coug = ug.coug
+        WHERE rs.coexercicio = ?
+          AND CAST(rs.cocontacontabil AS BIGINT) BETWEEN 621200000 AND 621399999
+          AND rs.saldo_contabil_receita != 0
+          AND rs.coug IS NOT NULL
+          AND rs.coug != ''
+        ORDER BY rs.coug
+        """
+        
+        params = [ano_atual]
+        
+        ugs = db_manager.execute_query(query, params)
+        
+        # Formatar lista de UGs
+        lista_ugs = []
+        for ug in ugs:
+            lista_ugs.append({
+                'coug': str(ug['coug']),
+                'noug': ug['noug'] or f"UG {ug['coug']}"
+            })
+        
+        return jsonify({
+            'ugs': lista_ugs,
+            'total': len(lista_ugs)
+        })
+        
+    except Exception as e:
+        print(f"Erro em get_lista_ugs: {str(e)}")
+        traceback.print_exc()
+        return jsonify({'erro': str(e)}), 500
+
 @relatorio_receita_fonte.route('/api/detalhes-lancamentos')
 def get_detalhes_lancamentos():
     """Retorna detalhes dos lançamentos para uma combinação fonte/alínea"""
     try:
         cofonte = request.args.get('cofonte')
         coalinea = request.args.get('coalinea')
+        coug = request.args.get('coug', '')  # Recebe coug do filtro principal
         ano = request.args.get('ano', datetime.now().year)
         exportar = request.args.get('exportar', 'false') == 'true'
         
@@ -374,57 +540,90 @@ def get_detalhes_lancamentos():
             return jsonify({'erro': 'Parâmetros cofonte e coalinea são obrigatórios'}), 400
         
         # Query para buscar lançamentos da tabela RECEITA_LANCAMENTO
-        # Corrigindo os nomes das tabelas e campos conforme documentação
-        # Filtrando apenas contas contábeis entre 621200000 e 621399999 (realizadas)
-        # Usando COALESCE para pegar cougcontab ou coug, o que estiver disponível
-        query = """
-        SELECT 
-            rl.cocontacontabil,
-            COALESCE(
-                CAST(rl.cougcontab AS VARCHAR),
-                CAST(rl.coug AS VARCHAR),
-                ''
-            ) as coug,
-            rl.nudocumento,
-            rl.coevento,
-            rl.indebitocredito,
-            rl.valancamento,
-            rl.dalancamento,
-            rl.cogrupo,
-            cc.nocontacontabil,
-            COALESCE(ug1.noug, ug2.noug, '') as noug,
-            ev.noevento
-        FROM receita_lancamento rl
-        LEFT JOIN dim_conta_contabil cc ON rl.cocontacontabil = cc.cocontacontabil
-        LEFT JOIN dim_unidade_gestora ug1 ON rl.cougcontab = ug1.coug
-        LEFT JOIN dim_unidade_gestora ug2 ON rl.coug = ug2.coug
-        LEFT JOIN dim_evento ev ON rl.coevento = ev.coevento
-        WHERE rl.cofonte = ?
-          AND rl.coalinea = ?
-          AND rl.coexercicio = ?
-          AND CAST(rl.cocontacontabil AS BIGINT) BETWEEN 621200000 AND 621399999
-        ORDER BY rl.dalancamento DESC, rl.nudocumento
-        """
+        # Se tiver filtro de coug, usa esse valor como cougcontab na query
+        if coug:
+            query = """
+            SELECT 
+                rl.cocontacontabil,
+                CAST(rl.coug AS VARCHAR) as coug,
+                rl.nudocumento,
+                rl.coevento,
+                rl.indebitocredito,
+                rl.valancamento,
+                rl.dalancamento,
+                rl.cogrupo,
+                cc.nocontacontabil,
+                ug.noug,
+                ev.noevento
+            FROM receita_lancamento rl
+            LEFT JOIN dim_conta_contabil cc ON rl.cocontacontabil = cc.cocontacontabil
+            LEFT JOIN dim_unidade_gestora ug ON rl.coug = ug.coug
+            LEFT JOIN dim_evento ev ON rl.coevento = ev.coevento
+            WHERE rl.cofonte = ?
+              AND rl.coalinea = ?
+              AND rl.coexercicio = ?
+              AND rl.cougcontab = ?
+              AND CAST(rl.cocontacontabil AS BIGINT) BETWEEN 621200000 AND 621399999
+            ORDER BY rl.dalancamento DESC, rl.nudocumento
+            """
+            params = [cofonte, coalinea, ano, coug]  # coug será usado como cougcontab na query
+        else:
+            # Modo consolidado - busca todos os lançamentos sem filtro de UG
+            query = """
+            SELECT 
+                rl.cocontacontabil,
+                CAST(rl.coug AS VARCHAR) as coug,
+                rl.nudocumento,
+                rl.coevento,
+                rl.indebitocredito,
+                rl.valancamento,
+                rl.dalancamento,
+                rl.cogrupo,
+                cc.nocontacontabil,
+                ug.noug,
+                ev.noevento
+            FROM receita_lancamento rl
+            LEFT JOIN dim_conta_contabil cc ON rl.cocontacontabil = cc.cocontacontabil
+            LEFT JOIN dim_unidade_gestora ug ON rl.coug = ug.coug
+            LEFT JOIN dim_evento ev ON rl.coevento = ev.coevento
+            WHERE rl.cofonte = ?
+              AND rl.coalinea = ?
+              AND rl.coexercicio = ?
+              AND CAST(rl.cocontacontabil AS BIGINT) BETWEEN 621200000 AND 621399999
+            ORDER BY rl.dalancamento DESC, rl.nudocumento
+            """
+            params = [cofonte, coalinea, ano]
         
         # Se não for exportação, limitar a 1000 registros
         if not exportar:
             query += " LIMIT 1000"
         
-        params = [cofonte, coalinea, ano]
-        
         dados = db_manager.execute_query(query, params)
         
         # Contar total de registros
-        query_count = """
-        SELECT COUNT(*) as total
-        FROM receita_lancamento
-        WHERE cofonte = ?
-          AND coalinea = ?
-          AND coexercicio = ?
-          AND CAST(cocontacontabil AS BIGINT) BETWEEN 621200000 AND 621399999
-        """
+        if coug:
+            query_count = """
+            SELECT COUNT(*) as total
+            FROM receita_lancamento
+            WHERE cofonte = ?
+              AND coalinea = ?
+              AND coexercicio = ?
+              AND cougcontab = ?
+              AND CAST(cocontacontabil AS BIGINT) BETWEEN 621200000 AND 621399999
+            """
+            count_params = [cofonte, coalinea, ano, coug]  # coug será usado como cougcontab
+        else:
+            query_count = """
+            SELECT COUNT(*) as total
+            FROM receita_lancamento
+            WHERE cofonte = ?
+              AND coalinea = ?
+              AND coexercicio = ?
+              AND CAST(cocontacontabil AS BIGINT) BETWEEN 621200000 AND 621399999
+            """
+            count_params = [cofonte, coalinea, ano]
         
-        count_result = db_manager.execute_query(query_count, params)
+        count_result = db_manager.execute_query(query_count, count_params)
         total_registros = count_result[0]['total'] if count_result else 0
         
         # Formatar dados para retorno

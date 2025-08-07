@@ -38,6 +38,21 @@
             </h5>
         </div>
         <div class="card-body">
+            <!-- Filtro de UG (primeira linha) -->
+            <div class="row align-items-center mb-3">
+                <div class="col-md-6">
+                    <label class="form-label fw-bold" for="filtroUG">Unidade Gestora (UG):</label>
+                    <select class="form-select" id="filtroUG">
+                        <option value="">Consolidado (Todas as UGs)</option>
+                    </select>
+                    <small class="text-muted">Apenas UGs com receita realizada no ano atual</small>
+                </div>
+                <div class="col-md-6 text-end">
+                    <span class="badge bg-info" id="badgeUGSelecionada">Consolidado</span>
+                </div>
+            </div>
+            
+            <!-- Modo de Visualização e outros controles (segunda linha) -->
             <div class="row align-items-center">
                 <!-- Modo de Visualização -->
                 <div class="col-md-4">
