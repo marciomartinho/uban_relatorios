@@ -448,6 +448,7 @@ def gerar_relatorio_receita_fonte():
         ano = request.args.get('ano', type=int)
         mes = request.args.get('mes', type=int)
         coug = request.args.get('coug', '')
+        tipo_receita = request.args.get('tipo_receita', 'todas')  # NOVO PARÂMETRO
         
         # Validar parâmetros
         if not ano or not mes:
@@ -456,7 +457,7 @@ def gerar_relatorio_receita_fonte():
         if tipo not in ['fonte', 'receita']:
             return jsonify({'erro': 'Tipo deve ser "fonte" ou "receita"'}), 400
         
-        print(f"DEBUG - Gerando relatório receita/fonte: tipo={tipo}, ano={ano}, mes={mes}, coug={coug}")
+        print(f"DEBUG - Gerando relatório receita/fonte: tipo={tipo}, ano={ano}, mes={mes}, coug={coug}, tipo_receita={tipo_receita}")
         
         # Gerar relatório
         relatorio = RelatorioReceitaFonte()
@@ -464,7 +465,8 @@ def gerar_relatorio_receita_fonte():
             tipo=tipo,
             ano=ano,
             mes=mes,
-            coug=coug if coug else None
+            coug=coug if coug else None,
+            tipo_receita=tipo_receita if tipo_receita != 'todas' else None  # PASSAR O FILTRO
         )
         
         # Adicionar informações extras

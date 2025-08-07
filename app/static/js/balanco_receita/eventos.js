@@ -236,21 +236,26 @@ class EventosBalancoReceita {
         });
     }
     
-    /**
-     * Atualiza módulos integrados após mudança de filtro
-     * @private
-     */
-    _atualizarModulosIntegrados() {
-        // Análise Visual
-        if (typeof analiseVisual !== 'undefined') {
-            analiseVisual.atualizarGraficos(window.ultimoRelatorioGerado);
+        /**
+         * Atualiza módulos integrados após mudança de filtro
+         * @private
+         */
+        _atualizarModulosIntegrados() {
+            // Análise Visual
+            if (typeof analiseVisual !== 'undefined') {
+                analiseVisual.atualizarGraficos(window.ultimoRelatorioGerado);
+            }
+            
+            // Comparativo Mensal
+            if (typeof comparativoMensal !== 'undefined') {
+                comparativoMensal.atualizar(window.ultimoRelatorioGerado);
+            }
+            
+            // Relatório Receita/Fonte
+            if (typeof relatorioReceitaFonte !== 'undefined') {
+                relatorioReceitaFonte.atualizar(window.ultimoRelatorioGerado);
+            }
         }
-        
-        // Comparativo Mensal
-        if (typeof comparativoMensal !== 'undefined') {
-            comparativoMensal.atualizar(window.ultimoRelatorioGerado);
-        }
-    }
 }
 
 // Exportar instância única

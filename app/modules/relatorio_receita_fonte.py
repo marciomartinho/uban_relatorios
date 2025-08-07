@@ -40,12 +40,12 @@ class RelatorioReceitaFonte:
             except:
                 tem_tabela_receitas = False
             
-            # Verificar tabela de fontes (dim_receita_origem)
+            # Verificar tabela de fontes (dim_fonte)
             try:
-                query = "SELECT 1 FROM dim_receita_origem LIMIT 1"
+                query = "SELECT 1 FROM dim_fonte LIMIT 1"
                 result = self.db_manager.execute_query(query)
                 tem_tabela_fontes = True
-                print(f"DEBUG - Tabela dim_receita_origem encontrada")
+                print(f"DEBUG - Tabela dim_fonte encontrada")
             except:
                 tem_tabela_fontes = False
             
@@ -71,7 +71,8 @@ class RelatorioReceitaFonte:
 
     def gerar_relatorio(self, tipo: Literal['receita', 'fonte'],
                        ano: int, mes: int,
-                       coug: Optional[str] = None) -> Dict:
+                       coug: Optional[str] = None,
+                       tipo_receita: Optional[str] = None) -> Dict:
         """
         Gera o relatório principal
         
@@ -80,14 +81,15 @@ class RelatorioReceitaFonte:
             ano: Ano do exercício
             mes: Mês de referência
             coug: Código da UG (opcional)
+            tipo_receita: Tipo de receita para filtrar (opcional)
         
         Returns:
             Dict com dados do relatório
         """
-        print(f"DEBUG - gerar_relatorio: tipo={tipo}, ano={ano}, mes={mes}, coug={coug}")
+        print(f"DEBUG - gerar_relatorio: tipo={tipo}, ano={ano}, mes={mes}, coug={coug}, tipo_receita={tipo_receita}")
         
         try:
-            dados = self._gerar_dados_relatorio(tipo, ano, mes, coug)
+            dados = self._gerar_dados_relatorio(tipo, ano, mes, coug, tipo_receita)
             totais = self._calcular_totais(dados)
             
             return {
@@ -117,7 +119,8 @@ class RelatorioReceitaFonte:
 
     def _gerar_dados_relatorio(self, tipo: Literal['receita', 'fonte'],
                                ano: int, mes: int,
-                               coug: Optional[str] = None) -> List[Dict]:
+                               coug: Optional[str] = None,
+                               tipo_receita: Optional[str] = None) -> List[Dict]:
         """Gera os dados do relatório com hierarquia"""
         
         # Preparar filtros
@@ -128,20 +131,47 @@ class RelatorioReceitaFonte:
             filtros.append("rs.coug = ?")
             params.append(coug)
         
+        # Adicionar filtro por tipo de receita
+        if tipo_receita and tipo_receita != 'todas':
+            # Mapeamento de tipos de receita para fontes
+            tipos_map = {
+                '11': ['11', '71'],  # Impostos
+                '12': ['12', '72'],  # Contribuições
+                '13': ['13', '73'],  # Patrimonial
+                '14': ['14', '74'],  # Agropecuária
+                '15': ['15', '75'],  # Industrial
+                '16': ['16', '76'],  # Serviços
+                '17': ['17', '77'],  # Transferências Correntes
+                '19': ['19', '79'],  # Outras Correntes
+                '21': ['21'],        # Operações de Crédito
+                '22': ['22'],        # Alienação de Bens
+                '23': ['23'],        # Amortização
+                '24': ['24']         # Transferências de Capital
+            }
+            
+            if tipo_receita in tipos_map:
+                fontes = tipos_map[tipo_receita]
+                placeholders = ','.join(['?' for _ in fontes])
+                filtros.append(f"rs.cofonte IN ({placeholders})")
+                params.extend(fontes)
+                print(f"DEBUG - Aplicando filtro por tipo_receita: {tipo_receita} -> fontes: {fontes}")
+        
         where_clause = " AND " + " AND ".join(filtros) if filtros else ""
         
         # Define campos baseado no tipo
         if tipo == 'receita':
+            # Mãe = Alínea, Filho = Fonte
             campo_principal = 'coalinea'
             nome_principal = 'noalinea'
             tabela_principal = 'dim_receita_alinea'
-            campo_secundario = 'cofontereceita'
-            nome_secundario = 'nofontereceita'
-            tabela_secundaria = 'dim_receita_origem'
+            campo_secundario = 'cofonte'
+            nome_secundario = 'nofonte'
+            tabela_secundaria = 'dim_fonte'
         else:  # tipo == 'fonte'
-            campo_principal = 'cofontereceita'
-            nome_principal = 'nofontereceita'
-            tabela_principal = 'dim_receita_origem'
+            # Mãe = Fonte, Filho = Alínea
+            campo_principal = 'cofonte'
+            nome_principal = 'nofonte'
+            tabela_principal = 'dim_fonte'
             campo_secundario = 'coalinea'
             nome_secundario = 'noalinea'
             tabela_secundaria = 'dim_receita_alinea'

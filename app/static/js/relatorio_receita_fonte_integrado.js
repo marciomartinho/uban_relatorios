@@ -434,9 +434,12 @@ class RelatorioReceitaFonteIntegrado {
      * Atualiza quando o relatório principal é atualizado
      */
     atualizar(dadosRelatorio) {
+        console.log('📋 Atualizando Relatório Receita/Fonte com novos dados');
         this.dadosOriginais = dadosRelatorio;
         this.dadosRelatorioFonte = null;
         this.dadosRelatorioReceita = null;
+        
+        // Recarregar dados com os novos filtros
         this.carregarDados(this.tipoAtual);
     }
 
