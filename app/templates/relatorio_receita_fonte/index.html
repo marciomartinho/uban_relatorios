@@ -28,6 +28,39 @@
         padding: 0.4rem;
         vertical-align: middle;
     }
+    /* Checkbox personalizado */
+    .checkbox-resolvido {
+        width: 20px;
+        height: 20px;
+        cursor: pointer;
+    }
+    .checkbox-resolvido:checked {
+        accent-color: #28a745;
+    }
+    .linha-resolvida {
+        opacity: 0.6;
+        background-color: #d4edda !important;
+    }
+    .linha-resolvida td {
+        text-decoration: line-through;
+        color: #6c757d !important;
+    }
+    .linha-resolvida .checkbox-resolvido {
+        opacity: 1;
+    }
+    .linha-resolvida .btn {
+        opacity: 0.5;
+        pointer-events: none;
+    }
+    /* Badge contador */
+    #badgeResolvidas {
+        background-color: #28a745 !important;
+        margin-left: 10px;
+    }
+    #badgeNaoResolvidas {
+        background-color: #dc3545 !important;
+        margin-left: 10px;
+    }
 </style>
 {% endblock %}
 
@@ -48,7 +81,7 @@
         </div>
     </div>
 
-    <!-- Modal de Inconsistências REFORMULADO -->
+    <!-- Modal de Inconsistências com Checkboxes -->
     <div class="modal fade" id="modalInconsistencias" tabindex="-1" aria-labelledby="modalInconsistenciasLabel" aria-hidden="true">
         <div class="modal-dialog modal-xl">
             <div class="modal-content">
@@ -59,14 +92,35 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
+
                     <!-- Botões de ação no topo -->
                     <div class="row mb-3">
-                        <div class="col-12 text-end">
+                        <div class="col-md-6">
+                            <!-- Filtro de status -->
+                            <select class="form-select form-select-sm" id="filtroStatusInconsistencia" style="width: 200px; display: inline-block;">
+                                <option value="todas">Mostrar Todas</option>
+                                <option value="nao_resolvidas" selected>Não Resolvidas</option>
+                                <option value="resolvidas">Resolvidas</option>
+                            </select>
+                            <small class="text-muted ms-2">
+                                <span id="contadorInconsistencias">0</span> registros visíveis
+                            </small>
+                            <span class="badge bg-success" id="badgeResolvidas">0 resolvidas</span>
+                            <span class="badge bg-danger" id="badgeNaoResolvidas">0 não resolvidas</span>
+                        </div>
+                        <div class="col-md-6 text-end">
+                            <button class="btn btn-info btn-sm" id="btnExportarEstado" title="Exportar marcações">
+                                <i class="bi bi-download"></i> Exportar Estado
+                            </button>
+                            <button class="btn btn-warning btn-sm" id="btnImportarEstado" title="Importar marcações">
+                                <i class="bi bi-upload"></i> Importar Estado
+                            </button>
+                            <input type="file" id="fileImportarEstado" accept=".json" style="display: none;">
                             <button class="btn btn-primary btn-sm" id="btnAtualizarInconsistencias">
                                 <i class="bi bi-arrow-clockwise"></i> Atualizar
                             </button>
                             <button class="btn btn-success btn-sm" id="btnExportarInconsistencias">
-                                <i class="bi bi-file-earmark-excel"></i> Exportar Todos
+                                <i class="bi bi-file-earmark-excel"></i> Exportar Excel
                             </button>
                         </div>
                     </div>
@@ -113,14 +167,15 @@
                     <div class="alert alert-info alert-sm" role="alert">
                         <i class="bi bi-info-circle"></i> 
                         <strong>Documentos com combinações Fonte/Alínea não cadastradas</strong> na tabela dim_receita_fonte_conta_contabil.
+                        <br><small>Marque os documentos já resolvidos usando o checkbox na última coluna.</small>
                     </div>
                     
-                    <!-- Tabela de documentos inconsistentes -->
+                    <!-- Tabela de documentos inconsistentes com checkbox -->
                     <div class="table-responsive" style="max-height: 450px; overflow-y: auto;">
                         <table class="table table-sm table-striped table-hover" id="tabelaInconsistencias">
                             <thead class="sticky-top bg-light">
                                 <tr>
-                                    <th style="width: 15%;">Documento</th>
+                                    <th style="width: 12%;">Documento</th>
                                     <th style="width: 10%;">UG Contábil</th>
                                     <th style="width: 10%;">Evento</th>
                                     <th style="width: 10%;">Fonte</th>
@@ -128,7 +183,10 @@
                                     <th style="width: 10%;">Data</th>
                                     <th style="width: 5%;" class="text-center">D/C</th>
                                     <th style="width: 10%;" class="text-end">Valor</th>
-                                    <th style="width: 5%;" class="text-center">Ação</th>
+                                    <th style="width: 8%;" class="text-center">Ação</th>
+                                    <th style="width: 5%;" class="text-center">
+                                        <input type="checkbox" id="checkboxTodos" title="Marcar/Desmarcar Todos" style="width: 18px; height: 18px;">
+                                    </th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -147,7 +205,7 @@
                 </div>
                 <div class="modal-footer">
                     <span class="text-muted me-auto" style="font-size: 0.85rem;">
-                        <i class="bi bi-info-circle"></i> Mostrando até 500 documentos. Use "Exportar Todos" para lista completa.
+                        <i class="bi bi-info-circle"></i> Mostrando até 2000 documentos. Use "Exportar Excel" para lista completa.
                     </span>
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
                 </div>
