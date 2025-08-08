@@ -684,3 +684,166 @@ def get_detalhes_lancamentos():
         print(f"Erro em get_detalhes_lancamentos: {str(e)}")
         traceback.print_exc()
         return jsonify({'erro': str(e)}), 500
+    
+@relatorio_receita_fonte.route('/api/verificar-inconsistencias')
+def verificar_inconsistencias():
+    """Verifica inconsistências entre lançamentos e dimensão de fonte/conta - mostra documentos"""
+    try:
+        ano_atual = datetime.now().year
+        exportar = request.args.get('exportar', 'false') == 'true'
+        limite = 500 if not exportar else 10000  # Limite maior para visualização
+        
+        # Query ATUALIZADA para usar coalinea diretamente e incluir coevento
+        query = """
+        WITH combinacoes_validas AS (
+            -- Combinações válidas da dimensão (agora usando coalinea diretamente)
+            SELECT DISTINCT
+                CAST(cofonte AS VARCHAR) as cofonte,
+                CAST(coalinea AS VARCHAR) as coalinea
+            FROM dim_receita_fonte_conta_contabil
+            WHERE cofonte IS NOT NULL
+              AND coalinea IS NOT NULL
+              AND instatus = 0
+        )
+        -- Buscar documentos com combinações inválidas
+        SELECT 
+            rl.nudocumento,
+            rl.cougcontab,
+            rl.coevento,
+            CAST(rl.cofonte AS VARCHAR) as cofonte,
+            CAST(rl.coalinea AS VARCHAR) as coalinea,
+            rl.dalancamento,
+            rl.valancamento,
+            rl.indebitocredito,
+            f.nofonte,
+            a.noalinea,
+            ug.noug,
+            ev.noevento
+        FROM receita_lancamento rl
+        LEFT JOIN combinacoes_validas cv 
+            ON CAST(rl.cofonte AS VARCHAR) = cv.cofonte 
+            AND CAST(rl.coalinea AS VARCHAR) = cv.coalinea
+        LEFT JOIN dim_fonte f 
+            ON CAST(rl.cofonte AS BIGINT) = f.cofonte
+        LEFT JOIN dim_receita_alinea a 
+            ON CAST(rl.coalinea AS BIGINT) = a.coalinea
+        LEFT JOIN dim_unidade_gestora ug
+            ON rl.cougcontab = ug.coug
+        LEFT JOIN dim_evento ev
+            ON rl.coevento = ev.coevento
+        WHERE cv.cofonte IS NULL  -- Não existe na dimensão
+          AND rl.cofonte IS NOT NULL
+          AND rl.cofonte != ''
+          AND rl.coalinea IS NOT NULL
+          AND rl.coalinea != ''
+          AND rl.coexercicio = ?
+        ORDER BY ABS(rl.valancamento) DESC
+        """
+        
+        if not exportar:
+            query += f" LIMIT {limite}"
+        
+        # Executar query
+        documentos = db_manager.execute_query(query, [ano_atual])
+        
+        # Calcular totais e estatísticas
+        total_documentos = len(documentos)
+        valor_total = sum(abs(doc['valancamento']) for doc in documentos)
+        
+        # Agrupar por combinação única para contar
+        combinacoes_unicas = set()
+        for doc in documentos:
+            combinacoes_unicas.add((doc['cofonte'], doc['coalinea']))
+        
+        # Query para contar total real (sem limite) - ATUALIZADA
+        query_count = """
+        WITH combinacoes_validas AS (
+            SELECT DISTINCT
+                CAST(cofonte AS VARCHAR) as cofonte,
+                CAST(coalinea AS VARCHAR) as coalinea
+            FROM dim_receita_fonte_conta_contabil
+            WHERE cofonte IS NOT NULL
+              AND coalinea IS NOT NULL
+              AND instatus = 0
+        )
+        SELECT COUNT(*) as total
+        FROM receita_lancamento rl
+        LEFT JOIN combinacoes_validas cv 
+            ON CAST(rl.cofonte AS VARCHAR) = cv.cofonte 
+            AND CAST(rl.coalinea AS VARCHAR) = cv.coalinea
+        WHERE cv.cofonte IS NULL
+          AND rl.cofonte IS NOT NULL
+          AND rl.cofonte != ''
+          AND rl.coalinea IS NOT NULL
+          AND rl.coalinea != ''
+          AND rl.coexercicio = ?
+        """
+        
+        count_result = db_manager.execute_query(query_count, [ano_atual])
+        total_sem_limite = count_result[0]['total'] if count_result else total_documentos
+        
+        # Formatar resposta
+        response = {
+            'documentos': documentos,
+            'totais': {
+                'total_documentos': total_sem_limite,
+                'total_exibido': len(documentos),
+                'total_combinacoes': len(combinacoes_unicas),
+                'valor_total': float(valor_total)
+            },
+            'filtros': {
+                'ano': ano_atual,
+                'limitado': not exportar and total_sem_limite > limite
+            },
+            'timestamp': datetime.now().isoformat()
+        }
+        
+        return jsonify(response)
+        
+    except Exception as e:
+        print(f"Erro em verificar_inconsistencias: {str(e)}")
+        traceback.print_exc()
+        return jsonify({'erro': str(e)}), 500
+
+@relatorio_receita_fonte.route('/api/estatisticas-inconsistencias')
+def get_estatisticas_inconsistencias():
+    """Retorna estatísticas rápidas sobre inconsistências (para o badge)"""
+    try:
+        # Query simplificada para contar - ATUALIZADA
+        query = """
+        WITH combinacoes_problema AS (
+            SELECT DISTINCT 
+                CAST(rl.cofonte AS VARCHAR) as cofonte,
+                CAST(rl.coalinea AS VARCHAR) as coalinea
+            FROM receita_lancamento rl
+            WHERE NOT EXISTS (
+                SELECT 1 
+                FROM dim_receita_fonte_conta_contabil d
+                WHERE CAST(d.cofonte AS VARCHAR) = CAST(rl.cofonte AS VARCHAR)
+                  AND CAST(d.coalinea AS VARCHAR) = CAST(rl.coalinea AS VARCHAR)
+                  AND d.instatus = 0
+            )
+            AND rl.cofonte IS NOT NULL
+            AND rl.cofonte != ''
+            AND rl.coalinea IS NOT NULL
+            AND rl.coalinea != ''
+            AND rl.coexercicio = ?
+        )
+        SELECT COUNT(*) as total
+        FROM combinacoes_problema
+        """
+        
+        ano_atual = datetime.now().year
+        result = db_manager.execute_query(query, [ano_atual])
+        
+        total = result[0]['total'] if result else 0
+        
+        return jsonify({
+            'total': total,
+            'ano': ano_atual,
+            'timestamp': datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        print(f"Erro em get_estatisticas_inconsistencias: {str(e)}")
+        return jsonify({'total': 0, 'erro': str(e)}), 200
