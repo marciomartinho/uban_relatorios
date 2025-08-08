@@ -1,6 +1,5 @@
 // JavaScript para Relatório Detalhado por Fonte/Receita
-// PARTE 1 - CORRIGIDA
-//
+// VERSÃO COMPLETA COM CHECKBOXES E PERSISTÊNCIA
 console.log('Arquivo relatorio_receita_fonte.js carregado');
 
 // ========================================
@@ -13,12 +12,14 @@ let tabelaDados = null;
 let dadosLancamentosCompletos = [];
 let dadosInconsistencias = [];
 let ultimaVerificacao = null;
+let inconsistenciasResolvidas = {}; // Armazena o estado dos checkboxes
 
 // ========================================
 // INICIALIZAÇÃO
 // ========================================
 $(document).ready(function() {
     console.log('Document ready - iniciando carregamento dos dados');
+    carregarEstadoInconsistencias();
     configurarEventos();
     configurarEventosInconsistencias();
     carregarListaUGs();
@@ -95,6 +96,121 @@ function configurarEventosInconsistencias() {
     
     // Exportar inconsistências
     $('#btnExportarInconsistencias').on('click', exportarInconsistencias);
+    
+    // Filtro de status
+    $('#filtroStatusInconsistencia').on('change', function() {
+        aplicarFiltroInconsistencias();
+    });
+    
+    // Checkbox marcar/desmarcar todos
+    $(document).on('change', '#checkboxTodos', function() {
+        const isChecked = $(this).is(':checked');
+        const filtroAtual = $('#filtroStatusInconsistencia').val();
+        
+        $('#tabelaInconsistencias tbody tr:visible').each(function() {
+            const checkbox = $(this).find('.checkbox-resolvido');
+            const chaveDoc = checkbox.data('documento');
+            
+            if (filtroAtual === 'todas' || 
+                (filtroAtual === 'resolvidas' && inconsistenciasResolvidas[chaveDoc]) ||
+                (filtroAtual === 'nao_resolvidas' && !inconsistenciasResolvidas[chaveDoc])) {
+                checkbox.prop('checked', isChecked);
+                marcarInconsistenciaResolvida(chaveDoc, isChecked);
+            }
+        });
+        
+        atualizarContagemResolvidas();
+    });
+    
+    // Exportar estado dos checkboxes
+    $('#btnExportarEstado').on('click', exportarEstadoInconsistencias);
+    
+    // Importar estado dos checkboxes
+    $('#btnImportarEstado').on('click', function() {
+        $('#fileImportarEstado').click();
+    });
+    
+    $('#fileImportarEstado').on('change', function(e) {
+        importarEstadoInconsistencias(e);
+    });
+}
+
+// ========================================
+// FUNÇÕES DE PERSISTÊNCIA
+// ========================================
+function carregarEstadoInconsistencias() {
+    try {
+        const estadoSalvo = localStorage.getItem('inconsistenciasResolvidas');
+        if (estadoSalvo) {
+            inconsistenciasResolvidas = JSON.parse(estadoSalvo);
+            console.log('Estado carregado:', Object.keys(inconsistenciasResolvidas).length, 'itens marcados');
+        }
+    } catch (e) {
+        console.error('Erro ao carregar estado:', e);
+        inconsistenciasResolvidas = {};
+    }
+}
+
+function salvarEstadoInconsistencias() {
+    try {
+        localStorage.setItem('inconsistenciasResolvidas', JSON.stringify(inconsistenciasResolvidas));
+        console.log('Estado salvo:', Object.keys(inconsistenciasResolvidas).length, 'itens marcados');
+    } catch (e) {
+        console.error('Erro ao salvar estado:', e);
+    }
+}
+
+function marcarInconsistenciaResolvida(chaveDocumento, resolvida) {
+    if (resolvida) {
+        inconsistenciasResolvidas[chaveDocumento] = {
+            dataResolucao: new Date().toISOString(),
+            resolvida: true
+        };
+    } else {
+        delete inconsistenciasResolvidas[chaveDocumento];
+    }
+    salvarEstadoInconsistencias();
+}
+
+function exportarEstadoInconsistencias() {
+    const estado = {
+        inconsistenciasResolvidas: inconsistenciasResolvidas,
+        dataExportacao: new Date().toISOString(),
+        totalMarcadas: Object.keys(inconsistenciasResolvidas).length
+    };
+    
+    const blob = new Blob([JSON.stringify(estado, null, 2)], { type: 'application/json' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'estado_inconsistencias_' + new Date().getTime() + '.json';
+    link.click();
+}
+
+function importarEstadoInconsistencias(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const estado = JSON.parse(e.target.result);
+            inconsistenciasResolvidas = estado.inconsistenciasResolvidas || {};
+            salvarEstadoInconsistencias();
+            
+            alert('Estado importado com sucesso! ' + Object.keys(inconsistenciasResolvidas).length + ' itens marcados.');
+            
+            // Recarregar a tabela se estiver aberta
+            if ($('#modalInconsistencias').hasClass('show')) {
+                construirTabelaInconsistencias(dadosInconsistencias);
+            }
+        } catch (error) {
+            alert('Erro ao importar arquivo: ' + error.message);
+        }
+    };
+    reader.readAsText(file);
+    
+    // Limpar o input para permitir reimportar o mesmo arquivo
+    event.target.value = '';
 }
 
 // ========================================
@@ -471,7 +587,7 @@ function verificarInconsistencias() {
         url: '/relatorio-receita-fonte/api/verificar-inconsistencias',
         method: 'GET',
         data: {
-            exportar: 'false'
+            exportar: 'true'  // Sempre pegar todos os dados
         },
         success: function(response) {
             console.log('✅ Inconsistências verificadas:', response);
@@ -500,14 +616,6 @@ function verificarInconsistencias() {
             // Atualizar texto de última verificação
             $('#textoUltimaVerificacao').text('Última verificação: ' + ultimaVerificacao.toLocaleString('pt-BR'));
             
-            // Mostrar alerta se dados foram limitados
-            if (response.filtros.limitado) {
-                mostrarAlerta('info', 
-                    `Exibindo apenas os primeiros ${response.totais.total_exibido} documentos de um total de ${response.totais.total_documentos}. 
-                     Para ver todos, use o botão "Exportar".`
-                );
-            }
-            
             $('#loadingInconsistencias').hide();
         },
         error: function(xhr) {
@@ -528,7 +636,7 @@ function construirTabelaInconsistencias(dados) {
     if (!dados || dados.length === 0) {
         tbody.html(`
             <tr>
-                <td colspan="9" class="text-center text-success">
+                <td colspan="10" class="text-center text-success">
                     <i class="bi bi-check-circle"></i> Nenhuma inconsistência encontrada
                 </td>
             </tr>
@@ -536,7 +644,23 @@ function construirTabelaInconsistencias(dados) {
         return;
     }
     
+    // Ordenar dados por coevento
+    dados.sort(function(a, b) {
+        // Primeiro ordenar por coevento
+        if (a.coevento && b.coevento) {
+            if (a.coevento < b.coevento) return -1;
+            if (a.coevento > b.coevento) return 1;
+        }
+        // Se coevento for igual ou nulo, ordenar por documento
+        if (a.nudocumento < b.nudocumento) return -1;
+        if (a.nudocumento > b.nudocumento) return 1;
+        return 0;
+    });
+    
     dados.forEach(function(item, index) {
+        const chaveDoc = `${item.nudocumento}_${item.cofonte}_${item.coalinea}`;
+        const isResolvida = inconsistenciasResolvidas[chaveDoc] ? true : false;
+        
         // Determinar cor baseado no valor
         let classeSeveridade = '';
         const valor = Math.abs(item.valancamento);
@@ -544,7 +668,11 @@ function construirTabelaInconsistencias(dados) {
             classeSeveridade = 'table-warning';
         }
         
-        const row = $('<tr>').addClass(classeSeveridade);
+        const row = $('<tr>')
+            .addClass(classeSeveridade)
+            .addClass(isResolvida ? 'linha-resolvida' : '')
+            .attr('data-documento', chaveDoc)
+            .attr('data-resolvida', isResolvida);
         
         row.html(`
             <td><strong>${item.nudocumento}</strong></td>
@@ -582,15 +710,72 @@ function construirTabelaInconsistencias(dados) {
                     <i class="bi bi-search"></i>
                 </button>
             </td>
+            <td class="text-center">
+                <input type="checkbox" 
+                       class="checkbox-resolvido" 
+                       data-documento="${chaveDoc}"
+                       ${isResolvida ? 'checked' : ''}
+                       title="${isResolvida ? 'Marcado como resolvido' : 'Marcar como resolvido'}">
+            </td>
         `);
         
         tbody.append(row);
     });
+    
+    // Adicionar eventos aos checkboxes
+    $('.checkbox-resolvido').on('change', function() {
+        const chaveDoc = $(this).data('documento');
+        const isChecked = $(this).is(':checked');
+        const row = $(this).closest('tr');
+        
+        marcarInconsistenciaResolvida(chaveDoc, isChecked);
+        
+        if (isChecked) {
+            row.addClass('linha-resolvida');
+        } else {
+            row.removeClass('linha-resolvida');
+        }
+        
+        atualizarContagemResolvidas();
+    });
+    
+    // Aplicar filtro inicial e atualizar contagem
+    aplicarFiltroInconsistencias();
+    atualizarContagemResolvidas();
 }
 
-// ========================================
-// CONTINUAÇÃO - PARTE 2 CORRIGIDA
-// ========================================
+function aplicarFiltroInconsistencias() {
+    const filtro = $('#filtroStatusInconsistencia').val();
+    let visiveis = 0;
+    
+    $('#tabelaInconsistencias tbody tr').each(function() {
+        const isResolvida = $(this).attr('data-resolvida') === 'true';
+        
+        if (filtro === 'todas') {
+            $(this).show();
+            visiveis++;
+        } else if (filtro === 'resolvidas' && isResolvida) {
+            $(this).show();
+            visiveis++;
+        } else if (filtro === 'nao_resolvidas' && !isResolvida) {
+            $(this).show();
+            visiveis++;
+        } else {
+            $(this).hide();
+        }
+    });
+    
+    $('#contadorInconsistencias').text(visiveis);
+}
+
+function atualizarContagemResolvidas() {
+    const total = dadosInconsistencias.length;
+    const resolvidas = Object.keys(inconsistenciasResolvidas).length;
+    const naoResolvidas = total - resolvidas;
+    
+    $('#badgeResolvidas').text(resolvidas + ' resolvidas');
+    $('#badgeNaoResolvidas').text(naoResolvidas + ' não resolvidas');
+}
 
 function verDetalhesInconsistencia(cofonte, coalinea) {
     $('#modalInconsistencias').modal('hide');
@@ -609,90 +794,82 @@ function exportarInconsistencias() {
     $('#btnExportarInconsistencias').html('<span class="spinner-border spinner-border-sm"></span> Exportando...');
     $('#btnExportarInconsistencias').prop('disabled', true);
     
-    $.ajax({
-        url: '/relatorio-receita-fonte/api/verificar-inconsistencias',
-        method: 'GET',
-        data: {
-            exportar: 'true'
-        },
-        success: function(response) {
-            console.log('✅ Dados completos para exportação');
-            
-            let csv = [];
-            
-            csv.push(['RELATÓRIO DE INCONSISTÊNCIAS - FONTE/ALÍNEA NÃO CADASTRADAS'].join(';'));
-            csv.push(['Data da verificação: ' + new Date().toLocaleString('pt-BR')].join(';'));
-            csv.push(['Exercício: ' + new Date().getFullYear()].join(';'));
-            csv.push('');
-            
-            csv.push(['RESUMO'].join(';'));
-            csv.push(['Total de Documentos Inconsistentes;' + response.totais.total_documentos].join(''));
-            csv.push(['Total de Combinações Inválidas;' + response.totais.total_combinacoes].join(''));
-            csv.push(['Valor Total Envolvido;' + response.totais.valor_total.toFixed(2).replace('.', ',')].join(''));
-            csv.push('');
-            
-            const headers = [
-                'Documento',
-                'UG Contábil',
-                'Nome UG',
-                'Código Fonte',
-                'Nome Fonte',
-                'Código Alínea',
-                'Nome Alínea',
-                'Data Lançamento',
-                'D/C',
-                'Valor'
-            ];
-            csv.push(headers.join(';'));
-            
-            response.documentos.forEach(function(item) {
-                let linha = [
-                    item.nudocumento,
-                    item.cougcontab || '',
-                    item.noug || '',
-                    item.cofonte,
-                    item.nofonte || '',
-                    item.coalinea,
-                    item.noalinea || '',
-                    item.dalancamento ? new Date(item.dalancamento).toLocaleDateString('pt-BR') : '',
-                    item.indebitocredito || '',
-                    Math.abs(item.valancamento).toFixed(2).replace('.', ',')
-                ];
-                csv.push(linha.join(';'));
-            });
-            
-            let csvContent = '\ufeff' + csv.join('\n');
-            let blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-            let link = document.createElement('a');
-            let url = URL.createObjectURL(blob);
-            
-            const filename = 'inconsistencias_fonte_alinea_' + new Date().getTime() + '.csv';
-            
-            link.setAttribute('href', url);
-            link.setAttribute('download', filename);
-            link.style.visibility = 'hidden';
-            
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            
-            console.log('✅ Exportação concluída:', filename);
-            
-            $('#btnExportarInconsistencias').html(btnOriginal);
-            $('#btnExportarInconsistencias').prop('disabled', false);
-        },
-        error: function(xhr) {
-            console.error('❌ Erro ao exportar:', xhr);
-            alert('Erro ao exportar dados. Tente novamente.');
-            
-            $('#btnExportarInconsistencias').html(btnOriginal);
-            $('#btnExportarInconsistencias').prop('disabled', false);
-        }
+    // Usar os dados já carregados
+    let csv = [];
+    
+    csv.push(['RELATÓRIO DE INCONSISTÊNCIAS - FONTE/ALÍNEA NÃO CADASTRADAS'].join(';'));
+    csv.push(['Data da verificação: ' + new Date().toLocaleString('pt-BR')].join(';'));
+    csv.push(['Exercício: ' + new Date().getFullYear()].join(';'));
+    csv.push('');
+    
+    csv.push(['RESUMO'].join(';'));
+    csv.push(['Total de Documentos;' + dadosInconsistencias.length].join(''));
+    csv.push(['Documentos Resolvidos;' + Object.keys(inconsistenciasResolvidas).length].join(''));
+    csv.push(['Documentos Pendentes;' + (dadosInconsistencias.length - Object.keys(inconsistenciasResolvidas).length)].join(''));
+    csv.push('');
+    
+    const headers = [
+        'Status',
+        'Documento',
+        'UG Contábil',
+        'Nome UG',
+        'Código Evento',
+        'Nome Evento',
+        'Código Fonte',
+        'Nome Fonte',
+        'Código Alínea',
+        'Nome Alínea',
+        'Data Lançamento',
+        'D/C',
+        'Valor'
+    ];
+    csv.push(headers.join(';'));
+    
+    dadosInconsistencias.forEach(function(item) {
+        const chaveDoc = `${item.nudocumento}_${item.cofonte}_${item.coalinea}`;
+        const status = inconsistenciasResolvidas[chaveDoc] ? 'RESOLVIDO' : 'PENDENTE';
+        
+        let linha = [
+            status,
+            item.nudocumento,
+            item.cougcontab || '',
+            item.noug || '',
+            item.coevento || '',
+            item.noevento || '',
+            item.cofonte,
+            item.nofonte || '',
+            item.coalinea,
+            item.noalinea || '',
+            item.dalancamento ? new Date(item.dalancamento).toLocaleDateString('pt-BR') : '',
+            item.indebitocredito || '',
+            Math.abs(item.valancamento).toFixed(2).replace('.', ',')
+        ];
+        csv.push(linha.join(';'));
     });
+    
+    let csvContent = '\ufeff' + csv.join('\n');
+    let blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    let link = document.createElement('a');
+    let url = URL.createObjectURL(blob);
+    
+    const filename = 'inconsistencias_fonte_alinea_' + new Date().getTime() + '.csv';
+    
+    link.setAttribute('href', url);
+    link.setAttribute('download', filename);
+    link.style.visibility = 'hidden';
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    console.log('✅ Exportação concluída:', filename);
+    
+    $('#btnExportarInconsistencias').html(btnOriginal);
+    $('#btnExportarInconsistencias').prop('disabled', false);
 }
 
 // ========================================
-// FUNÇÕES DE EXPORTAÇÃO
+// FUNÇÕES DE EXPORTAÇÃO (CONTINUAÇÃO)
 // ========================================
 function exportarDetalhesExcel() {
     if (!dadosLancamentosCompletos || !dadosLancamentosCompletos.cofonte) {
