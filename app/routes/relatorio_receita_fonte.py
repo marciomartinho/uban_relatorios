@@ -1,7 +1,7 @@
 """
 Blueprint para Relatório Detalhado por Fonte/Receita
 Arquivo: app/routes/relatorio_receita_fonte.py
-CORRIGIDO: Compatibilidade entre DuckDB e PostgreSQL para tipos de dados
+ATUALIZADO: Duas regras de inconsistências com endpoints separados
 """
 from flask import Blueprint, render_template, jsonify, request
 from app.db_manager import db_manager
@@ -255,20 +255,6 @@ def get_dados_por_fonte():
         traceback.print_exc()
         return jsonify({'erro': str(e)}), 500
 
-@relatorio_receita_fonte.route('/api/salvar-estado-inconsistencias', methods=['POST'])
-def salvar_estado_inconsistencias():
-    """Endpoint para exportar o estado das inconsistências marcadas"""
-    try:
-        dados = request.json
-        # Retorna os mesmos dados para download
-        return jsonify({
-            'sucesso': True,
-            'dados': dados,
-            'timestamp': datetime.now().isoformat()
-        })
-    except Exception as e:
-        return jsonify({'erro': str(e)}), 500
-
 @relatorio_receita_fonte.route('/api/dados-por-receita')
 def get_dados_por_receita():
     """Retorna dados agrupados por receita (alínea)"""
@@ -504,8 +490,6 @@ def get_lista_ugs():
     try:
         ano_atual = datetime.now().year
         
-        # Query CORRIGIDA - adicionando CAST para compatibilidade entre tipos
-        # No PostgreSQL, rs.coug pode ser TEXT enquanto ug.coug pode ser BIGINT
         query = """
         SELECT DISTINCT 
             rs.coug,
@@ -548,14 +532,13 @@ def get_detalhes_lancamentos():
     try:
         cofonte = request.args.get('cofonte')
         coalinea = request.args.get('coalinea')
-        coug = request.args.get('coug', '')  # Recebe coug do filtro principal
+        coug = request.args.get('coug', '')
         ano = request.args.get('ano', datetime.now().year)
         exportar = request.args.get('exportar', 'false') == 'true'
         
         if not cofonte or not coalinea:
             return jsonify({'erro': 'Parâmetros cofonte e coalinea são obrigatórios'}), 400
         
-        # Query CORRIGIDA - adicionando CASTs para compatibilidade
         if coug:
             query = """
             SELECT 
@@ -583,7 +566,6 @@ def get_detalhes_lancamentos():
             """
             params = [cofonte, coalinea, ano, coug]
         else:
-            # Modo consolidado - sem filtro de UG
             query = """
             SELECT 
                 rl.cocontacontabil,
@@ -609,13 +591,12 @@ def get_detalhes_lancamentos():
             """
             params = [cofonte, coalinea, ano]
         
-        # Se não for exportação, limitar a 1000 registros
         if not exportar:
             query += " LIMIT 1000"
         
         dados = db_manager.execute_query(query, params)
         
-        # Contar total de registros - CORRIGIDO com CASTs
+        # Contar total de registros
         if coug:
             query_count = """
             SELECT COUNT(*) as total
@@ -669,7 +650,7 @@ def get_detalhes_lancamentos():
                 'cogrupo': item['cogrupo'] or ''
             })
         
-        # Buscar descrições da fonte e alínea - CORRIGIDO com CASTs
+        # Buscar descrições da fonte e alínea
         query_desc = """
         SELECT 
             (SELECT nofonte FROM dim_fonte WHERE CAST(cofonte AS VARCHAR) = CAST(? AS VARCHAR) LIMIT 1) as nome_fonte,
@@ -699,156 +680,243 @@ def get_detalhes_lancamentos():
         print(f"Erro em get_detalhes_lancamentos: {str(e)}")
         traceback.print_exc()
         return jsonify({'erro': str(e)}), 500
-    
+
 @relatorio_receita_fonte.route('/api/verificar-inconsistencias')
 def verificar_inconsistencias():
-    """Verifica inconsistências entre lançamentos e dimensão de fonte/conta - mostra documentos"""
+    """Retorna todas as inconsistências (ambas as regras)"""
     try:
         ano_atual = datetime.now().year
-        exportar = request.args.get('exportar', 'false') == 'true'
-        # Aumentar limite para mostrar todos os registros no modal
-        limite = 10000 if exportar else 2000  # Aumentado para permitir marcação
         
-        # Query para buscar TODAS as inconsistências (sem filtro de saldo por enquanto)
-        query = """
-        SELECT DISTINCT
-            rl.nudocumento,
-            rl.cougcontab,
-            rl.coevento,
-            TRIM(CAST(rl.cofonte AS VARCHAR)) as cofonte,
-            TRIM(CAST(rl.coalinea AS VARCHAR)) as coalinea,
-            rl.dalancamento,
-            rl.valancamento,
-            rl.indebitocredito,
-            f.nofonte,
-            a.noalinea,
-            ug.noug,
-            ev.noevento,
-            -- Adicionar campo para identificar se tem saldo
-            CASE 
-                WHEN EXISTS (
-                    SELECT 1
-                    FROM receita_saldo rs
-                    WHERE rs.cocontacontabil = '621200000'
-                      AND CAST(rs.coug AS VARCHAR) = CAST(rl.cougcontab AS VARCHAR)
-                      AND rs.saldo_contabil_receita IS NOT NULL
-                      AND rs.saldo_contabil_receita != 0
-                      AND LENGTH(CAST(rs.cocontacorrente AS VARCHAR)) = 17
-                      AND SUBSTRING(CAST(rs.cocontacorrente AS VARCHAR), 1, 6) = TRIM(CAST(rl.coalinea AS VARCHAR))
-                      AND SUBSTRING(CAST(rs.cocontacorrente AS VARCHAR), 9, 9) = TRIM(CAST(rl.cofonte AS VARCHAR))
-                ) THEN 'SIM'
-                ELSE 'NAO'
-            END as tem_saldo
-        FROM receita_lancamento rl
-        LEFT JOIN dim_fonte f 
-            ON TRIM(CAST(rl.cofonte AS VARCHAR)) = TRIM(CAST(f.cofonte AS VARCHAR))
-        LEFT JOIN dim_receita_alinea a 
-            ON TRIM(CAST(rl.coalinea AS VARCHAR)) = TRIM(CAST(a.coalinea AS VARCHAR))
-        LEFT JOIN dim_unidade_gestora ug
-            ON TRIM(CAST(rl.cougcontab AS VARCHAR)) = TRIM(CAST(ug.coug AS VARCHAR))
-        LEFT JOIN dim_evento ev
-            ON TRIM(CAST(rl.coevento AS VARCHAR)) = TRIM(CAST(ev.coevento AS VARCHAR))
-        WHERE NOT EXISTS (
-            -- Verifica se existe a combinação exata na dimensão
-            SELECT 1 
-            FROM dim_receita_fonte_conta_contabil drfc
-            WHERE TRIM(CAST(drfc.cofonte AS VARCHAR)) = TRIM(CAST(rl.cofonte AS VARCHAR))
-              AND TRIM(CAST(drfc.coalinea AS VARCHAR)) = TRIM(CAST(rl.coalinea AS VARCHAR))
-              AND drfc.instatus = 0  -- Apenas registros ativos
-        )
-        AND rl.cofonte IS NOT NULL
-        AND TRIM(CAST(rl.cofonte AS VARCHAR)) != ''
-        AND rl.coalinea IS NOT NULL
-        AND TRIM(CAST(rl.coalinea AS VARCHAR)) != ''
-        AND rl.coexercicio = ?
-        ORDER BY ABS(rl.valancamento) DESC
-        """
+        # Buscar inconsistências Fonte/Alínea
+        fonte_alinea = _verificar_fonte_alinea(ano_atual)
         
-        if not exportar:
-            query += f" LIMIT {limite}"
+        # Buscar inconsistências Alínea 7 UG
+        alinea_ug = _verificar_alinea_ug(ano_atual)
         
-        # Executar query
-        documentos = db_manager.execute_query(query, [ano_atual])
-        
-        # Calcular totais e estatísticas
-        total_documentos = len(documentos)
-        valor_total = sum(abs(doc['valancamento']) for doc in documentos)
-        
-        # Agrupar por combinação única para contar
-        combinacoes_unicas = set()
-        for doc in documentos:
-            combinacoes_unicas.add((doc['cofonte'], doc['coalinea']))
-        
-        # Query para contar total real (sem limite) - CORRIGIDA com verificação precisa
-        query_count = """
-        WITH lancamentos_sem_dimensao AS (
-            SELECT DISTINCT 
-                rl.nudocumento,
-                rl.cougcontab,
-                TRIM(CAST(rl.cofonte AS VARCHAR)) as cofonte,
-                TRIM(CAST(rl.coalinea AS VARCHAR)) as coalinea
-            FROM receita_lancamento rl
-            WHERE NOT EXISTS (
-                SELECT 1 
-                FROM dim_receita_fonte_conta_contabil drfc
-                WHERE TRIM(CAST(drfc.cofonte AS VARCHAR)) = TRIM(CAST(rl.cofonte AS VARCHAR))
-                  AND TRIM(CAST(drfc.coalinea AS VARCHAR)) = TRIM(CAST(rl.coalinea AS VARCHAR))
-                  AND drfc.instatus = 0
-            )
-            AND rl.cofonte IS NOT NULL
-            AND TRIM(CAST(rl.cofonte AS VARCHAR)) != ''
-            AND rl.coalinea IS NOT NULL
-            AND TRIM(CAST(rl.coalinea AS VARCHAR)) != ''
-            AND rl.coexercicio = ?
-        )
-        SELECT COUNT(DISTINCT lsd.nudocumento) as total
-        FROM lancamentos_sem_dimensao lsd
-        WHERE EXISTS (
-            -- Verificação usando coug = cougcontab
-            SELECT 1
-            FROM receita_saldo rs
-            WHERE rs.cocontacontabil = '621200000'
-              AND CAST(rs.coug AS VARCHAR) = CAST(lsd.cougcontab AS VARCHAR)  -- coug da receita_saldo = cougcontab do lançamento
-              AND rs.saldo_contabil_receita IS NOT NULL
-              AND rs.saldo_contabil_receita != 0
-              AND LENGTH(CAST(rs.cocontacorrente AS VARCHAR)) = 17
-              AND SUBSTRING(CAST(rs.cocontacorrente AS VARCHAR), 1, 6) = CAST(lsd.coalinea AS VARCHAR)
-              AND SUBSTRING(CAST(rs.cocontacorrente AS VARCHAR), 9, 9) = CAST(lsd.cofonte AS VARCHAR)
-        )
-        """
-        
-        count_result = db_manager.execute_query(query_count, [ano_atual])
-        total_sem_limite = count_result[0]['total'] if count_result else total_documentos
-        
-        # Formatar resposta
-        response = {
-            'documentos': documentos,
-            'totais': {
-                'total_documentos': total_sem_limite,
-                'total_exibido': len(documentos),
-                'total_combinacoes': len(combinacoes_unicas),
-                'valor_total': float(valor_total)
-            },
-            'filtros': {
-                'ano': ano_atual,
-                'limitado': not exportar and total_sem_limite > limite
-            },
+        # Retornar ambas
+        return jsonify({
+            'fonte_alinea': fonte_alinea,
+            'alinea_ug': alinea_ug,
             'timestamp': datetime.now().isoformat()
-        }
-        
-        return jsonify(response)
+        })
         
     except Exception as e:
         print(f"Erro em verificar_inconsistencias: {str(e)}")
         traceback.print_exc()
         return jsonify({'erro': str(e)}), 500
 
+@relatorio_receita_fonte.route('/api/verificar-inconsistencias-fonte-alinea')
+def verificar_inconsistencias_fonte_alinea():
+    """Verifica inconsistências de Fonte/Alínea não cadastradas"""
+    try:
+        ano_atual = datetime.now().year
+        resultado = _verificar_fonte_alinea(ano_atual)
+        return jsonify(resultado)
+    except Exception as e:
+        print(f"Erro: {str(e)}")
+        traceback.print_exc()
+        return jsonify({'erro': str(e)}), 500
+
+@relatorio_receita_fonte.route('/api/verificar-inconsistencias-alinea-ug')
+def verificar_inconsistencias_alinea_ug():
+    """Verifica inconsistências de Alínea 7 com UG divergente"""
+    try:
+        ano_atual = datetime.now().year
+        resultado = _verificar_alinea_ug(ano_atual)
+        return jsonify(resultado)
+    except Exception as e:
+        print(f"Erro: {str(e)}")
+        traceback.print_exc()
+        return jsonify({'erro': str(e)}), 500
+
+def _verificar_fonte_alinea(ano_atual):
+    """Lógica interna para verificar inconsistências Fonte/Alínea"""
+    exportar = request.args.get('exportar', 'false') == 'true'
+    limite = 10000 if exportar else 2000
+    
+    query = """
+    SELECT DISTINCT
+        rl.nudocumento,
+        rl.cougcontab,
+        rl.coug,
+        rl.coevento,
+        TRIM(CAST(rl.cofonte AS VARCHAR)) as cofonte,
+        TRIM(CAST(rl.coalinea AS VARCHAR)) as coalinea,
+        rl.dalancamento,
+        rl.valancamento,
+        rl.indebitocredito,
+        f.nofonte,
+        a.noalinea,
+        ug.noug,
+        ev.noevento
+    FROM receita_lancamento rl
+    LEFT JOIN dim_fonte f 
+        ON TRIM(CAST(rl.cofonte AS VARCHAR)) = TRIM(CAST(f.cofonte AS VARCHAR))
+    LEFT JOIN dim_receita_alinea a 
+        ON TRIM(CAST(rl.coalinea AS VARCHAR)) = TRIM(CAST(a.coalinea AS VARCHAR))
+    LEFT JOIN dim_unidade_gestora ug
+        ON TRIM(CAST(rl.cougcontab AS VARCHAR)) = TRIM(CAST(ug.coug AS VARCHAR))
+    LEFT JOIN dim_evento ev
+        ON TRIM(CAST(rl.coevento AS VARCHAR)) = TRIM(CAST(ev.coevento AS VARCHAR))
+    WHERE NOT EXISTS (
+        SELECT 1 
+        FROM dim_receita_fonte_conta_contabil drfc
+        WHERE TRIM(CAST(drfc.cofonte AS VARCHAR)) = TRIM(CAST(rl.cofonte AS VARCHAR))
+          AND TRIM(CAST(drfc.coalinea AS VARCHAR)) = TRIM(CAST(rl.coalinea AS VARCHAR))
+          AND drfc.instatus = 0
+    )
+    AND rl.cofonte IS NOT NULL
+    AND TRIM(CAST(rl.cofonte AS VARCHAR)) != ''
+    AND rl.coalinea IS NOT NULL
+    AND TRIM(CAST(rl.coalinea AS VARCHAR)) != ''
+    AND rl.coexercicio = ?
+    ORDER BY ABS(rl.valancamento) DESC
+    """
+    
+    if not exportar:
+        query += f" LIMIT {limite}"
+    
+    documentos = db_manager.execute_query(query, [ano_atual])
+    
+    # Calcular totais
+    total_documentos = len(documentos)
+    valor_total = sum(abs(doc['valancamento']) for doc in documentos)
+    
+    # Contar combinações únicas
+    combinacoes_unicas = set()
+    for doc in documentos:
+        combinacoes_unicas.add((doc['cofonte'], doc['coalinea']))
+    
+    # Query para contar total real
+    query_count = """
+    SELECT COUNT(DISTINCT nudocumento) as total
+    FROM receita_lancamento rl
+    WHERE NOT EXISTS (
+        SELECT 1 
+        FROM dim_receita_fonte_conta_contabil drfc
+        WHERE TRIM(CAST(drfc.cofonte AS VARCHAR)) = TRIM(CAST(rl.cofonte AS VARCHAR))
+          AND TRIM(CAST(drfc.coalinea AS VARCHAR)) = TRIM(CAST(rl.coalinea AS VARCHAR))
+          AND drfc.instatus = 0
+    )
+    AND rl.cofonte IS NOT NULL
+    AND TRIM(CAST(rl.cofonte AS VARCHAR)) != ''
+    AND rl.coalinea IS NOT NULL
+    AND TRIM(CAST(rl.coalinea AS VARCHAR)) != ''
+    AND rl.coexercicio = ?
+    """
+    
+    count_result = db_manager.execute_query(query_count, [ano_atual])
+    total_sem_limite = count_result[0]['total'] if count_result else total_documentos
+    
+    return {
+        'documentos': documentos,
+        'totais': {
+            'total_documentos': total_sem_limite,
+            'total_exibido': len(documentos),
+            'total_combinacoes': len(combinacoes_unicas),
+            'valor_total': float(valor_total)
+        },
+        'filtros': {
+            'ano': ano_atual,
+            'limitado': not exportar and total_sem_limite > limite
+        },
+        'timestamp': datetime.now().isoformat()
+    }
+
+def _verificar_alinea_ug(ano_atual):
+    """
+    Lógica interna para verificar inconsistências de Alínea 7 com UG divergente
+    Regra: Quando coalinea começa com 7, cougcontab deve ser igual a coug
+    """
+    exportar = request.args.get('exportar', 'false') == 'true'
+    limite = 10000 if exportar else 2000
+    
+    query = """
+    SELECT DISTINCT
+        rl.nudocumento,
+        rl.cougcontab,
+        rl.coug,
+        rl.coevento,
+        TRIM(CAST(rl.cofonte AS VARCHAR)) as cofonte,
+        TRIM(CAST(rl.coalinea AS VARCHAR)) as coalinea,
+        rl.dalancamento,
+        rl.valancamento,
+        rl.indebitocredito,
+        f.nofonte,
+        a.noalinea,
+        ug1.noug as noug_contabil,
+        ug2.noug as noug_emitente,
+        ev.noevento
+    FROM receita_lancamento rl
+    LEFT JOIN dim_fonte f 
+        ON TRIM(CAST(rl.cofonte AS VARCHAR)) = TRIM(CAST(f.cofonte AS VARCHAR))
+    LEFT JOIN dim_receita_alinea a 
+        ON TRIM(CAST(rl.coalinea AS VARCHAR)) = TRIM(CAST(a.coalinea AS VARCHAR))
+    LEFT JOIN dim_unidade_gestora ug1
+        ON TRIM(CAST(rl.cougcontab AS VARCHAR)) = TRIM(CAST(ug1.coug AS VARCHAR))
+    LEFT JOIN dim_unidade_gestora ug2
+        ON TRIM(CAST(rl.coug AS VARCHAR)) = TRIM(CAST(ug2.coug AS VARCHAR))
+    LEFT JOIN dim_evento ev
+        ON TRIM(CAST(rl.coevento AS VARCHAR)) = TRIM(CAST(ev.coevento AS VARCHAR))
+    WHERE LEFT(TRIM(CAST(rl.coalinea AS VARCHAR)), 1) = '7'
+      AND CAST(rl.cougcontab AS VARCHAR) != CAST(rl.coug AS VARCHAR)
+      AND rl.coalinea IS NOT NULL
+      AND TRIM(CAST(rl.coalinea AS VARCHAR)) != ''
+      AND rl.coexercicio = ?
+    ORDER BY ABS(rl.valancamento) DESC
+    """
+    
+    if not exportar:
+        query += f" LIMIT {limite}"
+    
+    documentos = db_manager.execute_query(query, [ano_atual])
+    
+    # Calcular totais
+    total_documentos = len(documentos)
+    valor_total = sum(abs(doc['valancamento']) for doc in documentos)
+    
+    # Contar UGs divergentes únicas
+    ugs_divergentes = set()
+    for doc in documentos:
+        ugs_divergentes.add((doc['cougcontab'], doc['coug']))
+    
+    # Query para contar total real
+    query_count = """
+    SELECT COUNT(DISTINCT nudocumento) as total
+    FROM receita_lancamento rl
+    WHERE LEFT(TRIM(CAST(rl.coalinea AS VARCHAR)), 1) = '7'
+      AND CAST(rl.cougcontab AS VARCHAR) != CAST(rl.coug AS VARCHAR)
+      AND rl.coalinea IS NOT NULL
+      AND TRIM(CAST(rl.coalinea AS VARCHAR)) != ''
+      AND rl.coexercicio = ?
+    """
+    
+    count_result = db_manager.execute_query(query_count, [ano_atual])
+    total_sem_limite = count_result[0]['total'] if count_result else total_documentos
+    
+    return {
+        'documentos': documentos,
+        'totais': {
+            'total_documentos': total_sem_limite,
+            'total_exibido': len(documentos),
+            'total_combinacoes': len(ugs_divergentes),
+            'valor_total': float(valor_total)
+        },
+        'filtros': {
+            'ano': ano_atual,
+            'limitado': not exportar and total_sem_limite > limite
+        },
+        'timestamp': datetime.now().isoformat()
+    }
+
 @relatorio_receita_fonte.route('/api/estatisticas-inconsistencias')
 def get_estatisticas_inconsistencias():
-    """Retorna estatísticas rápidas sobre inconsistências (para o badge)"""
+    """Retorna estatísticas rápidas sobre inconsistências (ambas as regras)"""
     try:
-        # Query simplificada para contar combinações únicas com problema - com TRIM
-        query = """
+        ano_atual = datetime.now().year
+        
+        # Contar inconsistências Fonte/Alínea
+        query_fa = """
         SELECT COUNT(DISTINCT CONCAT(TRIM(CAST(rl.cofonte AS VARCHAR)), '-', TRIM(CAST(rl.coalinea AS VARCHAR)))) as total
         FROM receita_lancamento rl
         WHERE NOT EXISTS (
@@ -865,100 +933,31 @@ def get_estatisticas_inconsistencias():
         AND rl.coexercicio = ?
         """
         
-        ano_atual = datetime.now().year
-        result = db_manager.execute_query(query, [ano_atual])
+        result_fa = db_manager.execute_query(query_fa, [ano_atual])
+        total_fa = result_fa[0]['total'] if result_fa else 0
         
-        total = result[0]['total'] if result else 0
+        # Contar inconsistências Alínea 7 UG
+        query_ug = """
+        SELECT COUNT(DISTINCT nudocumento) as total
+        FROM receita_lancamento rl
+        WHERE LEFT(TRIM(CAST(rl.coalinea AS VARCHAR)), 1) = '7'
+          AND CAST(rl.cougcontab AS VARCHAR) != CAST(rl.coug AS VARCHAR)
+          AND rl.coalinea IS NOT NULL
+          AND TRIM(CAST(rl.coalinea AS VARCHAR)) != ''
+          AND rl.coexercicio = ?
+        """
+        
+        result_ug = db_manager.execute_query(query_ug, [ano_atual])
+        total_ug = result_ug[0]['total'] if result_ug else 0
         
         return jsonify({
-            'total': total,
+            'fonte_alinea': total_fa,
+            'alinea_ug': total_ug,
+            'total': total_fa + total_ug,
             'ano': ano_atual,
             'timestamp': datetime.now().isoformat()
         })
         
     except Exception as e:
         print(f"Erro em get_estatisticas_inconsistencias: {str(e)}")
-        return jsonify({'total': 0, 'erro': str(e)}), 200
-
-@relatorio_receita_fonte.route('/api/debug-inconsistencias')
-def debug_inconsistencias():
-    """Debug: mostra inconsistências filtradas por saldo"""
-    try:
-        ano_atual = datetime.now().year
-        
-        # Query para mostrar o que foi filtrado
-        query = """
-        WITH lancamentos_sem_dimensao AS (
-            SELECT DISTINCT
-                rl.nudocumento,
-                rl.cougcontab,
-                TRIM(CAST(rl.cofonte AS VARCHAR)) as cofonte,
-                TRIM(CAST(rl.coalinea AS VARCHAR)) as coalinea,
-                SUM(ABS(rl.valancamento)) as valor_total
-            FROM receita_lancamento rl
-            WHERE NOT EXISTS (
-                SELECT 1 
-                FROM dim_receita_fonte_conta_contabil drfc
-                WHERE TRIM(CAST(drfc.cofonte AS VARCHAR)) = TRIM(CAST(rl.cofonte AS VARCHAR))
-                  AND TRIM(CAST(drfc.coalinea AS VARCHAR)) = TRIM(CAST(rl.coalinea AS VARCHAR))
-                  AND drfc.instatus = 0
-            )
-            AND rl.cofonte IS NOT NULL
-            AND TRIM(CAST(rl.cofonte AS VARCHAR)) != ''
-            AND rl.coalinea IS NOT NULL
-            AND TRIM(CAST(rl.coalinea AS VARCHAR)) != ''
-            AND rl.coexercicio = ?
-            GROUP BY rl.nudocumento, rl.cougcontab, TRIM(CAST(rl.cofonte AS VARCHAR)), TRIM(CAST(rl.coalinea AS VARCHAR))
-        )
-        SELECT 
-            lsd.*,
-            CASE 
-                WHEN EXISTS (
-                    SELECT 1
-                    FROM receita_saldo rs
-                    WHERE rs.cocontacontabil = '621200000'
-                      AND CAST(rs.coug AS VARCHAR) = CAST(lsd.cougcontab AS VARCHAR)
-                      AND rs.saldo_contabil_receita != 0
-                      AND CAST(rs.cocontacorrente AS VARCHAR) LIKE 
-                          CONCAT(CAST(lsd.coalinea AS VARCHAR), '__', CAST(lsd.cofonte AS VARCHAR))
-                ) THEN 'TEM_SALDO'
-                ELSE 'SEM_SALDO'
-            END as status_saldo,
-            -- Mostra exemplos de conta corrente que foram verificadas
-            (
-                SELECT STRING_AGG(DISTINCT rs.cocontacorrente, ', ')
-                FROM receita_saldo rs
-                WHERE rs.cocontacontabil = '621200000'
-                  AND CAST(rs.coug AS VARCHAR) = CAST(lsd.cougcontab AS VARCHAR)
-                  AND rs.saldo_contabil_receita != 0
-                  AND CAST(rs.cocontacorrente AS VARCHAR) LIKE 
-                      CONCAT(CAST(lsd.coalinea AS VARCHAR), '__', CAST(lsd.cofonte AS VARCHAR))
-                LIMIT 5
-            ) as contas_correntes_com_saldo
-        FROM lancamentos_sem_dimensao lsd
-        ORDER BY lsd.valor_total DESC
-        LIMIT 20
-        """
-        
-        dados = db_manager.execute_query(query, [ano_atual])
-        
-        # Contar totais
-        total_sem_dimensao = len(dados)
-        total_com_saldo = sum(1 for d in dados if d['status_saldo'] == 'TEM_SALDO')
-        total_sem_saldo = sum(1 for d in dados if d['status_saldo'] == 'SEM_SALDO')
-        
-        return jsonify({
-            'resumo': {
-                'total_sem_dimensao': total_sem_dimensao,
-                'total_com_saldo': total_com_saldo,
-                'total_sem_saldo_filtrado': total_sem_saldo,
-                'ano': ano_atual
-            },
-            'detalhes': dados,
-            'info': 'Mostrando apenas os primeiros 20 registros para debug'
-        })
-        
-    except Exception as e:
-        print(f"Erro em debug_inconsistencias: {str(e)}")
-        traceback.print_exc()
-        return jsonify({'erro': str(e)}), 500
+        return jsonify({'fonte_alinea': 0, 'alinea_ug': 0, 'total': 0, 'erro': str(e)}), 200

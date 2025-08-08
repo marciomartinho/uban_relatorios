@@ -4,7 +4,7 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/relatorio_receita_fonte.css') }}">
 <link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.2/css/buttons.bootstrap5.min.css">
 <style>
-    /* Estilos adicionais para o modal */
+    /* Estilos do modal */
     #modalDetalhes .modal-header small {
         color: white !important;
     }
@@ -21,10 +21,10 @@
         padding: 0.3rem;
         vertical-align: middle;
     }
-    #tabelaInconsistencias {
+    .tabela-inconsistencias {
         font-size: 0.85rem;
     }
-    #tabelaInconsistencias td {
+    .tabela-inconsistencias td {
         padding: 0.4rem;
         vertical-align: middle;
     }
@@ -53,13 +53,33 @@
         pointer-events: none;
     }
     /* Badge contador */
-    #badgeResolvidas {
+    .badge-resolvidas {
         background-color: #28a745 !important;
         margin-left: 10px;
     }
-    #badgeNaoResolvidas {
+    .badge-nao-resolvidas {
         background-color: #dc3545 !important;
         margin-left: 10px;
+    }
+    /* Tabs customizadas */
+    .nav-tabs .nav-link {
+        color: #495057;
+        background-color: #f8f9fa;
+        border: 1px solid #dee2e6;
+    }
+    .nav-tabs .nav-link.active {
+        color: #495057;
+        background-color: #fff;
+        border-color: #dee2e6 #dee2e6 #fff;
+    }
+    .nav-tabs .nav-link:hover {
+        border-color: #e9ecef #e9ecef #dee2e6;
+    }
+    .tab-content {
+        border: 1px solid #dee2e6;
+        border-top: none;
+        padding: 1rem;
+        background-color: #fff;
     }
 </style>
 {% endblock %}
@@ -75,13 +95,13 @@
         <div class="col-12">
             <button class="btn btn-warning" id="btnVerificarInconsistencias">
                 <i class="bi bi-exclamation-triangle"></i> Verificar Inconsistências
-                <span class="badge bg-danger ms-2" id="badgeInconsistencias" style="display: none;">0</span>
+                <span class="badge bg-danger ms-2" id="badgeInconsistenciasTotal" style="display: none;">0</span>
             </button>
             <small class="text-muted ms-2" id="textoUltimaVerificacao"></small>
         </div>
     </div>
 
-    <!-- Modal de Inconsistências com Checkboxes -->
+    <!-- Modal de Inconsistências com Abas -->
     <div class="modal fade" id="modalInconsistencias" tabindex="-1" aria-labelledby="modalInconsistenciasLabel" aria-hidden="true">
         <div class="modal-dialog modal-xl">
             <div class="modal-content">
@@ -92,111 +112,235 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
+                    <!-- Tabs de navegação -->
+                    <ul class="nav nav-tabs" id="tabsInconsistencias" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="tab-fonte-alinea" data-bs-toggle="tab" data-bs-target="#conteudo-fonte-alinea" type="button" role="tab">
+                                Fonte/Alínea não cadastradas
+                                <span class="badge bg-danger ms-2" id="badgeFonteAlinea">0</span>
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="tab-alinea-ug" data-bs-toggle="tab" data-bs-target="#conteudo-alinea-ug" type="button" role="tab">
+                                Alínea 7 - UG Divergente
+                                <span class="badge bg-danger ms-2" id="badgeAlineaUG">0</span>
+                            </button>
+                        </li>
+                    </ul>
 
-                    <!-- Botões de ação no topo -->
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <!-- Filtro de status -->
-                            <select class="form-select form-select-sm" id="filtroStatusInconsistencia" style="width: 200px; display: inline-block;">
-                                <option value="todas">Mostrar Todas</option>
-                                <option value="nao_resolvidas" selected>Não Resolvidas</option>
-                                <option value="resolvidas">Resolvidas</option>
-                            </select>
-                            <small class="text-muted ms-2">
-                                <span id="contadorInconsistencias">0</span> registros visíveis
-                            </small>
-                            <span class="badge bg-success" id="badgeResolvidas">0 resolvidas</span>
-                            <span class="badge bg-danger" id="badgeNaoResolvidas">0 não resolvidas</span>
-                        </div>
-                        <div class="col-md-6 text-end">
-                            <button class="btn btn-info btn-sm" id="btnExportarEstado" title="Exportar marcações">
-                                <i class="bi bi-download"></i> Exportar Estado
-                            </button>
-                            <button class="btn btn-warning btn-sm" id="btnImportarEstado" title="Importar marcações">
-                                <i class="bi bi-upload"></i> Importar Estado
-                            </button>
-                            <input type="file" id="fileImportarEstado" accept=".json" style="display: none;">
-                            <button class="btn btn-primary btn-sm" id="btnAtualizarInconsistencias">
-                                <i class="bi bi-arrow-clockwise"></i> Atualizar
-                            </button>
-                            <button class="btn btn-success btn-sm" id="btnExportarInconsistencias">
-                                <i class="bi bi-file-earmark-excel"></i> Exportar Excel
-                            </button>
-                        </div>
-                    </div>
-                    
-                    <!-- Cards de resumo -->
-                    <div class="row mb-3">
-                        <div class="col-md-3">
-                            <div class="card bg-light">
-                                <div class="card-body p-2">
-                                    <small class="text-muted">Documentos Inconsistentes</small>
-                                    <div class="fw-bold text-danger" id="totalDocumentos">0</div>
+                    <!-- Conteúdo das tabs -->
+                    <div class="tab-content" id="conteudoTabsInconsistencias">
+                        <!-- Tab 1: Fonte/Alínea não cadastradas -->
+                        <div class="tab-pane fade show active" id="conteudo-fonte-alinea" role="tabpanel">
+                            <!-- Controles e filtros -->
+                            <div class="row mb-3 mt-3">
+                                <div class="col-md-6">
+                                    <select class="form-select form-select-sm filtro-status" data-tipo="fonte-alinea" style="width: 200px; display: inline-block;">
+                                        <option value="todas">Mostrar Todas</option>
+                                        <option value="nao_resolvidas" selected>Não Resolvidas</option>
+                                        <option value="resolvidas">Resolvidas</option>
+                                    </select>
+                                    <small class="text-muted ms-2">
+                                        <span class="contador-registros" data-tipo="fonte-alinea">0</span> registros visíveis
+                                    </small>
+                                    <span class="badge bg-success badge-resolvidas" data-tipo="fonte-alinea">0 resolvidas</span>
+                                    <span class="badge bg-danger badge-nao-resolvidas" data-tipo="fonte-alinea">0 não resolvidas</span>
+                                </div>
+                                <div class="col-md-6 text-end">
+                                    <button class="btn btn-info btn-sm btn-exportar-estado" data-tipo="fonte-alinea" title="Exportar marcações">
+                                        <i class="bi bi-download"></i> Exportar Estado
+                                    </button>
+                                    <button class="btn btn-warning btn-sm btn-importar-estado" data-tipo="fonte-alinea" title="Importar marcações">
+                                        <i class="bi bi-upload"></i> Importar Estado
+                                    </button>
+                                    <input type="file" class="file-importar-estado" data-tipo="fonte-alinea" accept=".json" style="display: none;">
+                                    <button class="btn btn-primary btn-sm btn-atualizar" data-tipo="fonte-alinea">
+                                        <i class="bi bi-arrow-clockwise"></i> Atualizar
+                                    </button>
+                                    <button class="btn btn-success btn-sm btn-exportar-excel" data-tipo="fonte-alinea">
+                                        <i class="bi bi-file-earmark-excel"></i> Exportar Excel
+                                    </button>
                                 </div>
                             </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="card bg-light">
-                                <div class="card-body p-2">
-                                    <small class="text-muted">Combinações Inválidas</small>
-                                    <div class="fw-bold" id="totalCombinacoes">0</div>
+                            
+                            <!-- Cards de resumo -->
+                            <div class="row mb-3">
+                                <div class="col-md-3">
+                                    <div class="card bg-light">
+                                        <div class="card-body p-2">
+                                            <small class="text-muted">Documentos Inconsistentes</small>
+                                            <div class="fw-bold text-danger total-documentos" data-tipo="fonte-alinea">0</div>
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="card bg-light">
-                                <div class="card-body p-2">
-                                    <small class="text-muted">Valor Total</small>
-                                    <div class="fw-bold text-danger" id="valorTotalInconsistente">R$ 0,00</div>
+                                <div class="col-md-3">
+                                    <div class="card bg-light">
+                                        <div class="card-body p-2">
+                                            <small class="text-muted">Combinações Inválidas</small>
+                                            <div class="fw-bold total-combinacoes" data-tipo="fonte-alinea">0</div>
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="card bg-light">
-                                <div class="card-body p-2">
-                                    <small class="text-muted">Status</small>
-                                    <div class="fw-bold" id="statusVerificacao">
-                                        <span class="badge bg-info">Aguardando...</span>
+                                <div class="col-md-3">
+                                    <div class="card bg-light">
+                                        <div class="card-body p-2">
+                                            <small class="text-muted">Valor Total</small>
+                                            <div class="fw-bold text-danger valor-total" data-tipo="fonte-alinea">R$ 0,00</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="card bg-light">
+                                        <div class="card-body p-2">
+                                            <small class="text-muted">Status</small>
+                                            <div class="fw-bold status-verificacao" data-tipo="fonte-alinea">
+                                                <span class="badge bg-info">Aguardando...</span>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
+                            
+                            <!-- Alerta informativo -->
+                            <div class="alert alert-info alert-sm" role="alert">
+                                <i class="bi bi-info-circle"></i> 
+                                <strong>Documentos com combinações Fonte/Alínea não cadastradas</strong> na tabela dim_receita_fonte_conta_contabil.
+                                <br><small>Marque os documentos já resolvidos usando o checkbox na última coluna.</small>
+                            </div>
+                            
+                            <!-- Tabela -->
+                            <div class="table-responsive" style="max-height: 450px; overflow-y: auto;">
+                                <table class="table table-sm table-striped table-hover tabela-inconsistencias" data-tipo="fonte-alinea">
+                                    <thead class="sticky-top bg-light">
+                                        <tr>
+                                            <th style="width: 12%;">Documento</th>
+                                            <th style="width: 10%;">UG Contábil</th>
+                                            <th style="width: 10%;">Evento</th>
+                                            <th style="width: 10%;">Fonte</th>
+                                            <th style="width: 10%;">Alínea</th>
+                                            <th style="width: 10%;">Data</th>
+                                            <th style="width: 5%;" class="text-center">D/C</th>
+                                            <th style="width: 10%;" class="text-end">Valor</th>
+                                            <th style="width: 8%;" class="text-center">Ação</th>
+                                            <th style="width: 5%;" class="text-center">
+                                                <input type="checkbox" class="checkbox-todos" data-tipo="fonte-alinea" title="Marcar/Desmarcar Todos" style="width: 18px; height: 18px;">
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <!-- Dados serão inseridos via JavaScript -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Tab 2: Alínea 7 - UG Divergente -->
+                        <div class="tab-pane fade" id="conteudo-alinea-ug" role="tabpanel">
+                            <!-- Controles e filtros (similar à primeira tab) -->
+                            <div class="row mb-3 mt-3">
+                                <div class="col-md-6">
+                                    <select class="form-select form-select-sm filtro-status" data-tipo="alinea-ug" style="width: 200px; display: inline-block;">
+                                        <option value="todas">Mostrar Todas</option>
+                                        <option value="nao_resolvidas" selected>Não Resolvidas</option>
+                                        <option value="resolvidas">Resolvidas</option>
+                                    </select>
+                                    <small class="text-muted ms-2">
+                                        <span class="contador-registros" data-tipo="alinea-ug">0</span> registros visíveis
+                                    </small>
+                                    <span class="badge bg-success badge-resolvidas" data-tipo="alinea-ug">0 resolvidas</span>
+                                    <span class="badge bg-danger badge-nao-resolvidas" data-tipo="alinea-ug">0 não resolvidas</span>
+                                </div>
+                                <div class="col-md-6 text-end">
+                                    <button class="btn btn-info btn-sm btn-exportar-estado" data-tipo="alinea-ug" title="Exportar marcações">
+                                        <i class="bi bi-download"></i> Exportar Estado
+                                    </button>
+                                    <button class="btn btn-warning btn-sm btn-importar-estado" data-tipo="alinea-ug" title="Importar marcações">
+                                        <i class="bi bi-upload"></i> Importar Estado
+                                    </button>
+                                    <input type="file" class="file-importar-estado" data-tipo="alinea-ug" accept=".json" style="display: none;">
+                                    <button class="btn btn-primary btn-sm btn-atualizar" data-tipo="alinea-ug">
+                                        <i class="bi bi-arrow-clockwise"></i> Atualizar
+                                    </button>
+                                    <button class="btn btn-success btn-sm btn-exportar-excel" data-tipo="alinea-ug">
+                                        <i class="bi bi-file-earmark-excel"></i> Exportar Excel
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <!-- Cards de resumo -->
+                            <div class="row mb-3">
+                                <div class="col-md-3">
+                                    <div class="card bg-light">
+                                        <div class="card-body p-2">
+                                            <small class="text-muted">Documentos Inconsistentes</small>
+                                            <div class="fw-bold text-danger total-documentos" data-tipo="alinea-ug">0</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="card bg-light">
+                                        <div class="card-body p-2">
+                                            <small class="text-muted">UGs Divergentes</small>
+                                            <div class="fw-bold total-combinacoes" data-tipo="alinea-ug">0</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="card bg-light">
+                                        <div class="card-body p-2">
+                                            <small class="text-muted">Valor Total</small>
+                                            <div class="fw-bold text-danger valor-total" data-tipo="alinea-ug">R$ 0,00</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="card bg-light">
+                                        <div class="card-body p-2">
+                                            <small class="text-muted">Status</small>
+                                            <div class="fw-bold status-verificacao" data-tipo="alinea-ug">
+                                                <span class="badge bg-info">Aguardando...</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Alerta informativo -->
+                            <div class="alert alert-warning alert-sm" role="alert">
+                                <i class="bi bi-info-circle"></i> 
+                                <strong>Documentos com Alínea começando com 7 onde UG Contábil ≠ UG Emitente</strong>
+                                <br><small>Regra: Quando a alínea começa com 7, a UG contábil (cougcontab) deve ser igual à UG emitente (coug).</small>
+                            </div>
+                            
+                            <!-- Tabela -->
+                            <div class="table-responsive" style="max-height: 450px; overflow-y: auto;">
+                                <table class="table table-sm table-striped table-hover tabela-inconsistencias" data-tipo="alinea-ug">
+                                    <thead class="sticky-top bg-light">
+                                        <tr>
+                                            <th style="width: 12%;">Documento</th>
+                                            <th style="width: 10%;">UG Contábil</th>
+                                            <th style="width: 10%;">UG Emitente</th>
+                                            <th style="width: 10%;">Evento</th>
+                                            <th style="width: 10%;">Fonte</th>
+                                            <th style="width: 10%;">Alínea</th>
+                                            <th style="width: 10%;">Data</th>
+                                            <th style="width: 5%;" class="text-center">D/C</th>
+                                            <th style="width: 10%;" class="text-end">Valor</th>
+                                            <th style="width: 5%;" class="text-center">
+                                                <input type="checkbox" class="checkbox-todos" data-tipo="alinea-ug" title="Marcar/Desmarcar Todos" style="width: 18px; height: 18px;">
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <!-- Dados serão inseridos via JavaScript -->
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
                     
-                    <!-- Alerta informativo -->
-                    <div class="alert alert-info alert-sm" role="alert">
-                        <i class="bi bi-info-circle"></i> 
-                        <strong>Documentos com combinações Fonte/Alínea não cadastradas</strong> na tabela dim_receita_fonte_conta_contabil.
-                        <br><small>Marque os documentos já resolvidos usando o checkbox na última coluna.</small>
-                    </div>
-                    
-                    <!-- Tabela de documentos inconsistentes com checkbox -->
-                    <div class="table-responsive" style="max-height: 450px; overflow-y: auto;">
-                        <table class="table table-sm table-striped table-hover" id="tabelaInconsistencias">
-                            <thead class="sticky-top bg-light">
-                                <tr>
-                                    <th style="width: 12%;">Documento</th>
-                                    <th style="width: 10%;">UG Contábil</th>
-                                    <th style="width: 10%;">Evento</th>
-                                    <th style="width: 10%;">Fonte</th>
-                                    <th style="width: 10%;">Alínea</th>
-                                    <th style="width: 10%;">Data</th>
-                                    <th style="width: 5%;" class="text-center">D/C</th>
-                                    <th style="width: 10%;" class="text-end">Valor</th>
-                                    <th style="width: 8%;" class="text-center">Ação</th>
-                                    <th style="width: 5%;" class="text-center">
-                                        <input type="checkbox" id="checkboxTodos" title="Marcar/Desmarcar Todos" style="width: 18px; height: 18px;">
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <!-- Dados serão inseridos via JavaScript -->
-                            </tbody>
-                        </table>
-                    </div>
-                    
                     <!-- Indicador de carregamento -->
-                    <div class="text-center py-4" id="loadingInconsistencias" style="display: none;">
+                    <div class="text-center py-4 loading-inconsistencias" style="display: none;">
                         <div class="spinner-border text-warning" role="status">
                             <span class="visually-hidden">Verificando...</span>
                         </div>
@@ -205,7 +349,7 @@
                 </div>
                 <div class="modal-footer">
                     <span class="text-muted me-auto" style="font-size: 0.85rem;">
-                        <i class="bi bi-info-circle"></i> Mostrando até 2000 documentos. Use "Exportar Excel" para lista completa.
+                        <i class="bi bi-info-circle"></i> Mostrando até 2000 documentos por tipo. Use "Exportar Excel" para lista completa.
                     </span>
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
                 </div>
@@ -213,7 +357,7 @@
         </div>
     </div>
     
-    <!-- Controles do Relatório (mantém igual) -->
+    <!-- Controles do Relatório -->
     <div class="card shadow-sm mb-4">
         <div class="card-header bg-primary text-white">
             <h5 class="mb-0">
@@ -221,7 +365,7 @@
             </h5>
         </div>
         <div class="card-body">
-            <!-- Filtro de UG (primeira linha) -->
+            <!-- Filtro de UG -->
             <div class="row align-items-center mb-3">
                 <div class="col-md-6">
                     <label class="form-label fw-bold" for="filtroUG">Unidade Gestora (UG):</label>
@@ -235,9 +379,8 @@
                 </div>
             </div>
             
-            <!-- Modo de Visualização e outros controles (segunda linha) -->
+            <!-- Modo de Visualização e outros controles -->
             <div class="row align-items-center">
-                <!-- Modo de Visualização -->
                 <div class="col-md-4">
                     <label class="form-label fw-bold">Modo de Visualização:</label>
                     <div class="btn-group w-100" role="group">
@@ -253,7 +396,6 @@
                     </div>
                 </div>
                 
-                <!-- Tipo de Exibição -->
                 <div class="col-md-3">
                     <label class="form-label fw-bold">Exibir:</label>
                     <select class="form-select" id="tipoExibicao">
@@ -263,7 +405,6 @@
                     </select>
                 </div>
                 
-                <!-- Ações -->
                 <div class="col-md-5 text-end">
                     <button class="btn btn-success" id="btnExpandirTodos">
                         <i class="bi bi-arrows-expand"></i> Expandir Todos
@@ -282,7 +423,7 @@
         </div>
     </div>
     
-    <!-- Cards de Resumo (mantém igual) -->
+    <!-- Cards de Resumo -->
     <div class="row mb-4">
         <div class="col-md-3">
             <div class="card border-left-primary shadow h-100">
@@ -365,7 +506,7 @@
         </div>
     </div>
     
-    <!-- Tabela de Dados (mantém igual) -->
+    <!-- Tabela de Dados -->
     <div class="card shadow-sm">
         <div class="card-header bg-light">
             <div class="row align-items-center">
@@ -394,7 +535,7 @@
     </div>
 </div>
 
-<!-- Modal de Detalhes dos Lançamentos (mantém igual) -->
+<!-- Modal de Detalhes dos Lançamentos -->
 <div class="modal fade" id="modalDetalhes" tabindex="-1" aria-labelledby="modalDetalhesLabel" aria-hidden="true">
     <div class="modal-dialog modal-xl">
         <div class="modal-content">
@@ -479,9 +620,18 @@
 <script src="https://cdn.datatables.net/buttons/2.4.2/js/dataTables.buttons.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.html5.min.js"></script>
-<script src="{{ url_for('static', filename='js/relatorio_receita_fonte.js') }}"></script>
+
+<!-- Scripts modularizados -->
+<script src="{{ url_for('static', filename='js/relatorio_receita_fonte/utilitarios.js') }}"></script>
+<script src="{{ url_for('static', filename='js/relatorio_receita_fonte/gerenciador_estado.js') }}"></script>
+<script src="{{ url_for('static', filename='js/relatorio_receita_fonte/tabela_principal.js') }}"></script>
+<script src="{{ url_for('static', filename='js/relatorio_receita_fonte/modal_detalhes.js') }}"></script>
+<script src="{{ url_for('static', filename='js/relatorio_receita_fonte/inconsistencias.js') }}"></script>
+<script src="{{ url_for('static', filename='js/relatorio_receita_fonte/exportacao.js') }}"></script>
+<script src="{{ url_for('static', filename='js/relatorio_receita_fonte/main.js') }}"></script>
+
 <script>
-    // Atualizar o ano dinamicamente via JavaScript
+    // Atualizar o ano dinamicamente
     $(document).ready(function() {
         const anoAtual = new Date().getFullYear();
         $('.ano-atual').text(anoAtual);
