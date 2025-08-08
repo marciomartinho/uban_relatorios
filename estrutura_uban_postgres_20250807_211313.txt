@@ -1,0 +1,894 @@
+====================================================================================================
+DOCUMENTAÇÃO DA ESTRUTURA DO BANCO DE DADOS POSTGRESQL
+====================================================================================================
+
+Banco de dados: uban_relatorios_prod
+Data da análise: 07/08/2025 21:13:16
+Versão: PostgreSQL 16.9 (Ubuntu 16.9-0ubuntu0.24.04.1) on ...
+Tamanho do banco: 434.55 MB
+
+====================================================================================================
+RESUMO: 25 tabela(s) encontrada(s)
+----------------------------------------------------------------------------------------------------
+  1. dim_categoria_despesa                    -               4 registros
+  2. dim_classificacao_orcamentaria           -           4,055 registros
+  3. dim_conta_contabil                       -          10,566 registros
+  4. dim_elemento                             -              75 registros
+  5. dim_evento                               -           7,837 registros
+  6. dim_fonte                                -           8,616 registros
+  7. dim_funcao                               -              29 registros
+  8. dim_gestao                               -             138 registros
+  9. dim_grupo_despesa                        -               9 registros
+ 10. dim_modalidade                           -              13 registros
+ 11. dim_programa                             -              36 registros
+ 12. dim_projeto                              -             791 registros
+ 13. dim_receita_alinea                       -             634 registros
+ 14. dim_receita_categoria                    -               4 registros
+ 15. dim_receita_especie                      -              86 registros
+ 16. dim_receita_especificacao                -             212 registros
+ 17. dim_receita_fonte_conta_contabil         -           3,218 registros
+ 18. dim_receita_origem                       -              24 registros
+ 19. dim_subfuncao                            -             112 registros
+ 20. dim_subtitulo                            -           5,332 registros
+ 21. dim_unidade_gestora                      -             256 registros
+ 22. despesa_lancamento                       -       1,048,001 registros
+ 23. despesa_saldo                            -         560,110 registros
+ 24. receita_lancamento                       -         490,122 registros
+ 25. receita_saldo                            -          11,998 registros
+
+====================================================================================================
+TABELA 1: DIM_CATEGORIA_DESPESA
+====================================================================================================
+
+Total de registros: 4
+
+ESTRUTURA DA TABELA:
+----------------------------------------------------------------------------------------------------
+#     Campo                          Tipo                 Nulo?      Padrão                        
+----------------------------------------------------------------------------------------------------
+1     incategoria                    bigint               SIM        -                             
+2     nocategoria                    text                 SIM        -                             
+
+AMOSTRA DE DADOS (5 primeiros registros):
+----------------------------------------------------------------------------------------------------
+incategoria     nocategoria     
+--------------------------------
+4               Despesas d...   
+0                               
+3               Despesas C...   
+9               Reserva de...   
+
+====================================================================================================
+TABELA 2: DIM_CLASSIFICACAO_ORCAMENTARIA
+====================================================================================================
+
+Total de registros: 4,055
+
+ESTRUTURA DA TABELA:
+----------------------------------------------------------------------------------------------------
+#     Campo                          Tipo                 Nulo?      Padrão                        
+----------------------------------------------------------------------------------------------------
+1     coclasseorc                    bigint               SIM        -                             
+2     inclassificacao                text                 SIM        -                             
+3     noclassificacao                text                 SIM        -                             
+4     incontabiliza                  text                 SIM        -                             
+5     innatureza                     text                 SIM        -                             
+6     inprimaria                     text                 SIM        -                             
+7     inpessoal                      text                 SIM        -                             
+8     inmto                          text                 SIM        -                             
+9     inespecificacao                bigint               SIM        -                             
+10    txfuncao                       text                 SIM        -                             
+11    txdescricao                    text                 SIM        -                             
+12    txobservacao                   text                 SIM        -                             
+13    instatus                       bigint               SIM        -                             
+14    ultalteracao                   text                 SIM        -                             
+
+AMOSTRA DE DADOS (5 primeiros registros):
+----------------------------------------------------------------------------------------------------
+coclasseorc     inclassificacao noclassificacao incontabiliza   innatureza      inprimaria      inpessoal       inmto           
+--------------------------------------------------------------------------------------------------------------------------------
+31901165        D               GRATIFICAÇ...   S               N               N               N               N               
+33503922        D               SERVIÇOS P...   S               N               N               N               N               
+33913301        D               PASSAGENS ...   S               N               N               N               N               
+33913960        D               TRANSPORTE...   S               N               N               N               N               
+33913934        D               TRANSPORTE...   S               N               N               N               N               
+
+====================================================================================================
+TABELA 3: DIM_CONTA_CONTABIL
+====================================================================================================
+
+Total de registros: 10,566
+
+ESTRUTURA DA TABELA:
+----------------------------------------------------------------------------------------------------
+#     Campo                          Tipo                 Nulo?      Padrão                        
+----------------------------------------------------------------------------------------------------
+1     cocontacontabil                bigint               SIM        -                             
+2     nocontacontabil                text                 SIM        -                             
+3     txfuncao                       text                 SIM        -                             
+4     txdebito                       text                 SIM        -                             
+5     txcredito                      text                 SIM        -                             
+6     txsaldo                        text                 SIM        -                             
+7     txobservacao                   text                 SIM        -                             
+8     incontacorrente                text                 SIM        -                             
+9     cotipoinscricao                text                 SIM        -                             
+10    inlancamento                   text                 SIM        -                             
+11    cocontrapartida                bigint               SIM        -                             
+12    ininversaosaldo                text                 SIM        -                             
+13    inescrituracao                 text                 SIM        -                             
+14    insaldocontabil                text                 SIM        -                             
+15    innatureza                     text                 SIM        -                             
+16    inencerramento                 text                 SIM        -                             
+17    insiscontabil                  text                 SIM        -                             
+18    inintegracao                   text                 SIM        -                             
+19    instatus                       bigint               SIM        -                             
+20    ultalteracao                   text                 SIM        -                             
+21    txdescricao                    text                 SIM        -                             
+22    inmto                          text                 SIM        -                             
+23    inespecificacao                bigint               SIM        -                             
+24    insuperavit                    text                 SIM        -                             
+25    inorigem                       text                 SIM        -                             
+26    dcl                            double precision     SIM        -                             
+27    cocontafederal                 double precision     SIM        -                             
+
+AMOSTRA DE DADOS (5 primeiros registros):
+----------------------------------------------------------------------------------------------------
+cocontacontabil nocontacontabil txfuncao        txdebito        txcredito       txsaldo         txobservacao    incontacorrente 
+--------------------------------------------------------------------------------------------------------------------------------
+812210300       ORDENADOR ...   REPRESENTA...             ...             ...             ...   DENTRO DA ...                   
+121210499       OUTROS CRE...   REGISTRA O...   PELA INSCR...   PELA BAIXA...   DEVEDOR - ...   DENTRO DA ...   04              
+451220104       MOVIMENTO ...   REGISTRA O...   PELO ENCER...   PELO MOVIM...   CREDOR. DE...   DENTRO DA ...   10              
+237220357       AJUSTES AT...   REGISTRA O...   PELO AJUST...   PELO AJUST...   CREDOR/DEV...   DENTRO DA ...   00              
+113620203       CRÉDITOS P...   REGISTRA O...   PELO RECON...   PELA LIQUI...   DEVEDOR. D...   DENTRO DA ...   10              
+
+====================================================================================================
+TABELA 4: DIM_ELEMENTO
+====================================================================================================
+
+Total de registros: 75
+
+ESTRUTURA DA TABELA:
+----------------------------------------------------------------------------------------------------
+#     Campo                          Tipo                 Nulo?      Padrão                        
+----------------------------------------------------------------------------------------------------
+1     coelemento                     bigint               SIM        -                             
+2     noelemento                     text                 SIM        -                             
+3     instatus                       bigint               SIM        -                             
+4     ultalteracao                   text                 SIM        -                             
+5     txdescricao                    double precision     SIM        -                             
+
+AMOSTRA DE DADOS (5 primeiros registros):
+----------------------------------------------------------------------------------------------------
+coelemento      noelemento      instatus        ultalteracao    txdescricao     
+--------------------------------------------------------------------------------
+40              SERVIÇO DE...   0               2024062009...   NULL            
+1               APOSENTADO...   0               2024062009...   NULL            
+3               PENSÕES   ...   0               2024062009...   NULL            
+4               CONTRATAÇÃ...   0               2024062009...   NULL            
+5               OUTROS BEN...   0               2024062009...   NULL            
+
+====================================================================================================
+TABELA 5: DIM_EVENTO
+====================================================================================================
+
+Total de registros: 7,837
+
+ESTRUTURA DA TABELA:
+----------------------------------------------------------------------------------------------------
+#     Campo                          Tipo                 Nulo?      Padrão                        
+----------------------------------------------------------------------------------------------------
+1     coevento                       bigint               SIM        -                             
+2     noevento                       text                 SIM        -                             
+3     txdescricao                    text                 SIM        -                             
+4     inpe                           text                 SIM        -                             
+5     inne                           text                 SIM        -                             
+6     innc                           text                 SIM        -                             
+7     innd                           text                 SIM        -                             
+8     innl                           text                 SIM        -                             
+9     inob                           text                 SIM        -                             
+10    ingr                           text                 SIM        -                             
+11    insinal                        text                 SIM        -                             
+12    ininscricao                    bigint               SIM        -                             
+13    incredor                       bigint               SIM        -                             
+14    inabreencerra                  bigint               SIM        -                             
+15    ingestaotesouro                bigint               SIM        -                             
+16    inestorno                      text                 SIM        -                             
+17    coclassificacao                text                 SIM        -                             
+18    inexercicione                  text                 SIM        -                             
+19    infonteevento                  text                 SIM        -                             
+20    inusoexclusivo                 bigint               SIM        -                             
+21    inugorigem                     bigint               SIM        -                             
+22    ingestaoorigem                 bigint               SIM        -                             
+23    inugdestino                    text                 SIM        -                             
+24    ingestaodestino                text                 SIM        -                             
+25    incomplementar                 text                 SIM        -                             
+26    cocomplementar                 bigint               SIM        -                             
+27    inexigefatura                  text                 SIM        -                             
+28    inexigeprocesso                text                 SIM        -                             
+29    inexigetransf                  text                 SIM        -                             
+30    inexigecontrato                text                 SIM        -                             
+31    txobservacao                   text                 SIM        -                             
+32    instatus                       bigint               SIM        -                             
+33    ultalteracao                   text                 SIM        -                             
+34    ines                           text                 SIM        -                             
+35    inoc                           text                 SIM        -                             
+36    inab                           text                 SIM        -                             
+37    coclasseorc                    text                 SIM        -                             
+38    inga                           text                 SIM        -                             
+39    inexigenfe                     text                 SIM        -                             
+
+AMOSTRA DE DADOS (5 primeiros registros):
+----------------------------------------------------------------------------------------------------
+coevento        noevento        txdescricao     inpe            inne            innc            innd            innl            
+--------------------------------------------------------------------------------------------------------------------------------
+565758          BAIXA E CA...   BAIXA E CA...   N               N               N               N               S               
+565677          COMPENS. D...   COMPENSAÇÃ...   N               N               N               N               S               
+565759          BAIXA  PAR...   BAIXA  PAR...   N               N               N               N               S               
+565762          BAIXA DE P...   BAIXA DE P...   N               N               N               N               S               
+546603          BAIXA DE O...   BAIXA DE O...   N               N               N               N               S               
+
+====================================================================================================
+TABELA 6: DIM_FONTE
+====================================================================================================
+
+Total de registros: 8,616
+
+ESTRUTURA DA TABELA:
+----------------------------------------------------------------------------------------------------
+#     Campo                          Tipo                 Nulo?      Padrão                        
+----------------------------------------------------------------------------------------------------
+1     cofonte                        bigint               SIM        -                             
+2     nofonte                        text                 SIM        -                             
+3     intipofonte                    bigint               SIM        -                             
+4     infontetesouro                 text                 SIM        -                             
+5     instatus                       bigint               SIM        -                             
+6     ultalteracao                   text                 SIM        -                             
+7     txdescricao                    text                 SIM        -                             
+8     indestinacao                   bigint               SIM        -                             
+9     cofontefederal                 bigint               SIM        -                             
+
+AMOSTRA DE DADOS (5 primeiros registros):
+----------------------------------------------------------------------------------------------------
+cofonte         nofonte         intipofonte     infontetesouro  instatus        ultalteracao    txdescricao     indestinacao    
+--------------------------------------------------------------------------------------------------------------------------------
+132016912       AQUISIÇÃO ...   9               N               0               2025020611...   MODERNIZAÇ...   2               
+332016912       AQUISIÇÃO ...   9               N               0               2025020611...   MODERNIZAÇ...   2               
+738128641       EPI PROPOS...   9               N               0               2025031918...   EPI PROPOS...   2               
+838128641       EPI PROPOS...   9               N               0               2025031918...   EPI PROPOS...   2               
+738128645       EPI PROPOS...   9               N               0               2025031918...   EPI PROPOS...   2               
+
+====================================================================================================
+TABELA 7: DIM_FUNCAO
+====================================================================================================
+
+Total de registros: 29
+
+ESTRUTURA DA TABELA:
+----------------------------------------------------------------------------------------------------
+#     Campo                          Tipo                 Nulo?      Padrão                        
+----------------------------------------------------------------------------------------------------
+1     cofuncao                       bigint               SIM        -                             
+2     nofuncao                       text                 SIM        -                             
+3     txdescricao                    text                 SIM        -                             
+4     instatus                       bigint               SIM        -                             
+5     ultalteracao                   text                 SIM        -                             
+
+AMOSTRA DE DADOS (5 primeiros registros):
+----------------------------------------------------------------------------------------------------
+cofuncao        nofuncao        txdescricao     instatus        ultalteracao    
+--------------------------------------------------------------------------------
+25              ENERGIA   ...   ENERGIA.        0               2024062009...   
+26              TRANSPORTE...   TRANSPORTE.     0               2024062009...   
+27              DESPORTO E...   DESPORTO E...   0               2024062009...   
+28              ENCARGOS E...   ENCARGOS E...   0               2024062009...   
+99              RESERVA DE...   RESERVA DE...   0               2024062009...   
+
+====================================================================================================
+TABELA 8: DIM_GESTAO
+====================================================================================================
+
+Total de registros: 138
+
+ESTRUTURA DA TABELA:
+----------------------------------------------------------------------------------------------------
+#     Campo                          Tipo                 Nulo?      Padrão                        
+----------------------------------------------------------------------------------------------------
+1     cogestao                       bigint               SIM        -                             
+2     nogestao                       text                 SIM        -                             
+3     intipoadm                      bigint               SIM        -                             
+4     instatus                       bigint               SIM        -                             
+5     ultalteracao                   text                 SIM        -                             
+
+AMOSTRA DE DADOS (5 primeiros registros):
+----------------------------------------------------------------------------------------------------
+cogestao        nogestao        intipoadm       instatus        ultalteracao    
+--------------------------------------------------------------------------------
+20901           FUNDO DE T...   9               0               2024062009...   
+22901           FUNDO DE S...   7               0               2024062009...   
+22902           FUNDO DE S...   7               0               2024062009...   
+23901           FUNDO DE C...   7               0               2024062009...   
+16201           FUNDACAO E...   4               0               2024062009...   
+
+====================================================================================================
+TABELA 9: DIM_GRUPO_DESPESA
+====================================================================================================
+
+Total de registros: 9
+
+ESTRUTURA DA TABELA:
+----------------------------------------------------------------------------------------------------
+#     Campo                          Tipo                 Nulo?      Padrão                        
+----------------------------------------------------------------------------------------------------
+1     cogrupo                        bigint               SIM        -                             
+2     nogrupo                        text                 SIM        -                             
+
+AMOSTRA DE DADOS (5 primeiros registros):
+----------------------------------------------------------------------------------------------------
+cogrupo         nogrupo         
+--------------------------------
+1               PESSOAL E ...   
+2               JUROS E EN...   
+3               OUTRAS DES...   
+4               INVESTIMEN...   
+5               INVERSÕES ...   
+
+====================================================================================================
+TABELA 10: DIM_MODALIDADE
+====================================================================================================
+
+Total de registros: 13
+
+ESTRUTURA DA TABELA:
+----------------------------------------------------------------------------------------------------
+#     Campo                          Tipo                 Nulo?      Padrão                        
+----------------------------------------------------------------------------------------------------
+1     comodalidade                   bigint               SIM        -                             
+2     nomodalidade                   text                 SIM        -                             
+3     instatus                       bigint               SIM        -                             
+4     ultalteracao                   text                 SIM        -                             
+5     txdescricao                    double precision     SIM        -                             
+
+AMOSTRA DE DADOS (5 primeiros registros):
+----------------------------------------------------------------------------------------------------
+comodalidade    nomodalidade    instatus        ultalteracao    txdescricao     
+--------------------------------------------------------------------------------
+20              TRANSFERÊN...   0               2024062009...   NULL            
+30              TRANSFERÊN...   0               2024062009...   NULL            
+40              TRANSFERÊN...   0               2024062009...   NULL            
+50              TRANSFERÊN...   0               2024062009...   NULL            
+60              TRANSFERÊN...   0               2024062009...   NULL            
+
+====================================================================================================
+TABELA 11: DIM_PROGRAMA
+====================================================================================================
+
+Total de registros: 36
+
+ESTRUTURA DA TABELA:
+----------------------------------------------------------------------------------------------------
+#     Campo                          Tipo                 Nulo?      Padrão                        
+----------------------------------------------------------------------------------------------------
+1     coprograma                     bigint               SIM        -                             
+2     noprograma                     text                 SIM        -                             
+3     txdescricao                    text                 SIM        -                             
+4     instatus                       bigint               SIM        -                             
+5     ultalteracao                   text                 SIM        -                             
+6     txobjetivo                     text                 SIM        -                             
+
+AMOSTRA DE DADOS (5 primeiros registros):
+----------------------------------------------------------------------------------------------------
+coprograma      noprograma      txdescricao     instatus        ultalteracao    txobjetivo      
+------------------------------------------------------------------------------------------------
+1               PROGRAMA D...   PROGRAMA D...   0               CARGA PPA ...   X               
+6201            AGRONEGÓCI...   AGRONEGÓCI...   0               CARGA PPA ...   X               
+6202            SAÚDE EM A...   SAÚDE EM AÇÃO   0               CARGA PPA ...   X               
+6203            GESTÃO PAR...   GESTÃO PAR...   0               CARGA PPA ...   X               
+6204            ATUAÇÃO LE...   ATUAÇÃO LE...   0               CARGA PPA ...   X               
+
+====================================================================================================
+TABELA 12: DIM_PROJETO
+====================================================================================================
+
+Total de registros: 791
+
+ESTRUTURA DA TABELA:
+----------------------------------------------------------------------------------------------------
+#     Campo                          Tipo                 Nulo?      Padrão                        
+----------------------------------------------------------------------------------------------------
+1     coprojeto                      bigint               SIM        -                             
+2     noprojeto                      text                 SIM        -                             
+3     txdescricao                    text                 SIM        -                             
+4     instatus                       bigint               SIM        -                             
+5     ultalteracao                   text                 SIM        -                             
+6     innovo                         bigint               SIM        -                             
+7     coprioridade1                  bigint               SIM        -                             
+8     coprioridade2                  bigint               SIM        -                             
+9     coprioridade3                  bigint               SIM        -                             
+10    coprioridade4                  bigint               SIM        -                             
+11    coprioridade5                  bigint               SIM        -                             
+12    cotipoacao                     bigint               SIM        -                             
+13    coproduto                      bigint               SIM        -                             
+14    codetalhamento                 bigint               SIM        -                             
+
+AMOSTRA DE DADOS (5 primeiros registros):
+----------------------------------------------------------------------------------------------------
+coprojeto       noprojeto       txdescricao     instatus        ultalteracao    innovo          coprioridade1   coprioridade2   
+--------------------------------------------------------------------------------------------------------------------------------
+3678            REALIZAÇÃO...   REALIZAÇÃO...   0               2024082814...   0               0               0               
+3696            MODERNIZAÇ...   MODERNIZAÇ...   0               2024082814...   0               0               0               
+3710            IMPLEMENTA...   IMPLEMENTA...   0               2024082814...   0               0               0               
+3711            REALIZAÇÃO...   REALIZAÇÃO...   0               2024082814...   0               0               0               
+3718            PROMOÇÃO E...   PROMOÇÃO E...   0               2024082814...   0               0               0               
+
+====================================================================================================
+TABELA 13: DIM_RECEITA_ALINEA
+====================================================================================================
+
+Total de registros: 634
+
+ESTRUTURA DA TABELA:
+----------------------------------------------------------------------------------------------------
+#     Campo                          Tipo                 Nulo?      Padrão                        
+----------------------------------------------------------------------------------------------------
+1     coalinea                       bigint               SIM        -                             
+2     noalinea                       text                 SIM        -                             
+
+AMOSTRA DE DADOS (5 primeiros registros):
+----------------------------------------------------------------------------------------------------
+coalinea        noalinea        
+--------------------------------
+100000          Receitas C...   
+110000          Impostos, ...   
+111000          Impostos  ...   
+111200          Impostos s...   
+111201          Imposto so...   
+
+====================================================================================================
+TABELA 14: DIM_RECEITA_CATEGORIA
+====================================================================================================
+
+Total de registros: 4
+
+ESTRUTURA DA TABELA:
+----------------------------------------------------------------------------------------------------
+#     Campo                          Tipo                 Nulo?      Padrão                        
+----------------------------------------------------------------------------------------------------
+1     cocategoriareceita             bigint               SIM        -                             
+2     nocategoriareceita             text                 SIM        -                             
+
+AMOSTRA DE DADOS (5 primeiros registros):
+----------------------------------------------------------------------------------------------------
+cocategoriarece nocategoriarece 
+--------------------------------
+1               Receitas C...   
+2               Receitas d...   
+7               Receitas C...   
+9               Recursos A...   
+
+====================================================================================================
+TABELA 15: DIM_RECEITA_ESPECIE
+====================================================================================================
+
+Total de registros: 86
+
+ESTRUTURA DA TABELA:
+----------------------------------------------------------------------------------------------------
+#     Campo                          Tipo                 Nulo?      Padrão                        
+----------------------------------------------------------------------------------------------------
+1     cosubfontereceita              bigint               SIM        -                             
+2     nosubfontereceita              text                 SIM        -                             
+
+AMOSTRA DE DADOS (5 primeiros registros):
+----------------------------------------------------------------------------------------------------
+cosubfonterecei nosubfonterecei 
+--------------------------------
+100             Receitas C...   
+110             Impostos, ...   
+111             Impostos  ...   
+112             Taxas     ...   
+113             Contribuiç...   
+
+====================================================================================================
+TABELA 16: DIM_RECEITA_ESPECIFICACAO
+====================================================================================================
+
+Total de registros: 212
+
+ESTRUTURA DA TABELA:
+----------------------------------------------------------------------------------------------------
+#     Campo                          Tipo                 Nulo?      Padrão                        
+----------------------------------------------------------------------------------------------------
+1     corubrica                      bigint               SIM        -                             
+2     norubrica                      text                 SIM        -                             
+
+AMOSTRA DE DADOS (5 primeiros registros):
+----------------------------------------------------------------------------------------------------
+corubrica       norubrica       
+--------------------------------
+1000            Receitas C...   
+1100            Impostos, ...   
+1119            Outros Imp...   
+1120            Taxas     ...   
+1212            Contribuiç...   
+
+====================================================================================================
+TABELA 17: DIM_RECEITA_FONTE_CONTA_CONTABIL
+====================================================================================================
+
+Total de registros: 3,218
+
+ESTRUTURA DA TABELA:
+----------------------------------------------------------------------------------------------------
+#     Campo                          Tipo                 Nulo?      Padrão                        
+----------------------------------------------------------------------------------------------------
+1     cofonte                        bigint               SIM        -                             
+2     coclasseorc                    bigint               SIM        -                             
+3     inarrecada                     bigint               SIM        -                             
+4     instatus                       bigint               SIM        -                             
+5     coreceita                      bigint               SIM        -                             
+6     covarpatrimonial               bigint               SIM        -                             
+7     ultalteracao                   text                 SIM        -                             
+
+AMOSTRA DE DADOS (5 primeiros registros):
+----------------------------------------------------------------------------------------------------
+cofonte         coclasseorc     inarrecada      instatus        coreceita       covarpatrimonia ultalteracao    
+----------------------------------------------------------------------------------------------------------------
+171000000       19110401        0               0               3697            499512310       10032022 C...   
+171000000       19110403        0               0               7385            499512310       2023021321...   
+171000000       19110403        0               0               5848            499512310       2023021321...   
+171000000       19110405        0               0               3712            499512310       10032022 C...   
+120000000       13110203        0               0               5901            433112800       NULL            
+
+====================================================================================================
+TABELA 18: DIM_RECEITA_ORIGEM
+====================================================================================================
+
+Total de registros: 24
+
+ESTRUTURA DA TABELA:
+----------------------------------------------------------------------------------------------------
+#     Campo                          Tipo                 Nulo?      Padrão                        
+----------------------------------------------------------------------------------------------------
+1     cofontereceita                 bigint               SIM        -                             
+2     nofontereceita                 text                 SIM        -                             
+
+AMOSTRA DE DADOS (5 primeiros registros):
+----------------------------------------------------------------------------------------------------
+cofontereceita  nofontereceita  
+--------------------------------
+10              Receitas C...   
+11              Impostos, ...   
+12              Contribuiç...   
+13              Receita Pa...   
+14              Receita Ag...   
+
+====================================================================================================
+TABELA 19: DIM_SUBFUNCAO
+====================================================================================================
+
+Total de registros: 112
+
+ESTRUTURA DA TABELA:
+----------------------------------------------------------------------------------------------------
+#     Campo                          Tipo                 Nulo?      Padrão                        
+----------------------------------------------------------------------------------------------------
+1     cosubfuncao                    bigint               SIM        -                             
+2     nosubfuncao                    text                 SIM        -                             
+3     txdescricao                    text                 SIM        -                             
+4     instatus                       bigint               SIM        -                             
+5     ultalteracao                   text                 SIM        -                             
+
+AMOSTRA DE DADOS (5 primeiros registros):
+----------------------------------------------------------------------------------------------------
+cosubfuncao     nosubfuncao     txdescricao     instatus        ultalteracao    
+--------------------------------------------------------------------------------
+632             COLONIZAÇÃ...   COLONIZAÇÃO     0               2024062009...   
+661             PROMOÇÃO I...   PROMOÇÃO I...   0               2024062009...   
+512             SANEAMENTO...   SANEAMENTO...   0               2024062009...   
+541             PRESERVAÇÃ...   PRESERVAÇÃ...   0               2024062009...   
+542             CONTROLE A...   CONTROLE A...   0               2024062009...   
+
+====================================================================================================
+TABELA 20: DIM_SUBTITULO
+====================================================================================================
+
+Total de registros: 5,332
+
+ESTRUTURA DA TABELA:
+----------------------------------------------------------------------------------------------------
+#     Campo                          Tipo                 Nulo?      Padrão                        
+----------------------------------------------------------------------------------------------------
+1     coprojeto                      bigint               SIM        -                             
+2     cosubtitulo                    bigint               SIM        -                             
+3     nosubtitulo                    text                 SIM        -                             
+4     txdescricao                    text                 SIM        -                             
+5     instatus                       bigint               SIM        -                             
+6     ultalteracao                   text                 SIM        -                             
+7     colocalizacao                  bigint               SIM        -                             
+8     innovo                         bigint               SIM        -                             
+9     inldo                          bigint               SIM        -                             
+10    couo                           bigint               SIM        -                             
+11    prioridade_ex                  bigint               SIM        -                             
+
+AMOSTRA DE DADOS (5 primeiros registros):
+----------------------------------------------------------------------------------------------------
+coprojeto       cosubtitulo     nosubtitulo     txdescricao     instatus        ultalteracao    colocalizacao   innovo          
+--------------------------------------------------------------------------------------------------------------------------------
+8504            9665            CONCESSÃO ...   CONCESSÃO ...   0               2024062009...   99              0               
+8517            9741            MANUTENÇÃO...   MANUTENÇÃO...   0               2024062009...   99              0               
+4216            1               AQUISIÇÃO ...   AQUISIÇÃO ...   0               2024062009...   99              0               
+3129            2583            REFORMA DE...   REFORMA DE...   0               2024062009...   19              0               
+2557            2569            GESTÃO DA ...   GESTÃO DA ...   0               2024062009...   99              0               
+
+====================================================================================================
+TABELA 21: DIM_UNIDADE_GESTORA
+====================================================================================================
+
+Total de registros: 256
+
+ESTRUTURA DA TABELA:
+----------------------------------------------------------------------------------------------------
+#     Campo                          Tipo                 Nulo?      Padrão                        
+----------------------------------------------------------------------------------------------------
+1     coug                           bigint               SIM        -                             
+2     noug                           text                 SIM        -                             
+3     coorgao                        bigint               SIM        -                             
+4     couo                           bigint               SIM        -                             
+5     insituacao                     bigint               SIM        -                             
+6     edug                           text                 SIM        -                             
+7     cocep                          bigint               SIM        -                             
+8     sgufug                         text                 SIM        -                             
+9     nomunicipio                    text                 SIM        -                             
+10    cougauditoria                  bigint               SIM        -                             
+11    cougfinanceira                 bigint               SIM        -                             
+12    cougcontabil                   bigint               SIM        -                             
+13    cougpolo                       bigint               SIM        -                             
+14    nucgc                          bigint               SIM        -                             
+15    nucpfordenador                 bigint               SIM        -                             
+16    noordenador                    text                 SIM        -                             
+17    nucpfgestor                    bigint               SIM        -                             
+18    nogestor                       text                 SIM        -                             
+19    nucpfassinatura                bigint               SIM        -                             
+20    noassinatura                   text                 SIM        -                             
+21    nucpfchefesof                  bigint               SIM        -                             
+22    nochefesof                     text                 SIM        -                             
+23    nucpfgestoradm                 bigint               SIM        -                             
+24    nogestoradm                    text                 SIM        -                             
+25    instatus                       bigint               SIM        -                             
+26    ultalteracao                   text                 SIM        -                             
+27    txdescricao                    double precision     SIM        -                             
+28    inestatal                      double precision     SIM        -                             
+29    coarea                         double precision     SIM        -                             
+30    inpermitedigitacao             double precision     SIM        -                             
+31    vateto                         double precision     SIM        -                             
+
+AMOSTRA DE DADOS (5 primeiros registros):
+----------------------------------------------------------------------------------------------------
+coug            noug            coorgao         couo            insituacao      edug            cocep           sgufug          
+--------------------------------------------------------------------------------------------------------------------------------
+130998          SUBSECRETA...   32000           0               1               ANEXO DO B...   70000000        DF              
+180202          INSTITUTO ...   28000           0               1               SCS QUADRA...   70000000        DF              
+130888          UNIDADE DE...   19000           0               1               BSB       ...   70000000        DF              
+190202          COMPANHIA ...   22200           0               1               SCS ED. CA...   70300904        DF              
+190204          COMPANHIA ...   22400           0               1               SGAN 601        70830010        DF              
+
+====================================================================================================
+TABELA 22: DESPESA_LANCAMENTO
+====================================================================================================
+
+Total de registros: 1,048,001
+
+ESTRUTURA DA TABELA:
+----------------------------------------------------------------------------------------------------
+#     Campo                          Tipo                 Nulo?      Padrão                        
+----------------------------------------------------------------------------------------------------
+1     coexercicio                    integer              SIM        -                             
+2     coug                           integer              SIM        -                             
+3     cogestao                       integer              SIM        -                             
+4     nudocumento                    text                 SIM        -                             
+5     nulancamento                   integer              SIM        -                             
+6     coevento                       integer              SIM        -                             
+7     cocontacontabil                bigint               SIM        -                             
+8     cocontacorrente                text                 SIM        -                             
+9     inmes                          integer              SIM        -                             
+10    dalancamento                   date                 SIM        -                             
+11    valancamento                   numeric              SIM        -                             
+12    indebitocredito                text                 SIM        -                             
+13    inabreencerra                  integer              SIM        -                             
+14    cougdestino                    integer              SIM        -                             
+15    cogestaodestino                integer              SIM        -                             
+16    datransacao                    date                 SIM        -                             
+17    hotransacao                    time without time zone SIM        -                             
+18    cougcontab                     integer              SIM        -                             
+19    cogestaocontab                 integer              SIM        -                             
+20    inesfera                       text                 SIM        -                             
+21    couo                           text                 SIM        -                             
+22    cofuncao                       text                 SIM        -                             
+23    cosubfuncao                    text                 SIM        -                             
+24    coprograma                     text                 SIM        -                             
+25    coprojeto                      text                 SIM        -                             
+26    cosubtitulo                    text                 SIM        -                             
+27    cofonte                        text                 SIM        -                             
+28    conatureza                     text                 SIM        -                             
+29    incategoria                    text                 SIM        -                             
+30    cogrupo                        text                 SIM        -                             
+31    comodalidade                   text                 SIM        -                             
+32    coelemento                     text                 SIM        -                             
+33    cosubelemento                  text                 SIM        -                             
+34    periodo                        text                 SIM        -                             
+35    tipo_lancamento                text                 SIM        -                             
+36    data_carga                     timestamp with time zone SIM        CURRENT_TIMESTAMP             
+
+AMOSTRA DE DADOS (5 primeiros registros):
+----------------------------------------------------------------------------------------------------
+coexercicio     coug            cogestao        nudocumento     nulancamento    coevento        cocontacontabil cocontacorrente 
+--------------------------------------------------------------------------------------------------------------------------------
+2024            130101          1               2024OB27073     3               700005          622920103       2024NE07503     
+2024            130101          1               2024OB27073     4               700005          622920104       2024NE07503     
+2024            130101          1               2024OB27073     22              700057          622920103       2024NE07504     
+2024            130101          1               2024OB27073     23              700057          622920104       2024NE07504     
+2024            130101          1               2024OB27086     3               700005          622920103       2024NE07516     
+
+====================================================================================================
+TABELA 23: DESPESA_SALDO
+====================================================================================================
+
+Total de registros: 560,110
+
+ESTRUTURA DA TABELA:
+----------------------------------------------------------------------------------------------------
+#     Campo                          Tipo                 Nulo?      Padrão                        
+----------------------------------------------------------------------------------------------------
+1     coexercicio                    integer              SIM        -                             
+2     coug                           integer              SIM        -                             
+3     cogestao                       integer              SIM        -                             
+4     cocontacontabil                bigint               SIM        -                             
+5     cocontacorrente                text                 SIM        -                             
+6     inmes                          integer              SIM        -                             
+7     inesfera                       integer              SIM        -                             
+8     couo                           integer              SIM        -                             
+9     cofuncao                       integer              SIM        -                             
+10    cosubfuncao                    integer              SIM        -                             
+11    coprograma                     integer              SIM        -                             
+12    coprojeto                      integer              SIM        -                             
+13    cosubtitulo                    integer              SIM        -                             
+14    cofonte                        bigint               SIM        -                             
+15    conatureza                     integer              SIM        -                             
+16    vacredito                      numeric              SIM        -                             
+17    vadebito                       numeric              SIM        -                             
+18    saldo_contabil_despesa         numeric              SIM        -                             
+19    incategoria                    text                 SIM        -                             
+20    cogrupo                        text                 SIM        -                             
+21    comodalidade                   text                 SIM        -                             
+22    coelemento                     text                 SIM        -                             
+23    cosubelemento                  text                 SIM        -                             
+24    periodo                        text                 SIM        -                             
+25    data_carga                     timestamp with time zone SIM        CURRENT_TIMESTAMP             
+
+AMOSTRA DE DADOS (5 primeiros registros):
+----------------------------------------------------------------------------------------------------
+coexercicio     coug            cogestao        cocontacontabil cocontacorrente inmes           inesfera        couo            
+--------------------------------------------------------------------------------------------------------------------------------
+2024            190105          1               622920101       2024NE00059     2               1               9105            
+2024            190105          1               622130100       1091050412...   2               1               9105            
+2024            190105          1               622130100       1091050412...   2               1               9105            
+2024            190105          1               622130100       1091050412...   2               1               9105            
+2024            190105          1               622130100       1091050412...   2               1               9105            
+
+====================================================================================================
+TABELA 24: RECEITA_LANCAMENTO
+====================================================================================================
+
+Total de registros: 490,122
+
+ESTRUTURA DA TABELA:
+----------------------------------------------------------------------------------------------------
+#     Campo                          Tipo                 Nulo?      Padrão                        
+----------------------------------------------------------------------------------------------------
+1     coexercicio                    integer              SIM        -                             
+2     coug                           integer              SIM        -                             
+3     cogestao                       integer              SIM        -                             
+4     nudocumento                    text                 SIM        -                             
+5     nulancamento                   integer              SIM        -                             
+6     coevento                       integer              SIM        -                             
+7     cocontacontabil                bigint               SIM        -                             
+8     cocontacorrente                text                 SIM        -                             
+9     inmes                          integer              SIM        -                             
+10    dalancamento                   date                 SIM        -                             
+11    valancamento                   numeric              SIM        -                             
+12    indebitocredito                text                 SIM        -                             
+13    inabreencerra                  integer              SIM        -                             
+14    cougdestino                    integer              SIM        -                             
+15    cogestaodestino                integer              SIM        -                             
+16    datransacao                    date                 SIM        -                             
+17    hotransacao                    time without time zone SIM        -                             
+18    cougcontab                     integer              SIM        -                             
+19    cogestaocontab                 integer              SIM        -                             
+20    coclasseorc                    text                 SIM        -                             
+21    cofonte                        text                 SIM        -                             
+22    cocategoriareceita             text                 SIM        -                             
+23    cofontereceita                 text                 SIM        -                             
+24    cosubfontereceita              text                 SIM        -                             
+25    corubrica                      text                 SIM        -                             
+26    coalinea                       text                 SIM        -                             
+27    inesfera                       text                 SIM        -                             
+28    couo                           text                 SIM        -                             
+29    cofuncao                       text                 SIM        -                             
+30    cosubfuncao                    text                 SIM        -                             
+31    coprograma                     text                 SIM        -                             
+32    coprojeto                      text                 SIM        -                             
+33    cosubtitulo                    text                 SIM        -                             
+34    conatureza                     text                 SIM        -                             
+35    incategoria                    text                 SIM        -                             
+36    cogrupo                        text                 SIM        -                             
+37    comodalidade                   text                 SIM        -                             
+38    coelemento                     text                 SIM        -                             
+39    cosubelemento                  text                 SIM        -                             
+40    periodo                        text                 SIM        -                             
+41    tipo_lancamento                text                 SIM        -                             
+42    data_carga                     timestamp with time zone SIM        CURRENT_TIMESTAMP             
+
+AMOSTRA DE DADOS (5 primeiros registros):
+----------------------------------------------------------------------------------------------------
+coexercicio     coug            cogestao        nudocumento     nulancamento    coevento        cocontacontabil cocontacorrente 
+--------------------------------------------------------------------------------------------------------------------------------
+2025            200101          1               2025NL02030     16              540402          621200000       1113032110...   
+2025            220101          1               2025NL00345     85              800261          621200000       1114511110...   
+2025            130101          1               2025OB19672     21              720261          621200000       1114511110...   
+2025            320202          32203           2025NL00031     4               550929          621390107       1321040126...   
+2025            130103          1               2025NL05071     61              800271          621200000       1113034110...   
+
+====================================================================================================
+TABELA 25: RECEITA_SALDO
+====================================================================================================
+
+Total de registros: 11,998
+
+ESTRUTURA DA TABELA:
+----------------------------------------------------------------------------------------------------
+#     Campo                          Tipo                 Nulo?      Padrão                        
+----------------------------------------------------------------------------------------------------
+1     coexercicio                    integer              SIM        -                             
+2     inmes                          integer              SIM        -                             
+3     coug                           text                 SIM        -                             
+4     cocontacontabil                text                 SIM        -                             
+5     cocontacorrente                text                 SIM        -                             
+6     intipoadm                      integer              SIM        -                             
+7     vacredito                      numeric              SIM        -                             
+8     vadebito                       numeric              SIM        -                             
+9     saldo_contabil_receita         numeric              SIM        -                             
+10    coclasseorc                    text                 SIM        -                             
+11    cofonte                        text                 SIM        -                             
+12    cocategoriareceita             text                 SIM        -                             
+13    cofontereceita                 text                 SIM        -                             
+14    cosubfontereceita              text                 SIM        -                             
+15    corubrica                      text                 SIM        -                             
+16    coalinea                       text                 SIM        -                             
+17    inesfera                       text                 SIM        -                             
+18    couo                           text                 SIM        -                             
+19    cofuncao                       text                 SIM        -                             
+20    cosubfuncao                    text                 SIM        -                             
+21    coprograma                     text                 SIM        -                             
+22    coprojeto                      text                 SIM        -                             
+23    cosubtitulo                    text                 SIM        -                             
+24    conatureza                     text                 SIM        -                             
+25    incategoria                    text                 SIM        -                             
+26    cogrupo                        text                 SIM        -                             
+27    comodalidade                   text                 SIM        -                             
+28    coelemento                     text                 SIM        -                             
+29    periodo                        text                 SIM        -                             
+30    data_carga                     timestamp with time zone SIM        CURRENT_TIMESTAMP             
+
+AMOSTRA DE DADOS (5 primeiros registros):
+----------------------------------------------------------------------------------------------------
+coexercicio     inmes           coug            cocontacontabil cocontacorrente intipoadm       vacredito       vadebito        
+--------------------------------------------------------------------------------------------------------------------------------
+2025            6               130101          621200000       1311011610...   1               78.45           0.00            
+2025            6               130101          621200000       1911010610...   1               578.85          0.00            
+2025            6               170901          621200000       1321010173...   7               556.81          0.00            
+2025            6               150201          621200000       1321010110...   4               4502.31         0.00            
+2025            6               170901          621200000       1321010173...   7               17454.94        0.00            
+
+====================================================================================================
+FIM DO RELATÓRIO
+====================================================================================================

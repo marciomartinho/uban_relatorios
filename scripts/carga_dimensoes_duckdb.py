@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Script para carregar todas as tabelas dimensão no DuckDB
-Processa arquivos Excel da pasta dados_brutos/dimensao
+Script VERDADEIRAMENTE INTELIGENTE para carregar dimensões no DuckDB.
+Aprende e lembra dos mapeamentos arquivo->tabela usando um arquivo JSON.
 """
 import sys
 import os
@@ -12,6 +12,9 @@ import duckdb
 from pathlib import Path
 from datetime import datetime
 import logging
+import re
+import json
+import hashlib
 
 # Configurar logging
 logging.basicConfig(
@@ -20,215 +23,311 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-class CarregadorDimensoes:
-    """Classe para carregar tabelas dimensão no DuckDB"""
+class CarregadorVerdadeiramenteInteligente:
+    """Carregador que REALMENTE aprende e lembra dos mapeamentos"""
     
     def __init__(self):
         self.db_path = Path("dados_brutos/fato/db_local/uban.duckdb")
         self.dimensao_path = Path("dados_brutos/dimensao")
         
-        # Configuração das dimensões com seus arquivos e chaves
-        self.dimensoes_config = {
-            'ClassificacaoOrcamentaria.xlsx': {
-                'table_name': 'dim_classificacao_orcamentaria',
-                'primary_key': 'coclasseorc',
-                'description': 'Classificação Orçamentária'
-            },
-            'ContaContabil.xlsx': {
-                'table_name': 'dim_conta_contabil',
-                'primary_key': 'cocontacontabil',
-                'description': 'Conta Contábil'
-            },
-            'Despesa_CategoriaDespesa.xlsx': {
-                'table_name': 'dim_categoria_despesa',
-                'primary_key': 'incategoria',
-                'description': 'Categoria de Despesa'
-            },
-            'Despesa_Funcao.xlsx': {
-                'table_name': 'dim_funcao',
-                'primary_key': 'cofuncao',
-                'description': 'Função'
-            },
-            'Despesa_GrupoDespesa.xlsx': {
-                'table_name': 'dim_grupo_despesa',
-                'primary_key': 'cogrupo',
-                'description': 'Grupo de Despesa'
-            },
-            'Despesa_Modalidade.xlsx': {
-                'table_name': 'dim_modalidade',
-                'primary_key': 'comodalidade',
-                'description': 'Modalidade de Aplicação'
-            },
-            'Despesa_Programa.xlsx': {
-                'table_name': 'dim_programa',
-                'primary_key': 'coprograma',
-                'description': 'Programa'
-            },
-            'Despesa_Projeto.xlsx': {
-                'table_name': 'dim_projeto',
-                'primary_key': 'coprojeto',
-                'description': 'Projeto/Atividade'
-            },
-            'Despesa_Subfuncao.xlsx': {
-                'table_name': 'dim_subfuncao',
-                'primary_key': 'cosubfuncao',
-                'description': 'Subfunção'
-            },
-            'Despesa_Subtitulo.xlsx': {
-                'table_name': 'dim_subtitulo',
-                'primary_key': 'cosubtitulo',  # Corrigido - era COPROJETO
-                'description': 'Subtítulo'
-            },
-            'Elemento.xlsx': {
-                'table_name': 'dim_elemento',
-                'primary_key': 'coelemento',
-                'description': 'Elemento de Despesa'
-            },
-            'Evento.xlsx': {
-                'table_name': 'dim_evento',
-                'primary_key': 'coevento',
-                'description': 'Evento'
-            },
-            'Fonte.xlsx': {
-                'table_name': 'dim_fonte',
-                'primary_key': 'cofonte',
-                'description': 'Fonte de Recursos'
-            },
-            'Gestao.xlsx': {
-                'table_name': 'dim_gestao',
-                'primary_key': 'cogestao',
-                'description': 'Gestão'
-            },
-            'Receita_Alinea.xlsx': {
-                'table_name': 'dim_receita_alinea',
-                'primary_key': 'coalinea',
-                'description': 'Alínea da Receita'
-            },
-            'Receita_Categoria.xlsx': {
-                'table_name': 'dim_receita_categoria',
-                'primary_key': 'cocategoriareceita',
-                'description': 'Categoria da Receita'
-            },
-            'Receita_Especie.xlsx': {
-                'table_name': 'dim_receita_especie',
-                'primary_key': 'cosubfontereceita',
-                'description': 'Espécie da Receita'
-            },
-            'Receita_Especificacao.xlsx': {
-                'table_name': 'dim_receita_especificacao',
-                'primary_key': 'corubrica',
-                'description': 'Especificação da Receita'
-            },
-            'Receita_Origem.xlsx': {
-                'table_name': 'dim_receita_origem',
-                'primary_key': 'cofontereceita',
-                'description': 'Origem da Receita'
-            },
-            'UnidadeGestora.xlsx': {
-                'table_name': 'dim_unidade_gestora',
-                'primary_key': 'coug',
-                'description': 'Unidade Gestora'
-            }
-        }
+        # Arquivo onde salvamos os mapeamentos aprendidos
+        self.mapeamento_file = Path("dados_brutos/dimensao/.mapeamento_dimensoes.json")
+        self.historico_file = Path("dados_brutos/dimensao/.historico_cargas.json")
+        
+        # Carrega mapeamentos salvos ou cria novo
+        self.mapeamentos = self.carregar_mapeamentos()
+        self.historico = self.carregar_historico()
     
-    def verificar_arquivos(self):
-        """Verifica quais arquivos existem na pasta dimensão"""
-        print(f"\n🔍 Verificando arquivos em: {self.dimensao_path}")
-        
-        arquivos_encontrados = []
-        arquivos_faltando = []
-        
-        for arquivo, config in self.dimensoes_config.items():
-            caminho = self.dimensao_path / arquivo
-            if caminho.exists():
-                arquivos_encontrados.append((arquivo, caminho))
-                print(f"   ✅ {arquivo}")
-            else:
-                arquivos_faltando.append(arquivo)
-                print(f"   ❌ {arquivo} - NÃO ENCONTRADO")
-        
-        return arquivos_encontrados, arquivos_faltando
+    def carregar_mapeamentos(self):
+        """Carrega mapeamentos salvos do arquivo JSON"""
+        if self.mapeamento_file.exists():
+            try:
+                with open(self.mapeamento_file, 'r', encoding='utf-8') as f:
+                    mapeamentos = json.load(f)
+                print(f"📚 Mapeamentos carregados: {len(mapeamentos)} registros conhecidos")
+                return mapeamentos
+            except Exception as e:
+                print(f"⚠️ Erro ao carregar mapeamentos: {e}")
+                return {}
+        else:
+            print("📝 Criando novo arquivo de mapeamentos...")
+            return {}
     
-    def processar_arquivo(self, arquivo, caminho, config):
-        """Processa um arquivo Excel e carrega no DuckDB"""
+    def salvar_mapeamentos(self):
+        """Salva mapeamentos aprendidos no arquivo JSON"""
         try:
-            print(f"\n📄 Processando: {arquivo}")
+            with open(self.mapeamento_file, 'w', encoding='utf-8') as f:
+                json.dump(self.mapeamentos, f, indent=2, ensure_ascii=False)
+            print(f"💾 Mapeamentos salvos: {len(self.mapeamentos)} registros")
+        except Exception as e:
+            print(f"❌ Erro ao salvar mapeamentos: {e}")
+    
+    def carregar_historico(self):
+        """Carrega histórico de cargas realizadas"""
+        if self.historico_file.exists():
+            try:
+                with open(self.historico_file, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+            except:
+                return {}
+        return {}
+    
+    def salvar_historico(self, arquivo, tabela, acao, registros):
+        """Salva no histórico cada operação realizada"""
+        if arquivo not in self.historico:
+            self.historico[arquivo] = []
+        
+        self.historico[arquivo].append({
+            'data': datetime.now().isoformat(),
+            'tabela': tabela,
+            'acao': acao,
+            'registros': registros
+        })
+        
+        try:
+            with open(self.historico_file, 'w', encoding='utf-8') as f:
+                json.dump(self.historico, f, indent=2, ensure_ascii=False)
+        except:
+            pass
+    
+    def calcular_hash_arquivo(self, caminho):
+        """Calcula hash do arquivo para detectar mudanças"""
+        hash_md5 = hashlib.md5()
+        with open(caminho, "rb") as f:
+            for chunk in iter(lambda: f.read(4096), b""):
+                hash_md5.update(chunk)
+        return hash_md5.hexdigest()
+    
+    def gerar_nome_tabela_inteligente(self, nome_arquivo):
+        """Gera nome de tabela usando aprendizado ou sugestão"""
+        # Primeiro verifica se já aprendeu este mapeamento
+        if nome_arquivo in self.mapeamentos:
+            info = self.mapeamentos[nome_arquivo]
+            print(f"   🧠 Mapeamento conhecido: {nome_arquivo} → {info['tabela']}")
+            return info['tabela']
+        
+        # Se não conhece, gera sugestão
+        nome = nome_arquivo.replace('.xlsx', '').replace('.xls', '').replace('.csv', '')
+        
+        # Converte CamelCase para snake_case
+        nome = re.sub('([A-Z]+)([A-Z][a-z])', r'\1_\2', nome)
+        nome = re.sub('([a-z\d])([A-Z])', r'\1_\2', nome)
+        nome = nome.lower()
+        
+        # Adiciona prefixo dim_ se não tiver
+        if not nome.startswith('dim_') and not nome.startswith('fato_'):
+            nome = 'dim_' + nome
+        
+        print(f"   💡 Sugestão de nome: {nome}")
+        return nome
+    
+    def detectar_chave_primaria(self, df, nome_tabela):
+        """Detecta chave primária inteligentemente"""
+        colunas = df.columns.str.lower()
+        
+        # Se já conhece este arquivo, usa a PK salva
+        for arquivo, info in self.mapeamentos.items():
+            if info['tabela'] == nome_tabela and 'pk' in info:
+                if info['pk'] in colunas:
+                    return info['pk']
+        
+        # Senão, tenta detectar
+        candidatos = []
+        
+        for col in colunas:
+            # Calcula score para cada coluna
+            score = 0
             
-            # Ler arquivo Excel
+            # Padrões comuns
+            if col.startswith('co'):
+                score += 3
+            if col.startswith('id'):
+                score += 3
+            if 'codigo' in col or 'code' in col:
+                score += 2
+            if col.endswith('id'):
+                score += 1
+            
+            # Verifica unicidade
+            if len(df[col].dropna()) > 0:
+                unicidade = df[col].nunique() / len(df)
+                if unicidade == 1.0:
+                    score += 5
+                elif unicidade > 0.95:
+                    score += 3
+                elif unicidade > 0.8:
+                    score += 1
+            
+            if score > 0:
+                candidatos.append((col, score))
+        
+        # Ordena por score e pega o melhor
+        if candidatos:
+            candidatos.sort(key=lambda x: x[1], reverse=True)
+            return candidatos[0][0]
+        
+        return colunas[0]
+    
+    def analisar_situacao_completa(self):
+        """Análise completa e inteligente da situação"""
+        print("\n" + "="*80)
+        print("🧠 ANÁLISE INTELIGENTE COMPLETA")
+        print("="*80)
+        
+        # Listar arquivos Excel
+        arquivos_excel = list(self.dimensao_path.glob("*.xlsx")) + \
+                        list(self.dimensao_path.glob("*.xls"))
+        
+        # Listar tabelas no banco
+        tabelas_banco = set()
+        if self.db_path.exists():
+            conn = duckdb.connect(str(self.db_path))
+            try:
+                result = conn.execute("""
+                    SELECT table_name 
+                    FROM information_schema.tables 
+                    WHERE table_schema = 'main'
+                """).fetchall()
+                tabelas_banco = {t[0] for t in result}
+            finally:
+                conn.close()
+        
+        # Classificar arquivos
+        status_arquivos = {
+            'novos': [],
+            'conhecidos_existentes': [],
+            'conhecidos_ausentes': [],
+            'modificados': [],
+            'desconhecidos_com_tabela': []
+        }
+        
+        for arquivo in arquivos_excel:
+            nome_arquivo = arquivo.name
+            hash_atual = self.calcular_hash_arquivo(arquivo)
+            
+            if nome_arquivo in self.mapeamentos:
+                # Arquivo conhecido
+                info = self.mapeamentos[nome_arquivo]
+                nome_tabela = info['tabela']
+                
+                if nome_tabela in tabelas_banco:
+                    # Tabela existe
+                    if info.get('hash') != hash_atual:
+                        status_arquivos['modificados'].append({
+                            'arquivo': nome_arquivo,
+                            'tabela': nome_tabela,
+                            'ultima_carga': info.get('ultima_carga', 'desconhecida'),
+                            'caminho': arquivo
+                        })
+                    else:
+                        status_arquivos['conhecidos_existentes'].append({
+                            'arquivo': nome_arquivo,
+                            'tabela': nome_tabela,
+                            'ultima_carga': info.get('ultima_carga', 'desconhecida'),
+                            'caminho': arquivo
+                        })
+                else:
+                    # Tabela não existe (foi deletada?)
+                    status_arquivos['conhecidos_ausentes'].append({
+                        'arquivo': nome_arquivo,
+                        'tabela': nome_tabela,
+                        'caminho': arquivo
+                    })
+            else:
+                # Arquivo desconhecido
+                nome_sugerido = self.gerar_nome_tabela_inteligente(nome_arquivo)
+                
+                if nome_sugerido in tabelas_banco:
+                    # Pode ser um arquivo renomeado
+                    status_arquivos['desconhecidos_com_tabela'].append({
+                        'arquivo': nome_arquivo,
+                        'tabela_sugerida': nome_sugerido,
+                        'caminho': arquivo
+                    })
+                else:
+                    # Completamente novo
+                    status_arquivos['novos'].append({
+                        'arquivo': nome_arquivo,
+                        'tabela_sugerida': nome_sugerido,
+                        'caminho': arquivo
+                    })
+        
+        return status_arquivos, tabelas_banco
+    
+    def processar_arquivo_com_aprendizado(self, info_arquivo):
+        """Processa arquivo e aprende o mapeamento"""
+        arquivo = info_arquivo['arquivo']
+        caminho = info_arquivo['caminho']
+        
+        # Determina nome da tabela
+        if 'tabela' in info_arquivo:
+            nome_tabela = info_arquivo['tabela']
+        else:
+            nome_tabela = info_arquivo.get('tabela_sugerida', 
+                                          self.gerar_nome_tabela_inteligente(arquivo))
+        
+        print(f"\n📄 Processando: {arquivo}")
+        
+        try:
+            # Ler arquivo
             df = pd.read_excel(caminho)
-            print(f"   Linhas: {len(df):,}")
-            print(f"   Colunas: {', '.join(df.columns)}")
-            
-            # Converter nomes das colunas para minúsculas
             df.columns = df.columns.str.lower()
             
-            # Verificar se a chave primária existe
-            pk = config['primary_key'].lower()
-            if pk not in df.columns:
-                print(f"   ⚠️ AVISO: Chave primária '{pk}' não encontrada nas colunas!")
-                print(f"   Colunas disponíveis: {', '.join(df.columns)}")
+            print(f"   📊 {len(df):,} linhas, {len(df.columns)} colunas")
             
-            # Conectar ao DuckDB
+            # Detectar PK
+            pk = self.detectar_chave_primaria(df, nome_tabela)
+            print(f"   🔑 Chave primária: {pk}")
+            
+            # Perguntar confirmação
+            print(f"   📋 Tabela: {nome_tabela}")
+            resp = input("   Confirmar (Enter), digitar outro nome (n), ou pular (p)? ").strip()
+            
+            if resp.lower() == 'p':
+                print("   ⏭️ Pulado")
+                return False
+            elif resp.lower() == 'n':
+                novo_nome = input("   Digite o nome da tabela: ").strip()
+                if novo_nome:
+                    nome_tabela = novo_nome
+            
+            # Verificar se tabela existe
             conn = duckdb.connect(str(self.db_path))
-            
             try:
-                # Verificar se a tabela já existe
-                table_exists = conn.execute(f"""
-                    SELECT COUNT(*) 
-                    FROM information_schema.tables 
-                    WHERE table_name = '{config['table_name']}'
+                existe = conn.execute(f"""
+                    SELECT COUNT(*) FROM information_schema.tables 
+                    WHERE table_name = '{nome_tabela}'
                 """).fetchone()[0] > 0
                 
-                if table_exists:
-                    # Contar registros existentes
-                    count_before = conn.execute(f"SELECT COUNT(*) FROM {config['table_name']}").fetchone()[0]
-                    print(f"   ⚠️ Tabela já existe com {count_before:,} registros")
-                    
-                    resposta = input(f"   Deseja SUBSTITUIR a tabela {config['table_name']}? (s/N): ")
-                    if resposta.lower() != 's':
-                        print(f"   ⏭️ Pulando {arquivo}")
+                if existe:
+                    count = conn.execute(f"SELECT COUNT(*) FROM {nome_tabela}").fetchone()[0]
+                    print(f"   ⚠️ Tabela existe com {count:,} registros")
+                    resp = input("   Substituir? (s/N): ")
+                    if resp.lower() != 's':
                         return False
-                    
-                    # Dropar tabela existente
-                    conn.execute(f"DROP TABLE {config['table_name']}")
-                    print(f"   🗑️ Tabela anterior removida")
+                    conn.execute(f"DROP TABLE {nome_tabela}")
                 
-                # Criar tabela a partir do DataFrame
+                # Criar tabela
                 conn.register('df_temp', df)
-                conn.execute(f"""
-                    CREATE TABLE {config['table_name']} AS 
-                    SELECT * FROM df_temp
-                """)
+                conn.execute(f"CREATE TABLE {nome_tabela} AS SELECT * FROM df_temp")
                 conn.unregister('df_temp')
                 
-                # Adicionar chave primária se a coluna existir
-                if pk in df.columns:
-                    try:
-                        # Verificar duplicatas antes de criar PK
-                        duplicatas = conn.execute(f"""
-                            SELECT {pk}, COUNT(*) as qtd 
-                            FROM {config['table_name']} 
-                            GROUP BY {pk} 
-                            HAVING COUNT(*) > 1
-                        """).fetchall()
-                        
-                        if duplicatas:
-                            print(f"   ⚠️ AVISO: Encontradas {len(duplicatas)} chaves duplicadas em '{pk}'")
-                            print(f"   Não foi possível criar chave primária")
-                        else:
-                            # DuckDB não suporta ALTER TABLE ADD PRIMARY KEY diretamente
-                            # Mas podemos criar um índice único
-                            conn.execute(f"""
-                                CREATE UNIQUE INDEX idx_{config['table_name']}_{pk} 
-                                ON {config['table_name']}({pk})
-                            """)
-                            print(f"   🔑 Índice único criado em '{pk}'")
-                    except Exception as e:
-                        print(f"   ⚠️ Erro ao criar índice: {e}")
+                count_final = conn.execute(f"SELECT COUNT(*) FROM {nome_tabela}").fetchone()[0]
+                print(f"   ✅ {count_final:,} registros carregados!")
                 
-                # Verificar total inserido
-                count_after = conn.execute(f"SELECT COUNT(*) FROM {config['table_name']}").fetchone()[0]
-                print(f"   ✅ {count_after:,} registros carregados com sucesso!")
+                # APRENDER E SALVAR o mapeamento
+                self.mapeamentos[arquivo] = {
+                    'tabela': nome_tabela,
+                    'pk': pk,
+                    'hash': self.calcular_hash_arquivo(caminho),
+                    'ultima_carga': datetime.now().isoformat(),
+                    'registros': count_final,
+                    'colunas': list(df.columns)
+                }
+                self.salvar_mapeamentos()
+                
+                # Salvar no histórico
+                self.salvar_historico(arquivo, nome_tabela, 'carga', count_final)
                 
                 return True
                 
@@ -236,73 +335,92 @@ class CarregadorDimensoes:
                 conn.close()
                 
         except Exception as e:
-            print(f"   ❌ ERRO ao processar {arquivo}: {e}")
-            import traceback
-            traceback.print_exc()
+            print(f"   ❌ Erro: {e}")
             return False
     
-    def executar_carga(self):
-        """Executa a carga de todas as dimensões"""
-        print("=" * 80)
-        print("CARGA DE TABELAS DIMENSÃO - DUCKDB")
-        print("=" * 80)
-        print(f"Banco de dados: {self.db_path}")
-        print(f"Pasta de origem: {self.dimensao_path}")
+    def menu_principal(self):
+        """Menu principal inteligente"""
+        print("\n" + "="*80)
+        print("🧠 CARREGADOR VERDADEIRAMENTE INTELIGENTE")
+        print("="*80)
         
-        # Verificar se o banco existe
-        if not self.db_path.exists():
-            print(f"\n❌ ERRO: Banco de dados não encontrado: {self.db_path}")
-            return
+        # Análise
+        status, tabelas = self.analisar_situacao_completa()
         
-        # Verificar arquivos
-        arquivos_encontrados, arquivos_faltando = self.verificar_arquivos()
+        # Mostrar resumo
+        if status['novos']:
+            print(f"\n🆕 Arquivos COMPLETAMENTE NOVOS: {len(status['novos'])}")
+            for item in status['novos']:
+                print(f"   • {item['arquivo']}")
         
-        if arquivos_faltando:
-            print(f"\n⚠️ ATENÇÃO: {len(arquivos_faltando)} arquivos não encontrados")
-            resposta = input("\nDeseja continuar com os arquivos disponíveis? (S/n): ")
-            if resposta.lower() == 'n':
-                print("\n❌ Carga cancelada")
-                return
+        if status['modificados']:
+            print(f"\n📝 Arquivos MODIFICADOS: {len(status['modificados'])}")
+            for item in status['modificados']:
+                print(f"   • {item['arquivo']} (última carga: {item['ultima_carga'][:10]})")
         
-        print(f"\n📋 {len(arquivos_encontrados)} arquivos serão processados")
-        resposta = input("\nConfirma o processamento? (S/n): ")
-        if resposta.lower() == 'n':
-            print("\n❌ Carga cancelada")
-            return
+        if status['conhecidos_existentes']:
+            print(f"\n✅ Arquivos SINCRONIZADOS: {len(status['conhecidos_existentes'])}")
         
-        # Processar cada arquivo
-        inicio = datetime.now()
-        sucesso = 0
-        falha = 0
+        if status['conhecidos_ausentes']:
+            print(f"\n⚠️ Tabelas DELETADAS do banco: {len(status['conhecidos_ausentes'])}")
+            for item in status['conhecidos_ausentes']:
+                print(f"   • {item['arquivo']} → {item['tabela']} (tabela não existe mais)")
         
-        for arquivo, caminho in arquivos_encontrados:
-            config = self.dimensoes_config[arquivo]
-            if self.processar_arquivo(arquivo, caminho, config):
-                sucesso += 1
-            else:
-                falha += 1
+        # Menu
+        print("\n" + "="*80)
+        print("OPÇÕES:")
+        print("[1] Carregar apenas NOVOS")
+        print("[2] Atualizar MODIFICADOS")
+        print("[3] Recriar tabelas DELETADAS")
+        print("[4] Processar TUDO")
+        print("[5] Ver histórico de cargas")
+        print("[6] Resetar aprendizado")
+        print("[0] Sair")
         
-        # Resumo final
-        tempo_total = datetime.now() - inicio
-        print("\n" + "=" * 80)
-        print("RESUMO DA CARGA")
-        print("=" * 80)
-        print(f"✅ Sucesso: {sucesso} tabelas")
-        print(f"❌ Falha: {falha} tabelas")
-        print(f"⏱️ Tempo total: {tempo_total}")
+        opcao = input("\nEscolha: ").strip()
         
-        if sucesso > 0:
-            print("\n🎉 Carga concluída!")
-            print("\n📌 Próximos passos:")
-            print("   1. Gerar nova documentação da estrutura:")
-            print("      python scripts/atualizar_documentacao_duckdb.py")
-            print("   2. Verificar integridade dos relacionamentos:")
-            print("      python scripts/verificar_integridade_duckdb.py")
+        if opcao == '1':
+            for item in status['novos']:
+                self.processar_arquivo_com_aprendizado(item)
+        
+        elif opcao == '2':
+            for item in status['modificados']:
+                print(f"\n📝 Arquivo modificado: {item['arquivo']}")
+                resp = input("   Atualizar? (s/N): ")
+                if resp.lower() == 's':
+                    self.processar_arquivo_com_aprendizado(item)
+        
+        elif opcao == '3':
+            for item in status['conhecidos_ausentes']:
+                self.processar_arquivo_com_aprendizado(item)
+        
+        elif opcao == '4':
+            todos = (status['novos'] + status['modificados'] + 
+                    status['conhecidos_ausentes'] + status['conhecidos_existentes'])
+            for item in todos:
+                self.processar_arquivo_com_aprendizado(item)
+        
+        elif opcao == '5':
+            print("\n📜 HISTÓRICO DE CARGAS:")
+            for arquivo, historico in self.historico.items():
+                print(f"\n{arquivo}:")
+                for h in historico[-3:]:  # Últimas 3 operações
+                    print(f"   • {h['data'][:19]} - {h['acao']} - {h['registros']} registros")
+        
+        elif opcao == '6':
+            resp = input("⚠️ Isso apagará todo o aprendizado. Confirma? (s/N): ")
+            if resp.lower() == 's':
+                self.mapeamentos = {}
+                self.historico = {}
+                self.salvar_mapeamentos()
+                print("🧹 Aprendizado resetado!")
+        
+        print("\n✨ Operação concluída!")
 
 def main():
     """Função principal"""
-    carregador = CarregadorDimensoes()
-    carregador.executar_carga()
+    carregador = CarregadorVerdadeiramenteInteligente()
+    carregador.menu_principal()
 
 if __name__ == "__main__":
     main()

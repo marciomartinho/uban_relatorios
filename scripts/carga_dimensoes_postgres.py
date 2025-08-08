@@ -1,236 +1,494 @@
+#!/usr/bin/env python3
 """
-Script para carregar TODAS as tabelas dimensão no PostgreSQL.
-Lê os arquivos Excel da pasta 'dados_brutos/dimensao' e os insere
-no banco de dados de produção configurado no arquivo .env.
+Script VERDADEIRAMENTE INTELIGENTE para carregar dimensões no PostgreSQL.
+Aprende e lembra dos mapeamentos arquivo->tabela usando um arquivo JSON.
 """
 import sys
 import os
-from datetime import datetime
-from pathlib import Path
-import pandas as pd
-
-# Adiciona o diretório raiz do projeto ao path para encontrar os módulos
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# Importa a conexão SQLAlchemy do seu módulo de banco de dados PostgreSQL
+import pandas as pd
+from pathlib import Path
+from datetime import datetime
+import logging
+import re
+import json
+import hashlib
+from sqlalchemy import text
+
+# Importa a conexão do PostgreSQL
 from app.modules.database import db
 
-class CarregadorDimensoesPostgres:
-    """Classe para carregar tabelas dimensão no PostgreSQL."""
+# Configurar logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+class CarregadorInteligentePostgres:
+    """Carregador que REALMENTE aprende e lembra dos mapeamentos no PostgreSQL"""
     
     def __init__(self):
         self.dimensao_path = Path("dados_brutos/dimensao")
-        # A configuração do banco de dados agora vem do .env e do database.py
         self.engine = db.engine
         
-        # Configuração das dimensões com seus arquivos e chaves
-        self.dimensoes_config = {
-            'ClassificacaoOrcamentaria.xlsx': {
-                'table_name': 'dim_classificacao_orcamentaria',
-                'primary_key': 'coclasseorc',
-                'description': 'Classificação Orçamentária'
-            },
-            'ContaContabil.xlsx': {
-                'table_name': 'dim_conta_contabil',
-                'primary_key': 'cocontacontabil',
-                'description': 'Conta Contábil'
-            },
-            'Despesa_CategoriaDespesa.xlsx': {
-                'table_name': 'dim_categoria_despesa',
-                'primary_key': 'incategoria',
-                'description': 'Categoria de Despesa'
-            },
-            'Despesa_Funcao.xlsx': {
-                'table_name': 'dim_funcao',
-                'primary_key': 'cofuncao',
-                'description': 'Função'
-            },
-            'Despesa_GrupoDespesa.xlsx': {
-                'table_name': 'dim_grupo_despesa',
-                'primary_key': 'cogrupo',
-                'description': 'Grupo de Despesa'
-            },
-            'Despesa_Modalidade.xlsx': {
-                'table_name': 'dim_modalidade',
-                'primary_key': 'comodalidade',
-                'description': 'Modalidade de Aplicação'
-            },
-            'Despesa_Programa.xlsx': {
-                'table_name': 'dim_programa',
-                'primary_key': 'coprograma',
-                'description': 'Programa'
-            },
-            'Despesa_Projeto.xlsx': {
-                'table_name': 'dim_projeto',
-                'primary_key': 'coprojeto',
-                'description': 'Projeto/Atividade'
-            },
-            'Despesa_Subfuncao.xlsx': {
-                'table_name': 'dim_subfuncao',
-                'primary_key': 'cosubfuncao',
-                'description': 'Subfunção'
-            },
-            'Despesa_Subtitulo.xlsx': {
-                'table_name': 'dim_subtitulo',
-                'primary_key': 'cosubtitulo',  # Corrigido - era COPROJETO
-                'description': 'Subtítulo'
-            },
-            'Elemento.xlsx': {
-                'table_name': 'dim_elemento',
-                'primary_key': 'coelemento',
-                'description': 'Elemento de Despesa'
-            },
-            'Evento.xlsx': {
-                'table_name': 'dim_evento',
-                'primary_key': 'coevento',
-                'description': 'Evento'
-            },
-            'Fonte.xlsx': {
-                'table_name': 'dim_fonte',
-                'primary_key': 'cofonte',
-                'description': 'Fonte de Recursos'
-            },
-            'Gestao.xlsx': {
-                'table_name': 'dim_gestao',
-                'primary_key': 'cogestao',
-                'description': 'Gestão'
-            },
-            'Receita_Alinea.xlsx': {
-                'table_name': 'dim_receita_alinea',
-                'primary_key': 'coalinea',
-                'description': 'Alínea da Receita'
-            },
-            'Receita_Categoria.xlsx': {
-                'table_name': 'dim_receita_categoria',
-                'primary_key': 'cocategoriareceita',
-                'description': 'Categoria da Receita'
-            },
-            'Receita_Especie.xlsx': {
-                'table_name': 'dim_receita_especie',
-                'primary_key': 'cosubfontereceita',
-                'description': 'Espécie da Receita'
-            },
-            'Receita_Especificacao.xlsx': {
-                'table_name': 'dim_receita_especificacao',
-                'primary_key': 'corubrica',
-                'description': 'Especificação da Receita'
-            },
-            'Receita_Origem.xlsx': {
-                'table_name': 'dim_receita_origem',
-                'primary_key': 'cofontereceita',
-                'description': 'Origem da Receita'
-            },
-            'UnidadeGestora.xlsx': {
-                'table_name': 'dim_unidade_gestora',
-                'primary_key': 'coug',
-                'description': 'Unidade Gestora'
-            }
-        }
+        # Arquivos de mapeamento específicos para PostgreSQL
+        self.mapeamento_file = Path("dados_brutos/dimensao/.mapeamento_dimensoes_postgres.json")
+        self.historico_file = Path("dados_brutos/dimensao/.historico_cargas_postgres.json")
+        
+        # Carrega mapeamentos salvos
+        self.mapeamentos = self.carregar_mapeamentos()
+        self.historico = self.carregar_historico()
     
-    def verificar_arquivos(self):
-        """Verifica quais arquivos existem na pasta dimensão"""
-        print(f"\n🔍 Verificando arquivos em: {self.dimensao_path}")
-        
-        arquivos_encontrados = []
-        arquivos_faltando = []
-        
-        for arquivo, config in self.dimensoes_config.items():
-            caminho = self.dimensao_path / arquivo
-            if caminho.exists():
-                arquivos_encontrados.append((arquivo, caminho))
-                print(f"   ✅ {arquivo}")
-            else:
-                arquivos_faltando.append(arquivo)
-                print(f"   ❌ {arquivo} - NÃO ENCONTRADO")
-        
-        return arquivos_encontrados, arquivos_faltando
+    def carregar_mapeamentos(self):
+        """Carrega mapeamentos salvos do arquivo JSON"""
+        if self.mapeamento_file.exists():
+            try:
+                with open(self.mapeamento_file, 'r', encoding='utf-8') as f:
+                    mapeamentos = json.load(f)
+                print(f"📚 Mapeamentos PostgreSQL carregados: {len(mapeamentos)} registros")
+                return mapeamentos
+            except Exception as e:
+                print(f"⚠️ Erro ao carregar mapeamentos: {e}")
+                return {}
+        else:
+            print("📝 Arquivo de mapeamentos não encontrado. Execute primeiro:")
+            print("   python scripts/inicializar_mapeamentos_postgres.py")
+            return {}
     
-    def processar_arquivo(self, arquivo, caminho, config):
-        """Processa um arquivo Excel e o carrega no PostgreSQL."""
+    def salvar_mapeamentos(self):
+        """Salva mapeamentos aprendidos no arquivo JSON"""
         try:
-            print(f"\n📄 Processando: {arquivo}")
-            table_name = config['table_name']
-
-            # 1. Ler o arquivo Excel com pandas
+            with open(self.mapeamento_file, 'w', encoding='utf-8') as f:
+                json.dump(self.mapeamentos, f, indent=2, ensure_ascii=False)
+            print(f"💾 Mapeamentos salvos: {len(self.mapeamentos)} registros")
+        except Exception as e:
+            print(f"❌ Erro ao salvar mapeamentos: {e}")
+    
+    def carregar_historico(self):
+        """Carrega histórico de cargas realizadas"""
+        if self.historico_file.exists():
+            try:
+                with open(self.historico_file, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+            except:
+                return {}
+        return {}
+    
+    def salvar_historico(self, arquivo, tabela, acao, registros):
+        """Salva no histórico cada operação realizada"""
+        if arquivo not in self.historico:
+            self.historico[arquivo] = []
+        
+        self.historico[arquivo].append({
+            'data': datetime.now().isoformat(),
+            'tabela': tabela,
+            'acao': acao,
+            'registros': registros,
+            'banco': 'postgresql'
+        })
+        
+        try:
+            with open(self.historico_file, 'w', encoding='utf-8') as f:
+                json.dump(self.historico, f, indent=2, ensure_ascii=False)
+        except:
+            pass
+    
+    def calcular_hash_arquivo(self, caminho):
+        """Calcula hash do arquivo para detectar mudanças"""
+        try:
+            hash_md5 = hashlib.md5()
+            with open(caminho, "rb") as f:
+                for chunk in iter(lambda: f.read(4096), b""):
+                    hash_md5.update(chunk)
+            return hash_md5.hexdigest()
+        except PermissionError:
+            stat = os.stat(caminho)
+            return f"size_{stat.st_size}_mtime_{int(stat.st_mtime)}"
+        except:
+            return "erro_hash"
+    
+    def gerar_nome_tabela_inteligente(self, nome_arquivo):
+        """Gera nome de tabela usando aprendizado ou sugestão"""
+        # Verifica se já conhece este mapeamento
+        if nome_arquivo in self.mapeamentos:
+            info = self.mapeamentos[nome_arquivo]
+            print(f"   🧠 Mapeamento conhecido: {nome_arquivo} → {info['tabela']}")
+            return info['tabela']
+        
+        # Gera sugestão para arquivo novo
+        nome = nome_arquivo.replace('.xlsx', '').replace('.xls', '').replace('.csv', '')
+        
+        # Converte CamelCase para snake_case
+        nome = re.sub('([A-Z]+)([A-Z][a-z])', r'\1_\2', nome)
+        nome = re.sub('([a-z\d])([A-Z])', r'\1_\2', nome)
+        nome = nome.lower()
+        
+        # Adiciona prefixo dim_ se não tiver
+        if not nome.startswith('dim_') and not nome.startswith('fato_'):
+            nome = 'dim_' + nome
+        
+        print(f"   💡 Sugestão de nome: {nome}")
+        return nome
+    
+    def detectar_chave_primaria(self, df, nome_tabela):
+        """Detecta chave primária inteligentemente"""
+        colunas = df.columns.str.lower()
+        
+        # Verifica se já conhece a PK desta tabela
+        for arquivo, info in self.mapeamentos.items():
+            if info['tabela'] == nome_tabela and 'pk' in info:
+                if info['pk'] in colunas:
+                    return info['pk']
+        
+        # Tenta detectar automaticamente
+        candidatos = []
+        
+        for col in colunas:
+            score = 0
+            
+            # Padrões comuns de PKs
+            if col.startswith('co'):
+                score += 3
+            if col.startswith('id'):
+                score += 3
+            if 'codigo' in col or 'code' in col:
+                score += 2
+            if col.endswith('id'):
+                score += 1
+            
+            # Verifica unicidade
+            if len(df[col].dropna()) > 0:
+                unicidade = df[col].nunique() / len(df)
+                if unicidade == 1.0:
+                    score += 5
+                elif unicidade > 0.95:
+                    score += 3
+                elif unicidade > 0.8:
+                    score += 1
+            
+            if score > 0:
+                candidatos.append((col, score))
+        
+        if candidatos:
+            candidatos.sort(key=lambda x: x[1], reverse=True)
+            return candidatos[0][0]
+        
+        return colunas[0]
+    
+    def verificar_tabela_existe(self, nome_tabela):
+        """Verifica se tabela existe no PostgreSQL"""
+        query = text("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables 
+                WHERE table_schema = 'public' 
+                AND table_name = :table_name
+            )
+        """)
+        with self.engine.connect() as conn:
+            return conn.execute(query, {'table_name': nome_tabela}).scalar()
+    
+    def contar_registros(self, nome_tabela):
+        """Conta registros de uma tabela"""
+        query = text(f"SELECT COUNT(*) FROM {nome_tabela}")
+        with self.engine.connect() as conn:
+            return conn.execute(query).scalar()
+    
+    def analisar_situacao_completa(self):
+        """Análise completa da situação atual"""
+        print("\n" + "="*80)
+        print("🧠 ANÁLISE INTELIGENTE - POSTGRESQL")
+        print("="*80)
+        
+        # Listar arquivos Excel
+        arquivos_excel = list(self.dimensao_path.glob("*.xlsx")) + \
+                        list(self.dimensao_path.glob("*.xls"))
+        
+        print(f"\n📁 Arquivos encontrados: {len(arquivos_excel)}")
+        
+        # Listar tabelas no banco
+        tabelas_banco = set()
+        try:
+            with self.engine.connect() as conn:
+                result = conn.execute(text("""
+                    SELECT table_name 
+                    FROM information_schema.tables 
+                    WHERE table_schema = 'public'
+                    AND table_name LIKE 'dim_%'
+                """))
+                tabelas_banco = {row[0] for row in result}
+        except Exception as e:
+            print(f"❌ Erro ao conectar ao PostgreSQL: {e}")
+            return {}, set()
+        
+        print(f"🗄️ Tabelas dimensão no PostgreSQL: {len(tabelas_banco)}")
+        
+        # Classificar arquivos
+        status_arquivos = {
+            'novos': [],
+            'conhecidos_existentes': [],
+            'conhecidos_ausentes': [],
+            'modificados': [],
+            'desconhecidos_com_tabela': []
+        }
+        
+        for arquivo in arquivos_excel:
+            nome_arquivo = arquivo.name
+            hash_atual = self.calcular_hash_arquivo(arquivo)
+            
+            if nome_arquivo in self.mapeamentos:
+                # Arquivo conhecido
+                info = self.mapeamentos[nome_arquivo]
+                nome_tabela = info['tabela']
+                
+                if nome_tabela in tabelas_banco:
+                    # Verifica se foi modificado
+                    if info.get('hash') != hash_atual:
+                        status_arquivos['modificados'].append({
+                            'arquivo': nome_arquivo,
+                            'tabela': nome_tabela,
+                            'ultima_carga': info.get('ultima_carga', 'desconhecida'),
+                            'caminho': arquivo
+                        })
+                    else:
+                        status_arquivos['conhecidos_existentes'].append({
+                            'arquivo': nome_arquivo,
+                            'tabela': nome_tabela,
+                            'ultima_carga': info.get('ultima_carga', 'desconhecida'),
+                            'caminho': arquivo
+                        })
+                else:
+                    # Tabela foi deletada
+                    status_arquivos['conhecidos_ausentes'].append({
+                        'arquivo': nome_arquivo,
+                        'tabela': nome_tabela,
+                        'caminho': arquivo
+                    })
+            else:
+                # Arquivo novo/desconhecido
+                nome_sugerido = self.gerar_nome_tabela_inteligente(nome_arquivo)
+                
+                if nome_sugerido in tabelas_banco:
+                    status_arquivos['desconhecidos_com_tabela'].append({
+                        'arquivo': nome_arquivo,
+                        'tabela_sugerida': nome_sugerido,
+                        'caminho': arquivo
+                    })
+                else:
+                    status_arquivos['novos'].append({
+                        'arquivo': nome_arquivo,
+                        'tabela_sugerida': nome_sugerido,
+                        'caminho': arquivo
+                    })
+        
+        return status_arquivos, tabelas_banco
+    
+    def processar_arquivo_com_aprendizado(self, info_arquivo):
+        """Processa arquivo e aprende o mapeamento"""
+        arquivo = info_arquivo['arquivo']
+        caminho = info_arquivo['caminho']
+        
+        # Determina nome da tabela
+        if 'tabela' in info_arquivo:
+            nome_tabela = info_arquivo['tabela']
+        else:
+            nome_tabela = info_arquivo.get('tabela_sugerida', 
+                                          self.gerar_nome_tabela_inteligente(arquivo))
+        
+        print(f"\n📄 Processando: {arquivo}")
+        
+        try:
+            # Ler arquivo Excel
             df = pd.read_excel(caminho)
-            print(f"   Lendo {len(df):,} linhas do arquivo Excel.")
-
-            # 2. Padronizar nomes de colunas para minúsculas
             df.columns = df.columns.str.lower()
             
-            # 3. Inserir dados no PostgreSQL
-            print(f"   Inserindo dados na tabela '{table_name}' do PostgreSQL...")
+            print(f"   📊 {len(df):,} linhas, {len(df.columns)} colunas")
             
-            # df.to_sql é a função mágica do pandas para isso.
-            # 'replace' irá apagar a tabela se ela já existir e criar uma nova com os dados.
-            # Isso garante que a carga seja sempre completa e limpa.
+            # Detectar PK
+            pk = self.detectar_chave_primaria(df, nome_tabela)
+            print(f"   🔑 Chave primária detectada: {pk}")
+            
+            # Confirmar com usuário
+            print(f"   📋 Tabela: {nome_tabela}")
+            resp = input("   Confirmar (Enter), digitar outro nome (n), ou pular (p)? ").strip()
+            
+            if resp.lower() == 'p':
+                print("   ⏭️ Pulado")
+                return False
+            elif resp.lower() == 'n':
+                novo_nome = input("   Digite o nome da tabela: ").strip()
+                if novo_nome:
+                    nome_tabela = novo_nome
+            
+            # Verificar se tabela existe
+            if self.verificar_tabela_existe(nome_tabela):
+                count = self.contar_registros(nome_tabela)
+                print(f"   ⚠️ Tabela '{nome_tabela}' existe com {count:,} registros")
+                resp = input("   Substituir? (s/N): ")
+                if resp.lower() != 's':
+                    print("   ⏭️ Mantendo tabela existente")
+                    return False
+            
+            # Carregar no PostgreSQL
+            print(f"   📤 Carregando dados no PostgreSQL...")
             df.to_sql(
-                name=table_name,
+                name=nome_tabela,
                 con=self.engine,
                 if_exists='replace',
-                index=False
+                index=False,
+                method='multi',
+                chunksize=1000
             )
             
-            print(f"   ✅ {len(df):,} registros carregados com sucesso em '{table_name}'!")
+            # Contar registros finais
+            count_final = self.contar_registros(nome_tabela)
+            print(f"   ✅ {count_final:,} registros carregados!")
+            
+            # APRENDER e SALVAR o mapeamento
+            self.mapeamentos[arquivo] = {
+                'tabela': nome_tabela,
+                'pk': pk,
+                'hash': self.calcular_hash_arquivo(caminho),
+                'ultima_carga': datetime.now().isoformat(),
+                'registros': count_final,
+                'colunas': list(df.columns),
+                'banco': 'postgresql'
+            }
+            self.salvar_mapeamentos()
+            
+            # Salvar histórico
+            self.salvar_historico(arquivo, nome_tabela, 'carga', count_final)
+            
             return True
-
+            
         except Exception as e:
-            print(f"   ❌ ERRO ao processar {arquivo}: {e}")
+            print(f"   ❌ Erro: {e}")
+            import traceback
+            traceback.print_exc()
             return False
-
-    def executar_carga_completa(self):
-        """Orquestra a carga de todas as tabelas de dimensão."""
-        print("=" * 80)
-        print("CARGA DE TABELAS DIMENSÃO PARA O POSTGRESQL")
-        print("=" * 80)
+    
+    def menu_principal(self):
+        """Menu principal do carregador inteligente"""
+        print("\n" + "="*80)
+        print("🧠 CARREGADOR INTELIGENTE - POSTGRESQL")
+        print("="*80)
         
-        # Testar a conexão com o PostgreSQL antes de começar
-        print("🔌 Testando conexão com o PostgreSQL na VPS...")
-        if not db.test_connection():
-             print("\n❌ Falha na conexão com o PostgreSQL. Verifique seu arquivo .env e as configurações da VPS.")
-             return
-        
-        arquivos_encontrados, arquivos_faltando = self.verificar_arquivos()
-
-        if arquivos_faltando:
-            print(f"\n⚠️ ATENÇÃO: {len(arquivos_faltando)} arquivos de dimensão não foram encontrados.")
-            resposta = input("Deseja continuar com os arquivos disponíveis? (S/n): ")
-            if resposta.lower() == 'n':
-                print("\n❌ Carga cancelada pelo usuário.")
-                return
-
-        print(f"\n📋 {len(arquivos_encontrados)} tabelas de dimensão serão carregadas/substituídas no PostgreSQL.")
-        resposta = input("Confirma o processamento? (S/n): ")
-        if resposta.lower() == 'n':
-            print("\n❌ Carga cancelada pelo usuário.")
+        # Testar conexão
+        print("\n🔌 Testando conexão com PostgreSQL...")
+        try:
+            with self.engine.connect() as conn:
+                conn.execute(text("SELECT 1"))
+            print("   ✅ Conectado com sucesso!")
+        except Exception as e:
+            print(f"   ❌ Erro na conexão: {e}")
+            print("   Verifique seu arquivo .env")
             return
-
-        inicio = datetime.now()
-        sucesso = 0
-        falha = 0
-
-        for arquivo, caminho in arquivos_encontrados:
-            config = self.dimensoes_config[arquivo]
-            if self.processar_arquivo(arquivo, caminho, config):
-                sucesso += 1
-            else:
-                falha += 1
-
-        tempo_total = datetime.now() - inicio
-        print("\n" + "=" * 80)
-        print("RESUMO DA CARGA DAS DIMENSÕES")
-        print("=" * 80)
-        print(f"✅ Tabelas processadas com sucesso: {sucesso}")
-        print(f"❌ Tabelas com falha: {falha}")
-        print(f"⏱️ Tempo total da operação: {tempo_total}")
         
-        if sucesso > 0:
-            print("\n🎉 Carga das tabelas de dimensão no PostgreSQL concluída!")
+        # Analisar situação
+        status, tabelas = self.analisar_situacao_completa()
+        
+        # Mostrar resumo
+        if status['novos']:
+            print(f"\n🆕 Arquivos COMPLETAMENTE NOVOS: {len(status['novos'])}")
+            for item in status['novos']:
+                print(f"   • {item['arquivo']} → {item['tabela_sugerida']}")
+        
+        if status['modificados']:
+            print(f"\n📝 Arquivos MODIFICADOS: {len(status['modificados'])}")
+            for item in status['modificados']:
+                data = item['ultima_carga'][:10] if item['ultima_carga'] != 'desconhecida' else 'desconhecida'
+                print(f"   • {item['arquivo']} (última carga: {data})")
+        
+        if status['conhecidos_existentes']:
+            print(f"\n✅ Arquivos SINCRONIZADOS: {len(status['conhecidos_existentes'])}")
+        
+        if status['conhecidos_ausentes']:
+            print(f"\n⚠️ Tabelas DELETADAS do banco: {len(status['conhecidos_ausentes'])}")
+            for item in status['conhecidos_ausentes']:
+                print(f"   • {item['arquivo']} → {item['tabela']}")
+        
+        # Menu de opções
+        print("\n" + "="*80)
+        print("OPÇÕES:")
+        print("[1] Carregar apenas NOVOS")
+        print("[2] Atualizar MODIFICADOS")
+        print("[3] Recriar tabelas DELETADAS")
+        print("[4] Processar TUDO")
+        print("[5] Ver histórico de cargas")
+        print("[6] Resetar aprendizado")
+        print("[0] Sair")
+        
+        opcao = input("\nEscolha: ").strip()
+        
+        if opcao == '1':
+            if not status['novos']:
+                print("\n✅ Não há arquivos novos!")
+                return
+            for item in status['novos']:
+                self.processar_arquivo_com_aprendizado(item)
+        
+        elif opcao == '2':
+            if not status['modificados']:
+                print("\n✅ Não há arquivos modificados!")
+                return
+            for item in status['modificados']:
+                print(f"\n📝 Arquivo modificado: {item['arquivo']}")
+                resp = input("   Atualizar? (s/N): ")
+                if resp.lower() == 's':
+                    self.processar_arquivo_com_aprendizado(item)
+        
+        elif opcao == '3':
+            if not status['conhecidos_ausentes']:
+                print("\n✅ Não há tabelas deletadas!")
+                return
+            for item in status['conhecidos_ausentes']:
+                self.processar_arquivo_com_aprendizado(item)
+        
+        elif opcao == '4':
+            todos = (status['novos'] + status['modificados'] + 
+                    status['conhecidos_ausentes'])
+            if not todos:
+                print("\n✅ Tudo está sincronizado!")
+                return
+            for item in todos:
+                self.processar_arquivo_com_aprendizado(item)
+        
+        elif opcao == '5':
+            print("\n📜 HISTÓRICO DE CARGAS NO POSTGRESQL:")
+            if not self.historico:
+                print("   Nenhuma carga registrada ainda")
+            else:
+                for arquivo, historico in self.historico.items():
+                    print(f"\n{arquivo}:")
+                    for h in historico[-3:]:  # Últimas 3 operações
+                        print(f"   • {h['data'][:19]} - {h['acao']} - {h.get('registros', '?')} registros")
+        
+        elif opcao == '6':
+            resp = input("⚠️ Isso apagará todo o aprendizado. Confirma? (s/N): ")
+            if resp.lower() == 's':
+                self.mapeamentos = {}
+                self.historico = {}
+                self.salvar_mapeamentos()
+                with open(self.historico_file, 'w') as f:
+                    json.dump({}, f, indent=2)
+                print("🧹 Aprendizado resetado!")
+        
+        print("\n✨ Operação concluída!")
 
 def main():
-    """Função principal para executar o carregador."""
-    carregador = CarregadorDimensoesPostgres()
-    carregador.executar_carga_completa()
+    """Função principal"""
+    carregador = CarregadorInteligentePostgres()
+    
+    if not carregador.mapeamentos:
+        print("\n⚠️ ATENÇÃO: Nenhum mapeamento encontrado!")
+        print("Execute primeiro o inicializador:")
+        print("   python scripts/inicializar_mapeamentos_postgres.py")
+        resp = input("\nDeseja continuar mesmo assim? (s/N): ")
+        if resp.lower() != 's':
+            return
+    
+    carregador.menu_principal()
 
 if __name__ == "__main__":
     main()
