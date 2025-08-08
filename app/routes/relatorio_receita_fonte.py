@@ -1,6 +1,7 @@
 """
 Blueprint para Relatório Detalhado por Fonte/Receita
 Arquivo: app/routes/relatorio_receita_fonte.py
+CORRIGIDO: Compatibilidade entre DuckDB e PostgreSQL para tipos de dados
 """
 from flask import Blueprint, render_template, jsonify, request
 from app.db_manager import db_manager
@@ -489,13 +490,14 @@ def get_lista_ugs():
     try:
         ano_atual = datetime.now().year
         
-        # Query para buscar UGs com saldo realizado
+        # Query CORRIGIDA - adicionando CAST para compatibilidade entre tipos
+        # No PostgreSQL, rs.coug pode ser TEXT enquanto ug.coug pode ser BIGINT
         query = """
         SELECT DISTINCT 
             rs.coug,
             ug.noug
         FROM receita_saldo rs
-        LEFT JOIN dim_unidade_gestora ug ON rs.coug = ug.coug
+        LEFT JOIN dim_unidade_gestora ug ON CAST(rs.coug AS VARCHAR) = CAST(ug.coug AS VARCHAR)
         WHERE rs.coexercicio = ?
           AND CAST(rs.cocontacontabil AS BIGINT) BETWEEN 621200000 AND 621399999
           AND rs.saldo_contabil_receita != 0
@@ -539,8 +541,7 @@ def get_detalhes_lancamentos():
         if not cofonte or not coalinea:
             return jsonify({'erro': 'Parâmetros cofonte e coalinea são obrigatórios'}), 400
         
-        # Query para buscar lançamentos da tabela RECEITA_LANCAMENTO
-        # Se tiver filtro de coug, usa esse valor como cougcontab na query
+        # Query CORRIGIDA - adicionando CASTs para compatibilidade
         if coug:
             query = """
             SELECT 
@@ -556,19 +557,19 @@ def get_detalhes_lancamentos():
                 ug.noug,
                 ev.noevento
             FROM receita_lancamento rl
-            LEFT JOIN dim_conta_contabil cc ON rl.cocontacontabil = cc.cocontacontabil
-            LEFT JOIN dim_unidade_gestora ug ON rl.coug = ug.coug
-            LEFT JOIN dim_evento ev ON rl.coevento = ev.coevento
-            WHERE rl.cofonte = ?
-              AND rl.coalinea = ?
+            LEFT JOIN dim_conta_contabil cc ON CAST(rl.cocontacontabil AS VARCHAR) = CAST(cc.cocontacontabil AS VARCHAR)
+            LEFT JOIN dim_unidade_gestora ug ON CAST(rl.coug AS VARCHAR) = CAST(ug.coug AS VARCHAR)
+            LEFT JOIN dim_evento ev ON CAST(rl.coevento AS VARCHAR) = CAST(ev.coevento AS VARCHAR)
+            WHERE CAST(rl.cofonte AS VARCHAR) = CAST(? AS VARCHAR)
+              AND CAST(rl.coalinea AS VARCHAR) = CAST(? AS VARCHAR)
               AND rl.coexercicio = ?
-              AND rl.cougcontab = ?
+              AND CAST(rl.cougcontab AS VARCHAR) = CAST(? AS VARCHAR)
               AND CAST(rl.cocontacontabil AS BIGINT) BETWEEN 621200000 AND 621399999
             ORDER BY rl.dalancamento DESC, rl.nudocumento
             """
-            params = [cofonte, coalinea, ano, coug]  # coug será usado como cougcontab na query
+            params = [cofonte, coalinea, ano, coug]
         else:
-            # Modo consolidado - busca todos os lançamentos sem filtro de UG
+            # Modo consolidado - sem filtro de UG
             query = """
             SELECT 
                 rl.cocontacontabil,
@@ -583,11 +584,11 @@ def get_detalhes_lancamentos():
                 ug.noug,
                 ev.noevento
             FROM receita_lancamento rl
-            LEFT JOIN dim_conta_contabil cc ON rl.cocontacontabil = cc.cocontacontabil
-            LEFT JOIN dim_unidade_gestora ug ON rl.coug = ug.coug
-            LEFT JOIN dim_evento ev ON rl.coevento = ev.coevento
-            WHERE rl.cofonte = ?
-              AND rl.coalinea = ?
+            LEFT JOIN dim_conta_contabil cc ON CAST(rl.cocontacontabil AS VARCHAR) = CAST(cc.cocontacontabil AS VARCHAR)
+            LEFT JOIN dim_unidade_gestora ug ON CAST(rl.coug AS VARCHAR) = CAST(ug.coug AS VARCHAR)
+            LEFT JOIN dim_evento ev ON CAST(rl.coevento AS VARCHAR) = CAST(ev.coevento AS VARCHAR)
+            WHERE CAST(rl.cofonte AS VARCHAR) = CAST(? AS VARCHAR)
+              AND CAST(rl.coalinea AS VARCHAR) = CAST(? AS VARCHAR)
               AND rl.coexercicio = ?
               AND CAST(rl.cocontacontabil AS BIGINT) BETWEEN 621200000 AND 621399999
             ORDER BY rl.dalancamento DESC, rl.nudocumento
@@ -600,24 +601,24 @@ def get_detalhes_lancamentos():
         
         dados = db_manager.execute_query(query, params)
         
-        # Contar total de registros
+        # Contar total de registros - CORRIGIDO com CASTs
         if coug:
             query_count = """
             SELECT COUNT(*) as total
             FROM receita_lancamento
-            WHERE cofonte = ?
-              AND coalinea = ?
+            WHERE CAST(cofonte AS VARCHAR) = CAST(? AS VARCHAR)
+              AND CAST(coalinea AS VARCHAR) = CAST(? AS VARCHAR)
               AND coexercicio = ?
-              AND cougcontab = ?
+              AND CAST(cougcontab AS VARCHAR) = CAST(? AS VARCHAR)
               AND CAST(cocontacontabil AS BIGINT) BETWEEN 621200000 AND 621399999
             """
-            count_params = [cofonte, coalinea, ano, coug]  # coug será usado como cougcontab
+            count_params = [cofonte, coalinea, ano, coug]
         else:
             query_count = """
             SELECT COUNT(*) as total
             FROM receita_lancamento
-            WHERE cofonte = ?
-              AND coalinea = ?
+            WHERE CAST(cofonte AS VARCHAR) = CAST(? AS VARCHAR)
+              AND CAST(coalinea AS VARCHAR) = CAST(? AS VARCHAR)
               AND coexercicio = ?
               AND CAST(cocontacontabil AS BIGINT) BETWEEN 621200000 AND 621399999
             """
@@ -654,11 +655,11 @@ def get_detalhes_lancamentos():
                 'cogrupo': item['cogrupo'] or ''
             })
         
-        # Buscar descrições da fonte e alínea
+        # Buscar descrições da fonte e alínea - CORRIGIDO com CASTs
         query_desc = """
         SELECT 
-            (SELECT nofonte FROM dim_fonte WHERE cofonte = ? LIMIT 1) as nome_fonte,
-            (SELECT noalinea FROM dim_receita_alinea WHERE coalinea = ? LIMIT 1) as nome_alinea
+            (SELECT nofonte FROM dim_fonte WHERE CAST(cofonte AS VARCHAR) = CAST(? AS VARCHAR) LIMIT 1) as nome_fonte,
+            (SELECT noalinea FROM dim_receita_alinea WHERE CAST(coalinea AS VARCHAR) = CAST(? AS VARCHAR) LIMIT 1) as nome_alinea
         """
         
         desc_result = db_manager.execute_query(query_desc, [cofonte, coalinea])
@@ -691,27 +692,16 @@ def verificar_inconsistencias():
     try:
         ano_atual = datetime.now().year
         exportar = request.args.get('exportar', 'false') == 'true'
-        limite = 500 if not exportar else 10000  # Limite maior para visualização
+        limite = 500 if not exportar else 10000
         
-        # Query ATUALIZADA para usar coalinea diretamente e incluir coevento
+        # Query CORRIGIDA - com TRIM para remover espaços em branco
         query = """
-        WITH combinacoes_validas AS (
-            -- Combinações válidas da dimensão (agora usando coalinea diretamente)
-            SELECT DISTINCT
-                CAST(cofonte AS VARCHAR) as cofonte,
-                CAST(coalinea AS VARCHAR) as coalinea
-            FROM dim_receita_fonte_conta_contabil
-            WHERE cofonte IS NOT NULL
-              AND coalinea IS NOT NULL
-              AND instatus = 0
-        )
-        -- Buscar documentos com combinações inválidas
-        SELECT 
+        SELECT DISTINCT
             rl.nudocumento,
             rl.cougcontab,
             rl.coevento,
-            CAST(rl.cofonte AS VARCHAR) as cofonte,
-            CAST(rl.coalinea AS VARCHAR) as coalinea,
+            TRIM(CAST(rl.cofonte AS VARCHAR)) as cofonte,
+            TRIM(CAST(rl.coalinea AS VARCHAR)) as coalinea,
             rl.dalancamento,
             rl.valancamento,
             rl.indebitocredito,
@@ -720,23 +710,27 @@ def verificar_inconsistencias():
             ug.noug,
             ev.noevento
         FROM receita_lancamento rl
-        LEFT JOIN combinacoes_validas cv 
-            ON CAST(rl.cofonte AS VARCHAR) = cv.cofonte 
-            AND CAST(rl.coalinea AS VARCHAR) = cv.coalinea
         LEFT JOIN dim_fonte f 
-            ON CAST(rl.cofonte AS BIGINT) = f.cofonte
+            ON TRIM(CAST(rl.cofonte AS VARCHAR)) = TRIM(CAST(f.cofonte AS VARCHAR))
         LEFT JOIN dim_receita_alinea a 
-            ON CAST(rl.coalinea AS BIGINT) = a.coalinea
+            ON TRIM(CAST(rl.coalinea AS VARCHAR)) = TRIM(CAST(a.coalinea AS VARCHAR))
         LEFT JOIN dim_unidade_gestora ug
-            ON rl.cougcontab = ug.coug
+            ON TRIM(CAST(rl.cougcontab AS VARCHAR)) = TRIM(CAST(ug.coug AS VARCHAR))
         LEFT JOIN dim_evento ev
-            ON rl.coevento = ev.coevento
-        WHERE cv.cofonte IS NULL  -- Não existe na dimensão
-          AND rl.cofonte IS NOT NULL
-          AND rl.cofonte != ''
-          AND rl.coalinea IS NOT NULL
-          AND rl.coalinea != ''
-          AND rl.coexercicio = ?
+            ON TRIM(CAST(rl.coevento AS VARCHAR)) = TRIM(CAST(ev.coevento AS VARCHAR))
+        WHERE NOT EXISTS (
+            -- Verifica se existe a combinação exata na dimensão (com TRIM)
+            SELECT 1 
+            FROM dim_receita_fonte_conta_contabil drfc
+            WHERE TRIM(CAST(drfc.cofonte AS VARCHAR)) = TRIM(CAST(rl.cofonte AS VARCHAR))
+              AND TRIM(CAST(drfc.coalinea AS VARCHAR)) = TRIM(CAST(rl.coalinea AS VARCHAR))
+              AND drfc.instatus = 0  -- Apenas registros ativos
+        )
+        AND rl.cofonte IS NOT NULL
+        AND TRIM(CAST(rl.cofonte AS VARCHAR)) != ''
+        AND rl.coalinea IS NOT NULL
+        AND TRIM(CAST(rl.coalinea AS VARCHAR)) != ''
+        AND rl.coexercicio = ?
         ORDER BY ABS(rl.valancamento) DESC
         """
         
@@ -755,28 +749,22 @@ def verificar_inconsistencias():
         for doc in documentos:
             combinacoes_unicas.add((doc['cofonte'], doc['coalinea']))
         
-        # Query para contar total real (sem limite) - ATUALIZADA
+        # Query para contar total real (sem limite) - CORRIGIDA com TRIM
         query_count = """
-        WITH combinacoes_validas AS (
-            SELECT DISTINCT
-                CAST(cofonte AS VARCHAR) as cofonte,
-                CAST(coalinea AS VARCHAR) as coalinea
-            FROM dim_receita_fonte_conta_contabil
-            WHERE cofonte IS NOT NULL
-              AND coalinea IS NOT NULL
-              AND instatus = 0
-        )
-        SELECT COUNT(*) as total
+        SELECT COUNT(DISTINCT rl.nudocumento) as total
         FROM receita_lancamento rl
-        LEFT JOIN combinacoes_validas cv 
-            ON CAST(rl.cofonte AS VARCHAR) = cv.cofonte 
-            AND CAST(rl.coalinea AS VARCHAR) = cv.coalinea
-        WHERE cv.cofonte IS NULL
-          AND rl.cofonte IS NOT NULL
-          AND rl.cofonte != ''
-          AND rl.coalinea IS NOT NULL
-          AND rl.coalinea != ''
-          AND rl.coexercicio = ?
+        WHERE NOT EXISTS (
+            SELECT 1 
+            FROM dim_receita_fonte_conta_contabil drfc
+            WHERE TRIM(CAST(drfc.cofonte AS VARCHAR)) = TRIM(CAST(rl.cofonte AS VARCHAR))
+              AND TRIM(CAST(drfc.coalinea AS VARCHAR)) = TRIM(CAST(rl.coalinea AS VARCHAR))
+              AND drfc.instatus = 0
+        )
+        AND rl.cofonte IS NOT NULL
+        AND TRIM(CAST(rl.cofonte AS VARCHAR)) != ''
+        AND rl.coalinea IS NOT NULL
+        AND TRIM(CAST(rl.coalinea AS VARCHAR)) != ''
+        AND rl.coexercicio = ?
         """
         
         count_result = db_manager.execute_query(query_count, [ano_atual])
@@ -809,28 +797,22 @@ def verificar_inconsistencias():
 def get_estatisticas_inconsistencias():
     """Retorna estatísticas rápidas sobre inconsistências (para o badge)"""
     try:
-        # Query simplificada para contar - ATUALIZADA
+        # Query simplificada para contar combinações únicas com problema - com TRIM
         query = """
-        WITH combinacoes_problema AS (
-            SELECT DISTINCT 
-                CAST(rl.cofonte AS VARCHAR) as cofonte,
-                CAST(rl.coalinea AS VARCHAR) as coalinea
-            FROM receita_lancamento rl
-            WHERE NOT EXISTS (
-                SELECT 1 
-                FROM dim_receita_fonte_conta_contabil d
-                WHERE CAST(d.cofonte AS VARCHAR) = CAST(rl.cofonte AS VARCHAR)
-                  AND CAST(d.coalinea AS VARCHAR) = CAST(rl.coalinea AS VARCHAR)
-                  AND d.instatus = 0
-            )
-            AND rl.cofonte IS NOT NULL
-            AND rl.cofonte != ''
-            AND rl.coalinea IS NOT NULL
-            AND rl.coalinea != ''
-            AND rl.coexercicio = ?
+        SELECT COUNT(DISTINCT CONCAT(TRIM(CAST(rl.cofonte AS VARCHAR)), '-', TRIM(CAST(rl.coalinea AS VARCHAR)))) as total
+        FROM receita_lancamento rl
+        WHERE NOT EXISTS (
+            SELECT 1 
+            FROM dim_receita_fonte_conta_contabil drfc
+            WHERE TRIM(CAST(drfc.cofonte AS VARCHAR)) = TRIM(CAST(rl.cofonte AS VARCHAR))
+              AND TRIM(CAST(drfc.coalinea AS VARCHAR)) = TRIM(CAST(rl.coalinea AS VARCHAR))
+              AND drfc.instatus = 0
         )
-        SELECT COUNT(*) as total
-        FROM combinacoes_problema
+        AND rl.cofonte IS NOT NULL
+        AND TRIM(CAST(rl.cofonte AS VARCHAR)) != ''
+        AND rl.coalinea IS NOT NULL
+        AND TRIM(CAST(rl.coalinea AS VARCHAR)) != ''
+        AND rl.coexercicio = ?
         """
         
         ano_atual = datetime.now().year
